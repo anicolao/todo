@@ -1,16 +1,44 @@
 <script>
 	import firebase from '../firebase';
+	import { store } from '../store';
+
 	const auth = firebase.auth;
 	const gAuthProvider = firebase.google_auth_provider;
-	import { onAuthStateChanged } from 'firebase/auth';
+	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+	import { error, signed_in, signed_out } from './auth';
 	onAuthStateChanged(auth, (user) => {
 		if (user) {
 			const uid = user.uid;
-			console.log('logged in', uid, user);
+			store.dispatch(
+				signed_in({
+					name: user.displayName,
+					email: user.email,
+					photo: user.photoURL,
+					signedIn: true,
+					authMessage: ''
+				})
+			);
 			// ...
 		} else {
-			console.log('logged out');
+            store.dispatch(signed_out());
 		}
 	});
+
+	function signin() {
+		signInWithPopup(auth, gAuthProvider).catch((message) => {
+            store.dispatch(error(message))
+		});
+	}
+	function signout() {
+		signOut(auth).catch((message) => {
+            store.dispatch(error(message))
+		});
+	}
 </script>
-<b>You are currently logged out.</b>
+
+{#if $store.auth.signedIn !== true}
+	<button on:click={signin}>Sign In</button>
+{:else}
+	<p>{$store.auth.email}</p>
+	<button on:click={signout}>Sign Out</button>
+{/if}
