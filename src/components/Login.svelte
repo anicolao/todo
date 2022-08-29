@@ -39,6 +39,7 @@
 {#if $store.auth.signedIn !== true}
 	<button on:click={signin}>Sign In</button>
 {:else}
-	<p>{$store.auth.email}</p>
+	<p><img src={$store.auth.photo} referrerpolicy="no-referrer"/>{$store.auth.email}</p>
+    <p>{$store.auth.name}</p>
 	<button on:click={signout}>Sign Out</button>
 {/if}
