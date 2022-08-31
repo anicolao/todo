@@ -8,15 +8,16 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     match /lists/{listId}/{document=**} {
-      allow create: if request.auth != null && !exists(/databases/$(database)/lists/$(listId));
+      allow create: if request.auth != null && !exists(/databases/$(database)/documents/lists/$(listId));
       allow read, write: if request.auth != null &&
-												(exists(/databases/$(database)/editors/$(listId)/$(request.auth.uid)));
+												(exists(/databases/$(database)/documents/editors/$(listId)) &&
+												 exists(/databases/$(database)/documents/editors/$(listId)/$(request.auth.uid)));
 		}
     match /editors/{listId}/{uid} {
-      allow delete: if request.auth != null && exists(/databases/$(database)/editors/$(listId)/$(request.auth.uid));
+      allow delete: if request.auth != null && exists(/databases/$(database)/documents/editors/$(listId)/$(request.auth.uid));
       allow create: if request.auth != null && 
-         (exists(/databases/$(database)/editors/$(listId)/$(request.auth.uid)) ||
-				 !(exists(/databases/$(database)/editors/$(listId)) && uid == request.auth.uid));
+         (exists(/databases/$(database)/documents/editors/$(listId)/$(request.auth.uid)) ||
+				 !(exists(/databases/$(database)/documents/editors/$(listId)) && uid == request.auth.uid));
 		}
     match /share/{uid}/{document=**} {
       allow read, write: if request.auth != null;
