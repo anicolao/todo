@@ -1,2 +1,2 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+<h1>The All New TODO</h1>
+<p>A hopefully simpler, more robust, TODO list app.</p>
