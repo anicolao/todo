@@ -15,7 +15,8 @@
 		"smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
 		"smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
 		"test": "npx @web/test-runner --playwright",
-		"playwright": "playwright test"
+		"playwright": "playwright test",
+		"deploy": "npm run build && firebase deploy"
 	},
 	"devDependencies": {
 		"@esm-bundle/chai": "^4.3.4-fix.0",
