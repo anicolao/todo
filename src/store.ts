@@ -3,9 +3,7 @@ import { auth } from './components/auth';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
-		const reduxStore = createStoreApi(
-			reducer, initialState
-		);
+		const reduxStore = createStoreApi(reducer, initialState);
 		return {
 			...reduxStore,
 			subscribe(fn: (arg0: any) => void) {
@@ -15,11 +13,11 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 					fn(reduxStore.getState());
 				});
 			}
-		}
-	}
+		};
+	};
 }
 
 const reducer = {
-    auth,
-}
+	auth
+};
 export const store = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
