@@ -1,5 +1,6 @@
 import { combineReducers, configureStore, createStore } from '@reduxjs/toolkit';
 import { auth } from './components/auth';
+import { uiSettings } from './routes/UiSettings';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
@@ -18,6 +19,7 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 }
 
 const reducer = {
-	auth
+	auth,
+	uiSettings
 };
 export const store = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
