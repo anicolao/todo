@@ -1,29 +1,51 @@
 <script>
 	import { store } from '../store';
-	import { backgroundUrlAction, uiSettings } from './UiSettings';
+	import { backgroundUrlAction } from './UiSettings';
+	import firebase from '../firebase';
+	import { setDoc, doc } from 'firebase/firestore';
+
+	/**
+	 * @type {string}
+	 */
+	let errorMessage;
 
 	/**
 	 * @param {any} event
 	 */
 	function setBackground(event) {
 		let imgUrl = event.srcElement.value;
-    console.log("changed: " + imgUrl);
 
-		// if(isValidUrl(imgUrl))
+		// if(isValidUrl(imgUrl)) {
 		store.dispatch(
 			backgroundUrlAction({
 				backgroundUrl: imgUrl
 			})
 		);
-	}
 
+		// Path: /visible/{uid}/ui/settings
+		//          coll   doc coll  doc
+		const user = $store.auth;
+		// TODO: Merge these settings with whatever is already there (there's a firebase way).
+		setDoc(doc(firebase.firestore, 'visible', user.uid, 'ui', 'settings'), {
+			name: user.email,  // TODO: probably remove this; just for debugging.
+			backgroundUrl: imgUrl
+		}).catch((message) => {
+			errorMessage = message;
+		});
+		// }
+	}
 </script>
 
 <h3>Settings</h3>
 <label for="url">Background image url:</label>
 <input type="url" id="url" placeholder="image URL" on:input={setBackground} />
 {#if $store.uiSettings.backgroundUrl}
-  <img src="{$store.uiSettings.backgroundUrl}" alt="background for the app" />
+	<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
 {/if}
 
-	https://images.unsplash.com/photo-1548164806-9709e698bfc8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=707&q=80
+{#if $errorMessage}
+	<p>{errorMessage}</p>
+{/if}
+
+https://images.unsplash.com/photo-1548164806-9709e698bfc8?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=707&q=80
+https://images.unsplash.com/photo-1548276145-69a9521f0499?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1477&q=80

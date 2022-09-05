@@ -13,6 +13,7 @@
 			const uid = user.uid;
 			store.dispatch(
 				signed_in({
+					uid: uid,
 					name: user.displayName,
 					email: user.email,
 					photo: user.photoURL,

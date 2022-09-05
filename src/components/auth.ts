@@ -1,5 +1,6 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 export interface AuthState {
+  uid?: string |  null;
   name?: string | null;
   email?: string | null;
   photo?: string | null;
@@ -14,6 +15,7 @@ export const signed_in = createAction<AuthState>('signed_in');
 export const signed_out = createAction('signed_out');
 
 const initialAuthState = {
+  uid: undefined,
   name: undefined,
   email: undefined,
   photo: undefined,
