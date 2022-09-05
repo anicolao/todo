@@ -13,6 +13,7 @@
 	 * @param {any} event
 	 */
 	function setBackground(event) {
+		errorMessage = "";
 		let imgUrl = event.srcElement.value;
 
 		// if(isValidUrl(imgUrl)) {
@@ -43,6 +44,7 @@
 	<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
 {/if}
 
-{#if $errorMessage}
-	<p>{errorMessage}</p>
+	{#if errorMessage}
+		<p>{errorMessage}</p>
+	{/if}
 {/if}
