@@ -35,14 +35,29 @@
 		});
 		// }
 	}
+
+	let visible = false;
+
+	function toggleVisible() {
+		visible = !visible;
+	}
 </script>
 
-<h3>Settings</h3>
-<label for="url">Background image url:</label>
-<input type="url" id="url" placeholder="image URL" on:input={setBackground} />
-{#if $store.uiSettings.backgroundUrl}
-	<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
-{/if}
+<span
+	style:font-size="1.5em"
+	style:cursor=pointer
+	on:click={toggleVisible}
+>
+⚙
+</span>
+
+{#if visible}
+	<h3>Settings</h3>
+	<label for="url">Background image url:</label>
+	<input type="url" id="url" placeholder="image URL" on:input={setBackground} />
+	{#if $store.uiSettings.backgroundUrl}
+		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
+	{/if}
 
 	{#if errorMessage}
 		<p>{errorMessage}</p>
