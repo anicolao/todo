@@ -3,6 +3,7 @@ import type { ThunkMiddleware } from 'redux-thunk';
 import type { Writable } from 'svelte/store';
 import { auth, type AuthState } from '$lib/components/auth';
 import { uiSettings, type UiSettings } from '$lib/components/UiSettings';
+import { lists } from '$lib/components/lists';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
@@ -22,7 +23,8 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 
 const reducer = {
 	auth,
-	uiSettings
+	uiSettings,
+	lists
 };
 const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
-export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings}>;
+export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings, lists: ListsState }>;

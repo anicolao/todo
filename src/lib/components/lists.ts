@@ -6,6 +6,7 @@ export interface ListsState {
 }
 
 export const create_list = createAction<{ id: string, name: string}>('create_list');
+export const rename_list = createAction<{ id: string, name: string}>('rename_list');
 export const delete_list = createAction<string>('delete_list');
 
 export const initialState = {
@@ -15,6 +16,12 @@ export const initialState = {
 
 export const lists = createReducer(initialState, (r) => {
   r.addCase(create_list, (state, action) => {
+    state.visibleLists = [action.payload.id, ...state.visibleLists];
+    state.listIdToList[action.payload.id] = action.payload.name;
+    return state;
+  })
+  r.addCase(rename_list, (state, action) => {
+    state.visibleLists = state.visibleLists.filter(x => x !== action.payload.id);
     state.visibleLists = [action.payload.id, ...state.visibleLists];
     state.listIdToList[action.payload.id] = action.payload.name;
     return state;
