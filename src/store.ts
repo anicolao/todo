@@ -1,6 +1,8 @@
-import { combineReducers, configureStore, createStore } from '@reduxjs/toolkit';
-import { auth } from './components/auth';
-import { uiSettings } from './routes/UiSettings';
+import { combineReducers, configureStore, createStore, type AnyAction, type EnhancedStore } from '@reduxjs/toolkit';
+import type { ThunkMiddleware } from 'redux-thunk';
+import type { Writable } from 'svelte/store';
+import { auth, type AuthState } from './components/auth';
+import { uiSettings, type UiSettings } from './routes/UiSettings';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
@@ -22,4 +24,5 @@ const reducer = {
 	auth,
 	uiSettings
 };
-export const store = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
+const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
+export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings}>;

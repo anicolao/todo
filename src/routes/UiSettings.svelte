@@ -1,31 +1,36 @@
-<script>
+<script lang="ts">
 	import { store } from '../store';
-	import { backgroundUrlAction } from './UiSettings';
+	import { set_background_url } from './UiSettings';
 	import firebase from '../firebase';
-	import { setDoc, doc } from 'firebase/firestore';
+	import { addDoc, doc, collection, serverTimestamp } from 'firebase/firestore';
 
-	/**
-	 * @type {string}
-	 */
-	let errorMessage;
+	let errorMessage: string;
 
-	/**
-	 * @param {any} event
-	 */
-	function setBackground(event) {
+	function setBackground(event: { srcElement: { value: any; }; }) {
 		errorMessage = "";
 		let imgUrl = event.srcElement.value;
 
 		// if(isValidUrl(imgUrl)) {
+		/*
 		store.dispatch(
 			backgroundUrlAction({
 				backgroundUrl: imgUrl
 			})
 		);
+		*/
 
+		const user = $store.auth;
+		if (user.uid) {
+			addDoc(collection(firebase.firestore, 'visible', user.uid, 'actions'),
+			 {...set_background_url(imgUrl), timestamp: serverTimestamp()})
+			.catch((message) => {
+				errorMessage = message;
+			});
+		}
+
+		/*
 		// Path: /visible/{uid}/ui/settings
 		//          coll   doc coll  doc
-		const user = $store.auth;
 		// TODO: Merge these settings with whatever is already there (there's a firebase way).
 		setDoc(doc(firebase.firestore, 'visible', user.uid, 'ui', 'settings'), {
 			name: user.email,  // TODO: probably remove this; just for debugging.
@@ -34,6 +39,7 @@
 			errorMessage = message;
 		});
 		// }
+		*/
 	}
 
 	let visible = false;
@@ -54,7 +60,7 @@
 {#if visible}
 	<h3>Settings</h3>
 	<label for="url">Background image url:</label>
-	<input type="url" id="url" placeholder="image URL" on:input={setBackground} />
+	<input type="url" id="url" placeholder="image URL" value={$store.uiSettings.backgroundUrl} on:input={setBackground} />
 	{#if $store.uiSettings.backgroundUrl}
 		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
 	{/if}

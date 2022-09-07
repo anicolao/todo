@@ -4,14 +4,15 @@ export interface UiSettings {
   backgroundUrl?: string | null;
 }
 
-export const backgroundUrlAction = createAction<UiSettings>('backgroundUrl');
+export const set_background_url = createAction<string>('set_background_url');
 
 const initialUiState = {
   backgroundUrl: undefined
 } as UiSettings;
 
 export const uiSettings = createReducer(initialUiState, (r) => {
-  r.addCase(backgroundUrlAction, (state, action) => {
-    return { ...state, ...action.payload };
+  r.addCase(set_background_url, (state, action) => {
+    state.backgroundUrl = action.payload;
+    return state;
   })
 });
