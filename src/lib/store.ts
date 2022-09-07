@@ -3,7 +3,7 @@ import type { ThunkMiddleware } from 'redux-thunk';
 import type { Writable } from 'svelte/store';
 import { auth, type AuthState } from '$lib/components/auth';
 import { uiSettings, type UiSettings } from '$lib/components/UiSettings';
-import { lists } from '$lib/components/lists';
+import { lists, type ListsState } from '$lib/components/lists';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
