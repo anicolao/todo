@@ -1,7 +1,7 @@
 <script>
-	import Login from '../components/Login.svelte';
-	import { store } from '../store';
-	import UiSettings from './UiSettings.svelte';
+	import Login from '$lib/components/Login.svelte';
+	import { store } from '$lib/store';
+	import UiSettings from '$lib/components/UiSettings.svelte';
 </script>
 
 <h1>The All New TODO</h1>

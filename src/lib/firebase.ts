@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { store } from './store';
+import { store } from '$lib/store';
 import { addDoc, collection, getFirestore, serverTimestamp } from 'firebase/firestore';
 //import { getAnalytics } from 'firebase/analytics';
 //

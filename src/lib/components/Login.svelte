@@ -1,13 +1,13 @@
 <script>
-	import firebase from '../firebase';
-	import { store } from '../store';
+	import firebase from '$lib/firebase';
+	import { store } from '$lib/store';
 	import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
 	import Button from '@smui/button';
 
 	const auth = firebase.auth;
 	const gAuthProvider = firebase.google_auth_provider;
 	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-	import { error, signed_in, signed_out } from './auth';
+	import { error, signed_in, signed_out } from '$lib/components/auth';
 	onAuthStateChanged(auth, (user) => {
 		if (user) {
 			const uid = user.uid;

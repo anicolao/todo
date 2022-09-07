@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { store } from '../store';
-	import { set_background_url } from './UiSettings';
-	import firebase from '../firebase';
+	import { store } from '$lib/store';
+	import { set_background_url } from '$lib/components/UiSettings';
+	import firebase from '$lib/firebase';
 	import { addDoc, doc, collection, serverTimestamp } from 'firebase/firestore';
 
 	let errorMessage: string;

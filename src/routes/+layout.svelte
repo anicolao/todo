@@ -9,9 +9,9 @@
 		type Unsubscribe,
 		orderBy
 	} from 'firebase/firestore';
-	import { store } from '../store';
-	import firebase from '../firebase';
-	import Login from '../components/Login.svelte';
+	import { store } from '$lib/store';
+	import firebase from '$lib/firebase';
+	import Login from '$lib/components/Login.svelte';
 
 	let unsubscribe: Unsubscribe | undefined = undefined;
 	$: if ($store.auth.signedIn && !unsubscribe) {
