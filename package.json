@@ -15,6 +15,7 @@
 		"smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
 		"smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
 		"test": "npx @web/test-runner --playwright",
+		"test-watch": "npx @web/test-runner --playwright --watch",
 		"playwright": "playwright test",
 		"deploy": "npm run build && firebase deploy"
 	},
