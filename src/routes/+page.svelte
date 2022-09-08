@@ -5,12 +5,17 @@
 	import Lists from '$lib/components/Lists.svelte';
 </script>
 
-<h1>The All New TODO</h1>
-<p>A hopefully simpler, more robust, TODO list app.</p>
+<div
+	style:color="purple"
+	style:background-image=url({$store.uiSettings.backgroundUrl})
+	style:background-size=cover
+>
+	<h1>The All New TODO</h1>
+	<p>A hopefully simpler, more robust, TODO list app.</p>
 
-{#if $store.auth.signedIn === true}
-	<UiSettings />
-	<Lists />
-{/if}
-
-<Login />
+	{#if $store.auth.signedIn === true}
+		<UiSettings />
+		<Lists />
+	{/if}
+	<Login />
+</div>
