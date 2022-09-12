@@ -32,7 +32,17 @@ const firebase = {
 	dispatch: (action: any) => {
 		const user = store.getState().auth;
 		if (user.uid) {
-			addDoc(collection(firebase.firestore, 'visible', user.uid, 'actions'),
+			addDoc(collection(firebase.firestore, 'requests', user.uid, 'to', user.uid, 'actions'),
+				{ ...action, timestamp: serverTimestamp() })
+				.catch((message) => {
+					console.error(message);
+				});
+		}
+	},
+	request: (to: string, action: any) => {
+		const user = store.getState().auth;
+		if (user.uid) {
+			addDoc(collection(firebase.firestore, 'requests', user.uid, 'to', to, 'actions'),
 				{ ...action, timestamp: serverTimestamp() })
 				.catch((message) => {
 					console.error(message);

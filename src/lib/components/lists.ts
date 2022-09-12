@@ -3,15 +3,18 @@ import { createAction, createReducer } from '@reduxjs/toolkit';
 export interface ListsState {
   visibleLists: string[];
   listIdToList: { [key: string]: string};
+  pendingShares: string[];
 }
 
 export const create_list = createAction<{ id: string, name: string}>('create_list');
 export const rename_list = createAction<{ id: string, name: string}>('rename_list');
 export const delete_list = createAction<string>('delete_list');
+export const accept_share = createAction<string>('accept_share');
 
 export const initialState = {
     visibleLists: [],
-    listIdToList: {}
+    listIdToList: {},
+    pendingShares: []
 } as ListsState;
 
 export const lists = createReducer(initialState, (r) => {
@@ -29,6 +32,10 @@ export const lists = createReducer(initialState, (r) => {
   .addCase(delete_list, (state, action) => {
     state.visibleLists = state.visibleLists.filter(x => x !== action.payload);
     delete state.listIdToList[action.payload];
+    return state;
+  })
+  .addCase(accept_share, (state, action) => {
+    state.pendingShares = [action.payload, ...state.pendingShares];
     return state;
   })
 });

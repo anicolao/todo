@@ -12,25 +12,20 @@
 	import { store } from '$lib/store';
 	import firebase from '$lib/firebase';
 	import Login from '$lib/components/Login.svelte';
+	import { add_user } from '$lib/components/users';
+	import type { AuthState } from '$lib/components/auth';
 
 	let unsubscribe: Unsubscribe | undefined = undefined;
 	$: if ($store.auth.signedIn && !unsubscribe) {
 		const user = $store.auth;
 		if (user.uid) {
-			const actions = collection(firebase.firestore, 'visible', user.uid, 'actions');
-			const q = query(actions, orderBy('timestamp'));
-			unsubscribe = onSnapshot(q, (querySnapshot) => {
+			const users = collection(firebase.firestore, 'users');
+			unsubscribe = onSnapshot(query(users), (querySnapshot) => {
 				querySnapshot.docChanges().forEach((change) => {
 					if (change.type === 'added') {
 						let doc = change.doc;
-						let data = { ...doc.data() };
-						if (data.timestamp) {
-							console.log('server side data: ', data);
-							data.timestamp = data.timestamp.seconds;
-						} else {
-							console.log('client side data: ', data);
-						}
-						store.dispatch(data);
+						console.log(doc.data());
+						store.dispatch(add_user(doc.data()));
 					}
 				});
 			});
@@ -38,6 +33,42 @@
 			unsubscribe();
 			unsubscribe = undefined;
 		}
+	}
+
+	let lastObservedUsers: AuthState[] = [];
+	$: if ($store.auth.signedIn && $store.users) {
+		const user = $store.auth;
+		if ($store.users.users !== lastObservedUsers) {
+			console.log('Users now known: ', $store.users.users);
+			$store.users.users.forEach((fromUser) => {
+				if (!fromUser.uid || !user.uid) return;
+				const actions = collection(
+					firebase.firestore,
+					'requests',
+					fromUser.uid,
+					'to',
+					user.uid,
+					'actions'
+				);
+				const q = query(actions, orderBy('timestamp'));
+				const unsub = onSnapshot(q, (querySnapshot) => {
+					querySnapshot.docChanges().forEach((change) => {
+						if (change.type === 'added') {
+							let doc = change.doc;
+							let data = { ...doc.data() };
+							if (data.timestamp) {
+								console.log('server side data: ', data);
+								data.timestamp = data.timestamp.seconds;
+							} else {
+								console.log('client side data: ', data);
+							}
+							store.dispatch(data);
+						}
+					});
+				});
+			});
+		}
+		lastObservedUsers = $store.users.users;
 	}
 
 	let loading = true;

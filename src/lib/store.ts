@@ -4,6 +4,7 @@ import type { Writable } from 'svelte/store';
 import { auth, type AuthState } from '$lib/components/auth';
 import { uiSettings, type UiSettings } from '$lib/components/UiSettings';
 import { lists, type ListsState } from '$lib/components/lists';
+import { users, type UsersState } from '$lib/components/users';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
@@ -24,7 +25,8 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 const reducer = {
 	auth,
 	uiSettings,
-	lists
+	lists,
+	users
 };
 const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
-export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings, lists: ListsState }>;
+export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings, lists: ListsState, users: UsersState }>;

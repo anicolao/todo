@@ -1,8 +1,9 @@
 <script lang="ts">
 	import firebase from '$lib/firebase';
-	import { create_list, delete_list, rename_list } from '$lib/components/lists';
+	import { accept_share, create_list, delete_list, rename_list } from '$lib/components/lists';
 	import { store } from '$lib/store';
 	import { collection, doc, setDoc } from 'firebase/firestore';
+	import { users } from './users';
 
 	let errorMessage: string;
 
@@ -48,6 +49,10 @@
 	function deleteList(listId: string) {
 		return () => firebase.dispatch(delete_list(listId));
 	}
+
+	function shareList(listId: string, uid: string) {
+		return () => firebase.request(uid, accept_share(listId));
+	}
 </script>
 
 <label for="newListInput">New List:</label>
@@ -62,6 +67,13 @@
 	{#each $store.lists.visibleLists as listId}
 		<li>
 			<input type="text" value={$store.lists.listIdToList[listId]} on:change={renameList(listId)} />
+			<p>
+				{#each $store.users.users.filter((u) => u.uid != $store.auth.uid) as user}
+					{#if user.uid}
+						<button on:click={shareList(listId, user.uid)}>Share list with {user.name}.</button>
+					{/if}
+				{/each}
+			</p>
 			<button on:click={deleteList(listId)}>Trash</button>
 		</li>
 	{/each}
