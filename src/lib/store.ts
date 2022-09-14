@@ -29,4 +29,8 @@ const reducer = {
 	users
 };
 const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
-export const store = (reduxStore as unknown) as Writable<{ auth: AuthState; uiSettings: UiSettings, lists: ListsState, users: UsersState }>;
+export type ReduxStore = typeof reduxStore;
+export type GlobalState = ReturnType<typeof reduxStore.getState>;
+export type SvelteStore = Writable<GlobalState>;
+
+export const store = reduxStore as ReduxStore & SvelteStore;

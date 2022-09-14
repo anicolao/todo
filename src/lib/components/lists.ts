@@ -35,7 +35,8 @@ export const lists = createReducer(initialState, (r) => {
     delete state.listIdToList[action.payload];
     return state;
   })
-  .addCase(accept_share, (state, action) => {
+  .addCase(accept_share, (state, action_basic) => {
+    const action = action_basic as typeof action_basic & { creator: string };
     state.pendingShares = [{ ...action.payload, creatorId: action.creator }, ...state.pendingShares];
     return state;
   })
