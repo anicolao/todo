@@ -1,5 +1,6 @@
 <script lang="ts">
 	import firebase from '$lib/firebase';
+	import IconButton from '@smui/icon-button';
 	import {
 		accept_pending_share,
 		register_pending_share,
@@ -8,8 +9,10 @@
 		rename_list
 	} from '$lib/components/lists';
 	import { store } from '$lib/store';
-	import { collection, doc, onSnapshot, query, setDoc } from 'firebase/firestore';
+	import { collection, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
 	import type { AnyAction } from '@reduxjs/toolkit';
+	import { dispatch } from './ActionLog';
+	import { complete_item, create_item, star_item } from './items';
 
 	let errorMessage: string;
 
@@ -54,12 +57,14 @@
 					.then(() => {
 						console.log('Asking for actions for new list.');
 						const actions = collection(firebase.firestore, 'lists', id, 'actions');
-						let unsubscribe = onSnapshot(query(actions), (querySnapshot) => {
+						let unsubscribe = onSnapshot(query(actions, orderBy('timestamp')), (querySnapshot) => {
 							querySnapshot.docChanges().forEach((change) => {
 								if (change.type === 'added') {
 									let doc = change.doc;
-									console.log(doc.data());
-									store.dispatch(doc.data() as AnyAction);
+									const action = doc.data();
+									console.log(action);
+									delete action.timestamp;
+									store.dispatch(action as AnyAction);
 								}
 							});
 						});
@@ -69,6 +74,31 @@
 					});
 			}
 			lastListCount = latestListCount;
+		}
+	}
+
+	function addListItem(list_id: string) {
+		return (event: any) => {
+			if ($store.auth.uid) {
+				const description = event.srcElement.value;
+				const id = crypto.randomUUID();
+				dispatch('lists', list_id, $store.auth.uid, create_item({list_id, id, description}));
+			}
+		}
+	}
+
+	function star(list_id: string, id: string, starred: boolean) {
+		return (event: any) => {
+			if ($store.auth.uid) {
+				dispatch('lists', list_id, $store.auth.uid, star_item({list_id, id, starred}));
+			}
+		}
+	}
+	function completed(list_id: string, id: string, completed: boolean) {
+		return (event: any) => {
+			if ($store.auth.uid) {
+				dispatch('lists', list_id, $store.auth.uid, complete_item({list_id, id, completed}));
+			}
 		}
 	}
 
@@ -102,6 +132,30 @@
 	{#each $store.lists.visibleLists as listId}
 		<li>
 			<input type="text" value={$store.lists.listIdToList[listId]} on:change={renameList(listId)} />
+			<ul>
+				{#if $store.items.listIdToListOfItems[listId]}
+					{#each $store.items.listIdToListOfItems[listId].itemIds as itemId}
+						<li>
+							{#if $store.items.listIdToListOfItems[listId].itemIdToItem[itemId].completed}
+								<IconButton class="material-icons" on:click={completed(listId, itemId, false)}>check_box</IconButton>
+							{:else}
+								<IconButton class="material-icons" on:click={completed(listId, itemId, true)}>check_box_outline_blank</IconButton>
+							{/if}
+
+							{$store.items.listIdToListOfItems[listId].itemIdToItem[itemId].description}
+
+							{#if $store.items.listIdToListOfItems[listId].itemIdToItem[itemId].starred}
+								<IconButton class="material-icons" on:click={star(listId, itemId, false)}>star</IconButton>
+							{:else}
+								<IconButton class="material-icons" on:click={star(listId, itemId, true)}>star_outline</IconButton>
+							{/if}
+						</li>
+					{/each}
+				{/if}
+				<li>
+					<input type="text" value="" on:change={addListItem(listId)} />
+				</li>
+			</ul>
 			<p>
 				{#each $store.users.users.filter((u) => u.uid != $store.auth.uid) as user}
 					{#if user.uid}
