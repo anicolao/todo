@@ -6,51 +6,69 @@ export interface TodoItem {
   starred: boolean;
   description: string;
 }
-export interface ItemsState {
+export interface ListOfItems {
   itemIds: string[];
   itemIdToItem: { [id: string]: TodoItem };
 }
 
-export const create_item = createAction<{ id: string, description: string }>('create_item');
-export const describe_item = createAction<{ id: string, description: string }>('describe_item');
-export const complete_item = createAction<{ id: string, completed: boolean }>('complete_item');
-export const star_item = createAction<{ id: string, starred: boolean }>('star_item');
-export const reorder_item = createAction<{ id: string, goes_before?: string }>('reorder_item');
+const emptyList: ListOfItems = {
+    itemIds: [],
+    itemIdToItem: {}
+}
+export interface ItemsState {
+  listIdToListOfItems: { [id: string]: ListOfItems };
+}
+
+export const create_item = createAction<{ list_id: string, id: string, description: string }>('create_item');
+export const describe_item = createAction<{ list_id: string, id: string, description: string }>('describe_item');
+export const complete_item = createAction<{ list_id: string, id: string, completed: boolean }>('complete_item');
+export const star_item = createAction<{ list_id: string, id: string, starred: boolean }>('star_item');
+export const reorder_item = createAction<{ list_id: string, id: string, goes_before?: string }>('reorder_item');
 
 export const initialState = {
-  itemIds: [],
-  itemIdToItem: {},
+  listIdToListOfItems: {}
 } as ItemsState;
 
 export const items = createReducer(initialState, (r) => {
   r.addCase(create_item, (state, action) => {
-    state.itemIds = [action.payload.id, ...state.itemIds];
-    state.itemIdToItem[action.payload.id] = { completed: false, starred: false, description: action.payload.description };
+    const list = {...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+    list.itemIdToItem = {...list.itemIdToItem};
+    list.itemIds = [action.payload.id, ...list.itemIds];
+    list.itemIdToItem[action.payload.id] = { completed: false, starred: false, description: action.payload.description };
+    state.listIdToListOfItems[action.payload.list_id] = {...list};
   });
   r.addCase(describe_item, (state, action) => {
-    let item = state.itemIdToItem[action.payload.id];
+    const list = {...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+    let item = list.itemIdToItem[action.payload.id];
     item.description = action.payload.description;
+    state.listIdToListOfItems[action.payload.list_id] = {...list};
   });
   r.addCase(complete_item, (state, action) => {
-    let item = state.itemIdToItem[action.payload.id];
+    const list = {...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+    let item = list.itemIdToItem[action.payload.id];
     item.completed = action.payload.completed;
+    state.listIdToListOfItems[action.payload.list_id] = {...list};
   });
   r.addCase(star_item, (state, action) => {
-    let item = state.itemIdToItem[action.payload.id];
+    const list = {...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+    let item = list.itemIdToItem[action.payload.id];
     item.starred = action.payload.starred;
+    state.listIdToListOfItems[action.payload.list_id] = {...list};
   });
 
   r.addCase(reorder_item, (state, action) => {
-    const index = state.itemIds.indexOf(action.payload.id);
+    const list = {...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+    const index = list.itemIds.indexOf(action.payload.id);
     if (index !== -1) {
-        const removedItem = state.itemIds.splice(index, 1);
-        const newIndex = action.payload.goes_before ? state.itemIds.indexOf(action.payload.goes_before) : state.itemIds.length;
+        const removedItem = list.itemIds.splice(index, 1);
+        const newIndex = action.payload.goes_before ? list.itemIds.indexOf(action.payload.goes_before) : list.itemIds.length;
         if (newIndex === -1) {
             throw `ERROR: itemid ${action.payload.goes_before} not found in items array`;
         }
-        state.itemIds = [state.itemIds.slice(0, newIndex), removedItem[0], state.itemIds.slice(newIndex)].flat();
+        list.itemIds = [list.itemIds.slice(0, newIndex), removedItem[0], list.itemIds.slice(newIndex)].flat();
     } else {
         throw `ERROR: itemid ${action.payload.id} not found in items array`;
     }
+    state.listIdToListOfItems[action.payload.list_id] = {...list};
   });
 });
