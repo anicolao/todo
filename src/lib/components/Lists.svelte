@@ -2,7 +2,7 @@
 	import firebase from '$lib/firebase';
 	import {
 		accept_pending_share,
-		accept_share,
+		register_pending_share,
 		create_list,
 		delete_list,
 		rename_list
@@ -82,7 +82,7 @@
 	}
 
 	function shareList(listId: string, name: string, uid: string) {
-		return () => firebase.request(uid, accept_share({ id: listId, name }));
+		return () => firebase.request(uid, register_pending_share({ id: listId, name }));
 	}
 
 	function acceptPendingShare(listId: string) {
@@ -117,10 +117,10 @@
 </ul>
 
 <ul>
-	{#each $store.lists.pendingShares as { id, name, creatorId }}
+	{#each $store.lists.pendingShares as { id, name, sharerId }}
 		<li>
 			<button on:click={acceptPendingShare(id)}
-				>Accept share of '{name}' from {getUserById(creatorId).name}</button
+				>Accept share of '{name}' from {getUserById(sharerId).name}</button
 			>
 		</li>
 	{/each}
