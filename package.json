@@ -14,8 +14,7 @@
 		"preview": "vite preview",
 		"smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
 		"smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
-		"test": "npx @web/test-runner --playwright",
-		"test-watch": "npx @web/test-runner --playwright --watch",
+		"test": "vitest run --coverage",
 		"playwright": "playwright test",
 		"deploy": "npm run build && firebase deploy"
 	},
@@ -31,6 +30,8 @@
 		"@types/mocha": "^9.1.1",
 		"@typescript-eslint/eslint-plugin": "^5.27.0",
 		"@typescript-eslint/parser": "^5.27.0",
+		"@vitest/coverage-c8": "^0.24.3",
+		"@web/dev-server-esbuild": "^0.3.2",
 		"@web/test-runner": "^0.14.0",
 		"@web/test-runner-playwright": "^0.8.10",
 		"autoprefixer": "^10.4.7",
@@ -50,7 +51,7 @@
 		"tslib": "^2.3.1",
 		"typescript": "^4.7.4",
 		"vite": "^3.1.0-beta.1",
-		"@web/dev-server-esbuild": "^0.3.2"
+		"vitest": "^0.24.3"
 	},
 	"type": "module",
 	"dependencies": {

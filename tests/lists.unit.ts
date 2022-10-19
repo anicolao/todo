@@ -1,7 +1,7 @@
-const { expect: untypedExpect } = await import('@esm-bundle' + '/chai');
-export const expect: typeof import('chai').expect = untypedExpect;
+import { expect } from 'chai';
+import { describe, it } from 'vitest';
 
-import { initialState, create_list, delete_list, lists, type ListsState } from './lists';
+import { initialState, create_list, delete_list, lists, type ListsState } from '$lib/components/lists';
 
 describe('lists', () => {
   function createList(state: ListsState, id: string, name: string) {
