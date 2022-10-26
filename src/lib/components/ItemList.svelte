@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { dispatch } from '$lib/components/ActionLog';
-	import { complete_item, create_item, star_item, type TodoItem } from '$lib/components/items';
+	import {
+		complete_item,
+		create_item,
+		describe_item,
+		star_item,
+		type TodoItem
+	} from '$lib/components/items';
 	import { store } from '$lib/store';
 	import IconButton, { Icon } from '@smui/icon-button';
 	import Textfield from '@smui/textfield';
@@ -43,7 +49,7 @@
 		$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId, i) => {
 			const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
 			if (item.completed === completed) {
-				items.push({ ...item, id: itemId });
+				items.push({ ...item, id: itemId, description: item.description });
 			}
 		});
 	}
@@ -51,6 +57,31 @@
 	let show = false;
 	function toggleCompleted() {
 		show = !show;
+	}
+
+	function handleEnterKey(list_id: string, item: TodoItem & { id: string }) {
+		return (e: KeyboardEvent | CustomEvent) => {
+			e = e as KeyboardEvent;
+			if (e.key === 'Enter') {
+				const target = e.target as HTMLInputElement;
+				target.blur();
+			}
+		};
+	}
+	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
+		return (e: CustomEvent) => {
+			console.log('blur event', e);
+			console.log('value', e.detail.target.value);
+			if ($store.auth.uid) {
+				const target = e.target as HTMLInputElement;
+				dispatch(
+					'lists',
+					list_id,
+					$store.auth.uid,
+					describe_item({ list_id, id: item.id, description: e.detail.target.value || '' })
+				);
+			}
+		};
 	}
 </script>
 
@@ -73,7 +104,12 @@
 									>check_box_outline_blank</IconButton
 								>
 							{/if}
-						</Graphic>{item.description}<Meta
+						</Graphic><Textfield
+							style="width: 100%"
+							value={item.description}
+							on:keydown={handleEnterKey(listId, item)}
+							on:blur={handleBlur(listId, item)}
+						/><Meta
 							>{#if item.starred}<IconButton
 									class="material-icons"
 									on:click={star(listId, item.id, false)}>star</IconButton
