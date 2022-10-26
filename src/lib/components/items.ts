@@ -66,6 +66,9 @@ export const items = createReducer(initialState, (r) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
 		item.starred = action.payload.starred;
+		if (action.payload.starred) {
+			list.itemIds = [action.payload.id, ...list.itemIds.filter((x) => x !== action.payload.id)];
+		}
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 	});
 

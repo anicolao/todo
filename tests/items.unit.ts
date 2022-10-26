@@ -130,6 +130,53 @@ describe('items', () => {
 		expect(list.itemIdToItem[id].starred).to.equal(false);
 	});
 
+	it('moves a starred item to the top', () => {
+		const list_id = 'List 9';
+		const id = 'abcd1234';
+		const description = 'My List Item Creation Test';
+		const id2 = '7788';
+		const description2 = 'Item 77 88';
+
+		let nextState = createItem(initialState, list_id, id2, description2);
+		nextState = createItem(nextState, list_id, id, description);
+		let list = nextState.listIdToListOfItems[list_id];
+		expect(list.itemIds[0]).to.equal(id);
+		expect(list.itemIds[1]).to.equal(id2);
+		expect(list.itemIdToItem[id2].starred).to.equal(false);
+
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: true }));
+		list = nextState.listIdToListOfItems[list_id];
+		expect(list.itemIds[0]).to.equal(id2);
+		expect(list.itemIds[1]).to.equal(id);
+		expect(list.itemIdToItem[id2].starred).to.equal(true);
+	});
+
+	it("doesn't move an unstarred item to the top", () => {
+		const list_id = 'List 9';
+		const id = 'abcd1234';
+		const description = 'My List Item Creation Test';
+		const id2 = '7788';
+		const description2 = 'Item 77 88';
+
+		let nextState = createItem(initialState, list_id, id2, description2);
+		nextState = createItem(nextState, list_id, id, description);
+		let list = nextState.listIdToListOfItems[list_id];
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: true }));
+		nextState = items(nextState, star_item({ id: id, list_id, starred: true }));
+		list = nextState.listIdToListOfItems[list_id];
+		expect(list.itemIds[0]).to.equal(id);
+		expect(list.itemIds[1]).to.equal(id2);
+		expect(list.itemIdToItem[id].starred).to.equal(true);
+		expect(list.itemIdToItem[id2].starred).to.equal(true);
+
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: false }));
+		list = nextState.listIdToListOfItems[list_id];
+		expect(list.itemIds[0]).to.equal(id);
+		expect(list.itemIds[1]).to.equal(id2);
+		expect(list.itemIdToItem[id].starred).to.equal(true);
+		expect(list.itemIdToItem[id2].starred).to.equal(false);
+	});
+
 	it('reorders an item', () => {
 		const list_id = 'List 9';
 		let nextState = createItem(initialState, list_id, 'idA', 'Item A');
