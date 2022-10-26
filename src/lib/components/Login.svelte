@@ -2,7 +2,7 @@
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
-	import Button from '@smui/button';
+	import Button, { Label } from '@smui/button';
 
 	const auth = firebase.auth;
 	const gAuthProvider = firebase.google_auth_provider;
@@ -52,7 +52,10 @@
 </script>
 
 {#if $store.auth.signedIn !== true}
-	<Button on:click={signin} variant="raised">Sign In</Button>
+	<Button on:click={signin}>                                                                                   
+		<Label>Sign In</Label>
+		<i class="material-icons" aria-hidden="true">arrow_forward</i>                                                                           
+	  </Button>      
 {:else}
 	<p><img src={$store.auth.photo} referrerpolicy="no-referrer" />{$store.auth.email}</p>
 	<p>{$store.auth.name}</p>
