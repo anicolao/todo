@@ -52,10 +52,10 @@
 </script>
 
 {#if $store.auth.signedIn !== true}
-	<Button on:click={signin}>                                                                                   
+	<Button on:click={signin}>
 		<Label>Sign In</Label>
-		<i class="material-icons" aria-hidden="true">arrow_forward</i>                                                                           
-	  </Button>      
+		<i class="material-icons" aria-hidden="true">arrow_forward</i>
+	</Button>
 {:else}
 	<p><img src={$store.auth.photo} referrerpolicy="no-referrer" />{$store.auth.email}</p>
 	<p>{$store.auth.name}</p>

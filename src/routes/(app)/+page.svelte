@@ -7,8 +7,8 @@
 
 <div
 	style:color="purple"
-	style:background-image=url({$store.uiSettings.backgroundUrl})
-	style:background-size=cover
+	style:background-image="url({$store.uiSettings.backgroundUrl})"
+	style:background-size="cover"
 >
 	<h1>The All New TODO</h1>
 	<p>A hopefully simpler, more robust, TODO list app.</p>

@@ -1,4 +1,10 @@
-import { combineReducers, configureStore, createStore, type AnyAction, type EnhancedStore } from '@reduxjs/toolkit';
+import {
+	combineReducers,
+	configureStore,
+	createStore,
+	type AnyAction,
+	type EnhancedStore
+} from '@reduxjs/toolkit';
 import type { ThunkMiddleware } from 'redux-thunk';
 import type { Writable } from 'svelte/store';
 import { auth, type AuthState } from '$lib/components/auth';

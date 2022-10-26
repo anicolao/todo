@@ -2,7 +2,13 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { store } from '$lib/store';
-import { addDoc, collection, getFirestore, serverTimestamp, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+	addDoc,
+	collection,
+	getFirestore,
+	serverTimestamp,
+	connectFirestoreEmulator
+} from 'firebase/firestore';
 //import { getAnalytics } from 'firebase/analytics';
 //
 // TODO: Add SDKs for Firebase products that you want to use
@@ -32,21 +38,27 @@ const firebase = {
 	dispatch: (action: any) => {
 		const user = store.getState().auth;
 		if (user.uid) {
-			addDoc(collection(firebase.firestore, 'from', user.uid, 'to', user.uid, 'requests'),
-				{ ...action, creator: user.uid, target: user.uid, timestamp: serverTimestamp() })
-				.catch((message) => {
-					console.error(message);
-				});
+			addDoc(collection(firebase.firestore, 'from', user.uid, 'to', user.uid, 'requests'), {
+				...action,
+				creator: user.uid,
+				target: user.uid,
+				timestamp: serverTimestamp()
+			}).catch((message) => {
+				console.error(message);
+			});
 		}
 	},
 	request: (to: string, action: any) => {
 		const user = store.getState().auth;
 		if (user.uid) {
-			addDoc(collection(firebase.firestore, 'from', user.uid, 'to', to, 'requests'),
-				{ ...action, creator: user.uid, target: to, timestamp: serverTimestamp() })
-				.catch((message) => {
-					console.error(message);
-				});
+			addDoc(collection(firebase.firestore, 'from', user.uid, 'to', to, 'requests'), {
+				...action,
+				creator: user.uid,
+				target: to,
+				timestamp: serverTimestamp()
+			}).catch((message) => {
+				console.error(message);
+			});
 		}
 	}
 };

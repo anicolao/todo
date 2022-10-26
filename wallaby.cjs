@@ -3,8 +3,6 @@ module.exports = function (wallaby) {
 		autoDetect: true,
 		maxConsoleMessagesPerTest: 100000,
 		maxTraceSteps: 4000000,
-		tests: [
-			'tests/**/*.unit.ts',
-		]
+		tests: ['tests/**/*.unit.ts']
 	};
 };

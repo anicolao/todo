@@ -20,7 +20,7 @@ export async function create(type: string, uid: string) {
 
 export async function dispatch(type: string, id: string, uid: string, action: AnyAction) {
 	const actions = collection(firebase.firestore, type, id, 'actions');
-    console.log("DISPATCH DISPATCH ", {action})
+	console.log('DISPATCH DISPATCH ', { action });
 	return addDoc(actions, { ...action, timestamp: serverTimestamp(), creator: uid }).catch(
 		(message) => {
 			console.error(message);

@@ -75,8 +75,12 @@
 
 	let active: string;
 	function setActive(name: string) {}
-	function getIconName(name: string) {return 'iconName ' + name}
-	function textLookup(text: string) {return 'textLookup ' + text}
+	function getIconName(name: string) {
+		return 'iconName ' + name;
+	}
+	function textLookup(text: string) {
+		return 'textLookup ' + text;
+	}
 </script>
 
 <svelte:window bind:innerWidth={width} />

@@ -168,7 +168,7 @@ and list items and list item ordering. The likely actions are something like:
 6. star_item({ id, star_state })
 7. describe_item({ id, new_description })
 
-Some additional fields might need to be added for things like 
+Some additional fields might need to be added for things like
 reoccurring tasks, or tasks with deadlines. There is no way to
 put the same task on two different lists; even if the `id` values
 collided, each action list is inside a specific TODO list and
@@ -184,7 +184,7 @@ because they are part of the user's lasting state/artifacts: namely new
 lists, new permissions, or new tasks. These transaction logs get
 replayed every time in order to build up the software's in-memory state
 as a redux store that lets the UI render all these artifacts for the
-user. 
+user.
 
 Some actions, though, will need to affect the UI but don't need to be
 recorded and replayed. For example, if the user navigates from one list
@@ -203,7 +203,7 @@ locally only.
 ## Replay considerations
 
 Since the actions are getting executed all the time, it's important that
-they be idempotent -- meaning identical requests are harmless and one 
+they be idempotent -- meaning identical requests are harmless and one
 request or many leaves the firebase database in the same state. Ideally no
 request should fail, so the client can always verify that its replay is
 successful. There might be cases where permissions would be denied on
@@ -231,14 +231,14 @@ actions to where other clients can see them. Even in normal cases, the delay
 of one client connecting could cause conflicts or other overlaps. How those
 conflicts are dealt with is really up to the client-side code; they could get
 automatically resolved, or they could be surfaced in the UI state to encourage
-the user to take specific action to resolve them. For example, suppose two 
+the user to take specific action to resolve them. For example, suppose two
 different users `describe_item` with different text. One possible resolution
 is to just say the action with the later server-side timestamp wins. This
 in fact would naturally happen based on the design of the system if we did
 no conflict resolution at all.
 
 Alternately, we could write client-side timestamps into these actions, and
-write both the before and after state into the action, and then when 
+write both the before and after state into the action, and then when
 it executes the action and sees that there was a conflict the system could
 mark the item with a red conflict dot and the UI could allow the user to
 at least view and perhaps also manually override the resolution. It's

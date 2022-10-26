@@ -3,7 +3,8 @@
 	import { store } from '$lib/store';
 
 	$: if (!$store.auth.signedIn) {
-    goto("/login");
+		goto('/login');
 	}
 </script>
+
 <slot />
