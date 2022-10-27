@@ -175,7 +175,7 @@
 
 		margin-top: 64px;
 		display: flex;
-		padding: 0.5em;
+		padding: 0;
 	}
 
 	.mobile-margin {

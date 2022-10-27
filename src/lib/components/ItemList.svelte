@@ -5,7 +5,9 @@
 		complete_item,
 		create_item,
 		describe_item,
+		reorder_item,
 		star_item,
+		type ListOfItems,
 		type TodoItem
 	} from '$lib/components/items';
 	import { store } from '$lib/store';
@@ -15,6 +17,7 @@
 	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import Button from '@smui/button';
+	import ItemDisplay from './ItemDisplay.svelte';
 
 	export let listId = '';
 	export let completed = false;
@@ -27,31 +30,21 @@
 		params: CrossfadeParams & { key: any }
 	) => () => TransitionConfig;
 
-	function star(list_id: string, id: string, starred: boolean) {
-		return (event: any) => {
-			if ($store.auth.uid) {
-				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred }));
-			}
-		};
-	}
-
-	function complete(list_id: string, id: string, completed: boolean) {
-		return (event: any) => {
-			if ($store.auth.uid) {
-				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed }));
-			}
-		};
-	}
-
-	let items: (TodoItem & { id: string })[] = [];
+	type ExtendedTodoItem = TodoItem & { id: string };
+	let items: ExtendedTodoItem[] = [];
+	let dragTo: ExtendedTodoItem;
+	let lastListOfItems: ListOfItems | undefined = undefined;
 	$: if ($store.items.listIdToListOfItems[listId]) {
-		items = [];
-		$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId, i) => {
-			const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
-			if (item.completed === completed) {
-				items.push({ ...item, id: itemId, description: item.description });
-			}
-		});
+		if (lastListOfItems !== $store.items.listIdToListOfItems[listId]) {
+			lastListOfItems = $store.items.listIdToListOfItems[listId];
+			items = [];
+			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId, i) => {
+				const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
+				if (item.completed === completed) {
+					items.push({ ...item, id: itemId, description: item.description });
+				}
+			});
+		}
 	}
 
 	let show = false;
@@ -59,64 +52,236 @@
 		show = !show;
 	}
 
-	function handleEnterKey(list_id: string, item: TodoItem & { id: string }) {
-		return (e: KeyboardEvent | CustomEvent) => {
-			e = e as KeyboardEvent;
-			if (e.key === 'Enter') {
-				const target = e.target as HTMLInputElement;
-				target.blur();
-			}
-		};
+	let ghost: Element;
+	let anchor: Element;
+	type ExtendedElement = Element | { dataset: { grabY: number } };
+	let grabbed: ExtendedElement;
+	let grabbedItem: ExtendedTodoItem;
+	let lastTarget: Element;
+
+	let mouseY = 0; // pointer y coordinate within client
+	let offsetY = 0; // y distance from top of grabbed element to pointer
+	let layerY = 0; // distance from top of list to top of client
+
+	let dragTimeElapsed = false;
+
+	function grab(clientY: number, element: Element) {
+		// modify grabbed element
+		grabbed = element as ExtendedElement;
+		grabbed.dataset.grabY = clientY;
+
+		grabbedItem = items[grabbed.dataset.index];
+		// record offset from cursor to top of element
+		// (used for positioning ghost)
+		offsetY = grabbed.getBoundingClientRect().y - clientY;
+		drag(clientY);
+		window.setTimeout(() => (dragTimeElapsed = true), 400);
 	}
-	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
-		return (e: CustomEvent) => {
-			console.log('blur event', e);
-			console.log('value', e.detail.target.value);
-			if ($store.auth.uid) {
-				const target = e.target as HTMLInputElement;
-				dispatch(
-					'lists',
-					list_id,
-					$store.auth.uid,
-					describe_item({ list_id, id: item.id, description: e.detail.target.value || '' })
-				);
+
+	// drag handler updates cursor position
+	function drag(clientY) {
+		if (grabbed) {
+			mouseY = clientY;
+			layerY = anchor.parentNode.getBoundingClientRect().y;
+		}
+	}
+
+	// touchEnter handler emulates the mouseenter event for touch input
+	// (more or less)
+	function touchEnter(ev) {
+		drag(ev.clientY);
+		// trigger dragEnter the first time the cursor moves over a list item
+		let target = document.elementFromPoint(ev.clientX, ev.clientY).closest('.item');
+		if (target && target != lastTarget) {
+			lastTarget = target;
+			dragEnter(ev, target);
+		}
+	}
+
+	function dragEnter(ev, target) {
+		// swap items in data
+		if (grabbed && target != grabbed && target.classList.contains('item')) {
+			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
+		}
+	}
+
+	// does the actual moving of items in data
+	function moveDatum(from, to) {
+		let temp = items[from];
+		items = [...items.slice(0, from), ...items.slice(from + 1)];
+		dragTo = items[to];
+		items = [...items.slice(0, to), temp, ...items.slice(to)];
+	}
+
+	function release(ev) {
+		if (!dragTimeElapsed) {
+			console.log('ignore drag');
+			window.setTimeout(() => (dragTimeElapsed = false), 400);
+			grabbed = null;
+			return;
+		}
+		dragTimeElapsed = false;
+		console.log('release', grabbed);
+		console.log({ dragTo, grabbed });
+		if ($store.auth.uid) {
+			const payload: { list_id: string; id: string; goes_before?: string } = {
+				list_id: listId,
+				id: grabbed.dataset.id
+			};
+			if (dragTo) {
+				payload.goes_before = dragTo.id;
 			}
-		};
+			dispatch('lists', listId, $store.auth.uid, reorder_item(payload));
+		}
+		grabbed = null;
+	}
+
+	let dragEnabled = true;
+	$: console.log({dragEnabled});
+	function itemTextfieldFocused() {
+		window.setTimeout(() => {
+			console.log("Timeout for dragEnabled -> false")
+			if (dragTimeElapsed === false) {
+				dragEnabled = false;
+			}
+			console.log({dragEnabled, grabbed, dragTimeElapsed})
+		}, 900)
 	}
 </script>
+
+<div bind:this={anchor} />
 
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
 		>{/if}{#if show || completed === false}<List
-			>{#each items as item (item.id)}<div
+			on:mousemove={function (ev) {
+				if (dragEnabled) {
+					ev.stopPropagation();
+					ev.preventDefault();
+					drag(ev.clientY);
+				}
+			}}
+			on:touchmove={function (ev) {
+				if (dragEnabled) {
+					ev.stopPropagation();
+					drag(ev.touches[0].clientY);
+				}
+			}}
+			on:mouseup={function (ev) {
+				if (dragEnabled) {
+					ev.stopPropagation();
+					release(ev);
+				}
+			}}
+			on:touchend={function (ev) {
+				if (dragEnabled) {
+					ev.stopPropagation();
+					release(ev.touches[0]);
+				}
+			}}
+			><div
+				bind:this={ghost}
+				id="ghost"
+				class={grabbed ? 'item haunting' : 'item'}
+				style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
+			>
+				{#if grabbed}<ItemDisplay {listId} item={grabbedItem} />{/if}
+			</div>
+			{#each items as item, i (item.id)}<div
+					id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
+					class="item"
+					data-index={i}
+					data-id={item.id}
+					data-grabY="0"
+					on:mousedown={function (ev) {
+						if (dragEnabled) {
+							grab(ev.clientY, this);
+						}
+					}}
+					on:touchstart={function (ev) {
+						if (dragEnabled) {
+							grab(ev.touches[0].clientY, this);
+						}
+					}}
+					on:mouseenter={function (ev) {
+						if (dragEnabled) {
+							ev.stopPropagation();
+							dragEnter(ev, ev.target);
+						}
+					}}
+					on:touchmove={function (ev) {
+						if (dragEnabled) {
+							ev.stopPropagation();
+							ev.preventDefault();
+							touchEnter(ev.touches[0]);
+						}
+					}}
+					animate:flip={{ duration: 200 }}
 					in:receive={{ key: item.id }}
 					out:send={{ key: item.id }}
-					animate:flip={{ duration: 200 }}
 				>
-					<Item
-						><Graphic
-							>{#if item.completed}<IconButton
-									class="material-icons"
-									on:click={complete(listId, item.id, false)}>check_box</IconButton
-								>
-							{:else}
-								<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
-									>check_box_outline_blank</IconButton
-								>
-							{/if}
-						</Graphic><Textfield
-							style="width: 100%"
-							value={item.description}
-							on:keydown={handleEnterKey(listId, item)}
-							on:blur={handleBlur(listId, item)}
-						/><Meta
-							>{#if item.starred}<IconButton
-									class="material-icons"
-									on:click={star(listId, item.id, false)}>star</IconButton
-								>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
-									>star_outline</IconButton
-								>{/if}</Meta
-						></Item
-					>
+					<ItemDisplay
+						{listId}
+						{item}
+						on:blur={() => (dragEnabled = true)}
+						on:focus={itemTextfieldFocused}
+					/>
 				</div>{/each}</List
 		>{/if}{/if}
+
+<style>
+	main {
+		position: relative;
+	}
+
+	.list {
+		cursor: grab;
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid red;
+		height: 100vh;
+	}
+
+	.item {
+		box-sizing: border-box;
+		width: 100%;
+		min-height: 3em;
+		margin-bottom: 0.5em;
+		user-select: none;
+	}
+
+	.item:last-child {
+		margin-bottom: 0;
+	}
+
+	.item:not(#grabbed):not(#ghost) {
+		z-index: 10;
+	}
+
+	.item > * {
+		margin: auto;
+	}
+
+	#grabbed {
+		opacity: 0;
+	}
+
+	#ghost {
+		pointer-events: none;
+		z-index: -5;
+		position: absolute;
+		top: 0;
+		left: 0;
+		opacity: 0;
+	}
+
+	#ghost * {
+		pointer-events: none;
+	}
+
+	#ghost.haunting {
+		z-index: 20;
+		opacity: 1;
+	}
+</style>
