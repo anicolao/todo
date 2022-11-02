@@ -230,19 +230,6 @@
 		>{/if}{/if}
 
 <style>
-	main {
-		position: relative;
-	}
-
-	.list {
-		cursor: grab;
-		z-index: 5;
-		display: flex;
-		flex-direction: column;
-		border: 1px solid red;
-		height: 100vh;
-	}
-
 	.item {
 		box-sizing: border-box;
 		width: 100%;
@@ -259,10 +246,6 @@
 		z-index: 10;
 	}
 
-	.item > * {
-		margin: auto;
-	}
-
 	#grabbed {
 		opacity: 0;
 	}
@@ -274,10 +257,6 @@
 		top: 0;
 		left: 0;
 		opacity: 0;
-	}
-
-	#ghost * {
-		pointer-events: none;
 	}
 
 	#ghost.haunting {
