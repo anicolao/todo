@@ -3,11 +3,14 @@
 	import { store } from '$lib/store';
 	import UiSettings from '$lib/components/UiSettings.svelte';
 	import Lists from '$lib/components/Lists.svelte';
+
+	$: bgUrl = $store?.uiSettings?.backgroundUrl;
+	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
 </script>
 
 <div
 	style:color="purple"
-	style:background-image="url({$store.uiSettings.backgroundUrl})"
+	style:background-image={bgStyle}
 	style:background-size="cover"
 >
 	<h1>The All New TODO</h1>
