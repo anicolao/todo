@@ -8,9 +8,12 @@
 	const gAuthProvider = firebase.google_auth_provider;
 	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 	import { error, signed_in, signed_out } from '$lib/components/auth';
+	console.log('Login.svelte: setting up onAuthStateChanged callback');
 	onAuthStateChanged(auth, (user) => {
+		console.log('Login.svelte: onAuthStateChanged user ' + user?.uid );
 		if (user) {
 			const uid = user.uid;
+			console.log('Login.svelte: onAuthStateChanged   sign in ');
 			store.dispatch(
 				signed_in({
 					uid: uid,
@@ -35,6 +38,7 @@
 				});
 			}
 		} else {
+			console.log('Login.svelte: onAuthStateChanged   sign out ');
 			store.dispatch(signed_out());
 		}
 	});

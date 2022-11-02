@@ -22,6 +22,7 @@
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined = undefined;
+	console.log('(app)/+layout.svelte init');
 	$: if ($store.auth.signedIn) {
 		if (unsubscribeUsers === undefined) {
 			const user = $store.auth;
@@ -39,6 +40,7 @@
 
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
+				console.log("Subscribing to actions for you", unsubscribeActions, this);
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 					querySnapshot.docChanges().forEach((change) => {
 						if (change.type === 'added') {
@@ -57,10 +59,12 @@
 			}
 		} else if (!$store.auth.signedIn) {
 			if (unsubscribeUsers) {
+				console.log('layout.svelte: not signed in anymore, call unsubscribeUsers()');
 				unsubscribeUsers();
 				unsubscribeUsers = undefined;
 			}
 			if (unsubscribeActions) {
+				console.log('layout.svelte: not signed in anymore, call unsubscribeActions()');
 				unsubscribeActions();
 				unsubscribeActions = undefined;
 			}

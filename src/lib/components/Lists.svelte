@@ -22,6 +22,7 @@
 		errorMessage = '';
 		const name = event.srcElement.value;
 		const id = crypto.randomUUID();
+		console.log('on:edit Lists.svelte.createNewList ' + id);
 		firebase.dispatch(create_list({ id, name }));
 		listName = undefined;
 	}
