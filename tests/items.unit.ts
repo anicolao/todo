@@ -61,7 +61,10 @@ describe('items', () => {
 			abcd1234: { completed: false, starred: false, description }
 		});
 
-		nextState = items(nextState, describe_item({ id, list_id, description: 'newly minted' }));
+		nextState = items(
+			nextState,
+			describe_item({ id, list_id, orig_description: description, description: 'newly minted' })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds.length).to.equal(1);
 		expect(list.itemIds[0]).to.equal(id);
@@ -69,6 +72,109 @@ describe('items', () => {
 			abcd1234: { completed: false, starred: false, description: 'newly minted' }
 		});
 	});
+
+	function test_merge(
+		mergeObject: { orig: string; first: string; second: string },
+		expected: string
+	) {
+		it('handles conflicts and produces: ' + expected, () => {
+			const list_id = 'List 9';
+			const id = 'abcd1234';
+			let nextState = createItem(initialState, list_id, id, mergeObject.orig);
+			let list = nextState.listIdToListOfItems[list_id];
+			expect(list.itemIds.length).to.equal(1);
+			expect(list.itemIds[0]).to.equal(id);
+			expect(list.itemIdToItem).to.deep.include({
+				abcd1234: { completed: false, starred: false, description: mergeObject.orig }
+			});
+
+			nextState = items(
+				nextState,
+				describe_item({
+					id,
+					list_id,
+					orig_description: mergeObject.orig,
+					description: mergeObject.first
+				})
+			);
+			list = nextState.listIdToListOfItems[list_id];
+			expect(list.itemIds.length).to.equal(1);
+			expect(list.itemIds[0]).to.equal(id);
+			expect(list.itemIdToItem).to.deep.include({
+				abcd1234: { completed: false, starred: false, description: mergeObject.first }
+			});
+
+			nextState = items(
+				nextState,
+				describe_item({
+					id,
+					list_id,
+					orig_description: mergeObject.orig,
+					description: mergeObject.second
+				})
+			);
+			list = nextState.listIdToListOfItems[list_id];
+			expect(list.itemIds.length).to.equal(1);
+			expect(list.itemIds[0]).to.equal(id);
+			expect(list.itemIdToItem).to.deep.include({
+				abcd1234: { completed: false, starred: false, description: expected }
+			});
+		});
+	}
+
+	test_merge(
+		{
+			orig: 'This is the crrected stng',
+			first: 'This is the crrected string',
+			second: 'This is the corrected stng'
+		},
+		'This is the corrected string'
+	);
+
+	test_merge(
+		{
+			orig: 'This is the crrected stng',
+			first: 'This is the corrected stng',
+			second: 'This is the crrected string'
+		},
+		'This is the corrected string'
+	);
+
+	test_merge(
+		{
+			orig: 'The voice passive, is to be avoded',
+			first: 'The passive voice should be avoded',
+			second: 'The voice passive, is to be avoided'
+		},
+		'The passive voice should be avoided'
+	);
+
+	test_merge(
+		{
+			orig: 'The voice passive, is to be avoded',
+			first: 'The voice passive, is to be avoided',
+			second: 'The passive voice should be avoded'
+		},
+		'The passive voice should be avoided'
+	);
+
+	test_merge(
+		{
+			orig: 'ALWAYS GIVE UP ON OVERLAPPING EDITS',
+			first: 'Always give up on overlapping edits',
+			second: 'Give up on overlapping edits'
+		},
+		'A̶l̶w̶a̶y̶s̶ ̶g̶i̶v̶e̶ ̶u̶p̶ ̶o̶n̶ ̶o̶v̶e̶r̶l̶a̶p̶p̶i̶n̶g̶ ̶e̶d̶i̶t̶s̶ Give up on overlapping edits'
+	);
+
+	test_merge(
+		{
+			orig: 'Even really small overlaps',
+			first: 'Even pretty small overlaps',
+			second: 'Even very small overlaps'
+		},
+		'E̶v̶e̶n̶ ̶p̶r̶e̶t̶t̶y̶ ̶s̶m̶a̶l̶l̶ ̶o̶v̶e̶r̶l̶a̶p̶s̶ Even very small overlaps'
+	);
 
 	it('can complete an item', () => {
 		const list_id = 'List 9';

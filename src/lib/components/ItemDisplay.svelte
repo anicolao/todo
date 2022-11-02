@@ -21,7 +21,7 @@
 
 	type ExtendedTodoItem = TodoItem & { id: string };
 
-	export let item: ExtendedTodoItem ;
+	export let item: ExtendedTodoItem;
 	export let listId = '';
 
 	const dispatchEvent = createEventDispatcher();
@@ -51,7 +51,7 @@
 			}
 		};
 	}
-	
+
 	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
 		return (e: CustomEvent) => {
 			console.log('blur event', e);
@@ -59,11 +59,17 @@
 			console.log('value', e.detail.target.value);
 			if ($store.auth.uid) {
 				const target = e.target as HTMLInputElement;
+				const origItem = $store.items.listIdToListOfItems[listId].itemIdToItem[item.id];
 				dispatch(
 					'lists',
 					list_id,
 					$store.auth.uid,
-					describe_item({ list_id, id: item.id, description: e.detail.target.value || '' })
+					describe_item({
+						list_id,
+						id: item.id,
+						orig_description: origItem.description,
+						description: e.detail.target.value || ''
+					})
 				);
 			}
 		};
@@ -86,7 +92,7 @@
 		value={item.description}
 		on:keydown={handleEnterKey(listId, item)}
 		on:blur={handleBlur(listId, item)}
-		on:focus={(e) => dispatchEvent('focus', {originalEvent: e})}
+		on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 	/><Meta
 		>{#if item.starred}<IconButton class="material-icons" on:click={star(listId, item.id, false)}
 				>star</IconButton
