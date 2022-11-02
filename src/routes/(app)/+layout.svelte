@@ -184,18 +184,4 @@
 	.desk-margin {
 		margin-left: 256px;
 	}
-
-	.card-display {
-		margin: 25%;
-		margin-top: 5%;
-	}
-
-	p {
-		padding-top: 0.5em;
-	}
-
-	h2 {
-		font-family: 'Roboto', sans-serif;
-		font-size: large;
-	}
 </style>

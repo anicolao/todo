@@ -137,15 +137,15 @@
 	}
 
 	let dragEnabled = true;
-	$: console.log({dragEnabled});
+	$: console.log({ dragEnabled });
 	function itemTextfieldFocused() {
 		window.setTimeout(() => {
-			console.log("Timeout for dragEnabled -> false")
+			console.log('Timeout for dragEnabled -> false');
 			if (dragTimeElapsed === false) {
 				dragEnabled = false;
 			}
-			console.log({dragEnabled, grabbed, dragTimeElapsed})
-		}, 900)
+			console.log({ dragEnabled, grabbed, dragTimeElapsed });
+		}, 900);
 	}
 </script>
 
@@ -230,27 +230,6 @@
 		>{/if}{/if}
 
 <style>
-	main {
-		position: relative;
-	}
-
-	.list {
-		cursor: grab;
-		z-index: 5;
-		display: flex;
-		flex-direction: column;
-		border: 1px solid red;
-		height: 100vh;
-	}
-
-	.item {
-		box-sizing: border-box;
-		width: 100%;
-		min-height: 3em;
-		margin-bottom: 0.5em;
-		user-select: none;
-	}
-
 	.item:last-child {
 		margin-bottom: 0;
 	}
@@ -259,25 +238,8 @@
 		z-index: 10;
 	}
 
-	.item > * {
-		margin: auto;
-	}
-
 	#grabbed {
 		opacity: 0;
-	}
-
-	#ghost {
-		pointer-events: none;
-		z-index: -5;
-		position: absolute;
-		top: 0;
-		left: 0;
-		opacity: 0;
-	}
-
-	#ghost * {
-		pointer-events: none;
 	}
 
 	#ghost.haunting {
