@@ -137,15 +137,15 @@
 	}
 
 	let dragEnabled = true;
-	$: console.log({dragEnabled});
+	$: console.log({ dragEnabled });
 	function itemTextfieldFocused() {
 		window.setTimeout(() => {
-			console.log("Timeout for dragEnabled -> false")
+			console.log('Timeout for dragEnabled -> false');
 			if (dragTimeElapsed === false) {
 				dragEnabled = false;
 			}
-			console.log({dragEnabled, grabbed, dragTimeElapsed})
-		}, 900)
+			console.log({ dragEnabled, grabbed, dragTimeElapsed });
+		}, 900);
 	}
 </script>
 
