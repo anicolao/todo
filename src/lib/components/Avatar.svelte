@@ -1,4 +1,5 @@
 <script>
+	console.log('Avatar.svelte');
 	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
 </script>

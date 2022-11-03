@@ -8,10 +8,12 @@
 	const gAuthProvider = firebase.google_auth_provider;
 	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 	import { error, signed_in, signed_out } from '$lib/components/auth';
-	console.log('Login.svelte: setting up onAuthStateChanged callback');
-	onAuthStateChanged(auth, (user) => {
-		console.log('Login.svelte: onAuthStateChanged user ' + user?.uid );
+	import { onDestroy } from 'svelte';
+
+	console.log('Login.svelte set up auth state callback');
+	const unsubAuth = onAuthStateChanged(auth, (user) => {
 		if (user) {
+			console.log('Login.svelte auth callback for user ', { user });
 			const uid = user.uid;
 			console.log('Login.svelte: onAuthStateChanged   sign in ');
 			store.dispatch(
@@ -42,6 +44,7 @@
 			store.dispatch(signed_out());
 		}
 	});
+	onDestroy(unsubAuth);
 
 	function signin() {
 		signInWithPopup(auth, gAuthProvider).catch((message) => {
@@ -49,9 +52,11 @@
 		});
 	}
 	function signout() {
+		console.log('before sign out: ', $store.lists.visibleLists);
 		signOut(auth).catch((message) => {
 			store.dispatch(error(message));
 		});
+		console.log('after sign out: ', $store.lists.visibleLists);
 	}
 </script>
 
@@ -63,5 +68,5 @@
 {:else}
 	<p><img src={$store.auth.photo} referrerpolicy="no-referrer" />{$store.auth.email}</p>
 	<p>{$store.auth.name}</p>
-	<button on:click={signout}>Sign Out</button>
+	<button on:click={signout}>Sign Out Fully</button>
 {/if}

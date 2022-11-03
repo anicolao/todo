@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('UiSettings.svelte');
 	import { store } from '$lib/store';
 	import { set_background_url } from '$lib/components/UiSettings';
 	import firebase from '$lib/firebase';

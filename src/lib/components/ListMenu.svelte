@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('ListMenu.svelte');
 	import { goto } from '$app/navigation';
 	import { store } from '$lib/store';
 	import List, { Item, Text, Graphic, Separator, Subheader } from '@smui/list';

@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('src/routes/+layout.svelte');
 	import { goto } from '$app/navigation';
 	import { store } from '$lib/store';
 

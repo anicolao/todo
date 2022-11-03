@@ -1,4 +1,5 @@
 <script>
+	console.log('(signedout)/login/+page.svelte');
 	import { store } from '$lib/store';
 	import Login from '$lib/components/Login.svelte';
 	import Card, { Content as CardContent, Actions } from '@smui/card';

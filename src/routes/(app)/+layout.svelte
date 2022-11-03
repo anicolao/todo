@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('routes/(app)/+layout.svelte');
 	import {
 		collection,
 		query,
@@ -19,11 +20,19 @@
 	import IconButton from '@smui/icon-button';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
+	import { onDestroy } from 'svelte';
+
+	let count = 0;
+	onDestroy(() => {
+		console.log('Destroyed with count ', { count });
+	});
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined = undefined;
 	console.log('(app)/+layout.svelte init');
+	console.log('(app)/+layout.svelte loaded', { unsubscribeActions, unsubscribeUsers, count });
 	$: if ($store.auth.signedIn) {
+		console.log('WE ARE SIGNED IN ', count++);
 		if (unsubscribeUsers === undefined) {
 			const user = $store.auth;
 			if (user.uid) {
@@ -38,6 +47,7 @@
 					});
 				});
 
+				console.log('SUBSCRIBE to actions');
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
 				console.log("Subscribing to actions for you", unsubscribeActions, this);
@@ -57,19 +67,27 @@
 					});
 				});
 			}
-		} else if (!$store.auth.signedIn) {
-			if (unsubscribeUsers) {
-				console.log('layout.svelte: not signed in anymore, call unsubscribeUsers()');
-				unsubscribeUsers();
-				unsubscribeUsers = undefined;
-			}
-			if (unsubscribeActions) {
-				console.log('layout.svelte: not signed in anymore, call unsubscribeActions()');
-				unsubscribeActions();
-				unsubscribeActions = undefined;
-			}
+		}
+	} else {
+		console.log('WE ARE *not* SIGNED IN');
+		if (!$store.auth.signedIn) {
+			cleanupSubscriptions();
 		}
 	}
+	function cleanupSubscriptions() {
+		console.log('CLEANING UP');
+		if (unsubscribeUsers) {
+			unsubscribeUsers();
+			console.log('UN SUBSCRIBED to users');
+			unsubscribeUsers = undefined;
+		}
+		if (unsubscribeActions) {
+			unsubscribeActions();
+			console.log('UN SUBSCRIBED to actions');
+			unsubscribeActions = undefined;
+		}
+	}
+	onDestroy(cleanupSubscriptions);
 
 	let width = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;

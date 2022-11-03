@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('ItemDisplay.svelte');
 	import { page } from '$app/stores';
 	import { dispatch } from '$lib/components/ActionLog';
 	import {

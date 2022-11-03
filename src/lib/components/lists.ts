@@ -1,4 +1,5 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
+import { signed_in, signed_out } from './auth';
 
 export interface ListsState {
 	visibleLists: string[];
@@ -19,6 +20,8 @@ export const initialState = {
 } as ListsState;
 
 export const lists = createReducer(initialState, (r) => {
+	r.addCase(signed_in, () => initialState);
+	r.addCase(signed_out, () => initialState);
 	r.addCase(create_list, (state, action) => {
 		state.visibleLists = [action.payload.id, ...state.visibleLists];
 		state.listIdToList[action.payload.id] = action.payload.name;

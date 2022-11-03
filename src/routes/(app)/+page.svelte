@@ -1,4 +1,5 @@
 <script>
+	console.log('routes/(app)/+page.svelte');
 	import Login from '$lib/components/Login.svelte';
 	import { store } from '$lib/store';
 	import UiSettings from '$lib/components/UiSettings.svelte';

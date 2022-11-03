@@ -1,16 +1,19 @@
 <script lang="ts">
-	import firebase from '$lib/firebase';
-	import IconButton from '@smui/icon-button';
+	console.log('Lists.svelte');
 	import {
 		accept_pending_share,
-		register_pending_share,
 		create_list,
 		delete_list,
+		register_pending_share,
 		rename_list
 	} from '$lib/components/lists';
+	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import { collection, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
 	import type { AnyAction } from '@reduxjs/toolkit';
+	import IconButton from '@smui/icon-button';
+	import type { Unsubscribe } from 'firebase/firestore';
+	import { collection, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
+	import { onDestroy } from 'svelte';
 	import { dispatch } from './ActionLog';
 	import { complete_item, create_item, star_item } from './items';
 
@@ -34,7 +37,9 @@
 
 	$: latestListCount = $store.lists.visibleLists.length;
 	let lastListCount = 0;
+	let subscriptions: Unsubscribe[] = [];
 	$: if (latestListCount > lastListCount) {
+		console.log({ latestListCount, lastListCount });
 		let numNewLists = latestListCount - lastListCount;
 		const user = store.getState().auth;
 		if (user.uid) {
@@ -58,17 +63,21 @@
 					.then(() => {
 						console.log('Asking for actions for new list.');
 						const actions = collection(firebase.firestore, 'lists', id, 'actions');
-						let unsubscribe = onSnapshot(query(actions, orderBy('timestamp')), (querySnapshot) => {
-							querySnapshot.docChanges().forEach((change) => {
-								if (change.type === 'added') {
-									let doc = change.doc;
-									const action = doc.data();
-									console.log(action);
-									delete action.timestamp;
-									store.dispatch(action as AnyAction);
-								}
-							});
-						});
+						const unsubscribe = onSnapshot(
+							query(actions, orderBy('timestamp')),
+							(querySnapshot) => {
+								querySnapshot.docChanges().forEach((change) => {
+									if (change.type === 'added') {
+										let doc = change.doc;
+										const action = doc.data();
+										console.log(action);
+										delete action.timestamp;
+										store.dispatch(action as AnyAction);
+									}
+								});
+							}
+						);
+						subscriptions.push(unsubscribe);
 					})
 					.catch((message) => {
 						console.error(message);
@@ -77,6 +86,13 @@
 			lastListCount = latestListCount;
 		}
 	}
+	onDestroy(() => {
+		subscriptions.forEach((unsub) => {
+			console.log('UNSUBSCRIBE FROM LIST DETAIL...');
+			unsub();
+		});
+		subscriptions = [];
+	});
 
 	function addListItem(list_id: string) {
 		return (event: any) => {

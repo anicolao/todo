@@ -1,5 +1,5 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
-import { assert } from 'chai';
+import { signed_in, signed_out } from './auth';
 
 export interface TodoItem {
 	completed: boolean;
@@ -96,6 +96,8 @@ export const initialState = {
 } as ItemsState;
 
 export const items = createReducer(initialState, (r) => {
+	r.addCase(signed_in, () => initialState);
+	r.addCase(signed_out, () => initialState);
 	r.addCase(create_item, (state, action) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		list.itemIdToItem = { ...list.itemIdToItem };

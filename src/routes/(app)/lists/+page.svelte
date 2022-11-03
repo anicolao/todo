@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('routes/(app)/lists/+page.svelte');
 	import { page } from '$app/stores';
 	import { dispatch } from '$lib/components/ActionLog';
 	import ItemList from '$lib/components/ItemList.svelte';
