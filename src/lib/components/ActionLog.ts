@@ -52,7 +52,8 @@ export async function watchAll(type: string) {
 	);
 }
 
-export async function watch(type: string, id: string) {
+*/
+export function watch(type: string, id: string) {
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
@@ -78,4 +79,3 @@ export async function watch(type: string, id: string) {
 		}
 	);
 }
-*/

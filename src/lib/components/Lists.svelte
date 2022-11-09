@@ -9,10 +9,8 @@
 	} from '$lib/components/lists';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import type { AnyAction } from '@reduxjs/toolkit';
 	import IconButton from '@smui/icon-button';
-	import type { Unsubscribe } from 'firebase/firestore';
-	import { collection, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
+	import { doc, setDoc, type Unsubscribe } from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import { dispatch } from './ActionLog';
 	import { complete_item, create_item, star_item } from './items';
@@ -59,25 +57,6 @@
 							...rename_list({ id, name }),
 							timestamp: 0
 						});
-					})
-					.then(() => {
-						console.log('Asking for actions for new list.');
-						const actions = collection(firebase.firestore, 'lists', id, 'actions');
-						const unsubscribe = onSnapshot(
-							query(actions, orderBy('timestamp')),
-							(querySnapshot) => {
-								querySnapshot.docChanges().forEach((change) => {
-									if (change.type === 'added') {
-										let doc = change.doc;
-										const action = doc.data();
-										console.log(action);
-										delete action.timestamp;
-										store.dispatch(action as AnyAction);
-									}
-								});
-							}
-						);
-						subscriptions.push(unsubscribe);
 					})
 					.catch((message) => {
 						console.error(message);
