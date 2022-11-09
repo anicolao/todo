@@ -17,10 +17,12 @@
 	import Drawer, { AppContent, Content, Header, Subtitle, Scrim } from '@smui/drawer';
 	import List, { Item, Text, Graphic, Separator, Subheader } from '@smui/list';
 	import TopAppBar, { Row, Section, AutoAdjust, Title } from '@smui/top-app-bar';
-	import IconButton from '@smui/icon-button';
+	import IconButton, { Icon } from '@smui/icon-button';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import { onDestroy } from 'svelte';
+	import Textfield from '@smui/textfield';
+	import { create_list } from '$lib/components/lists';
 
 	let count = 0;
 	onDestroy(() => {
@@ -50,7 +52,7 @@
 				console.log('SUBSCRIBE to actions');
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-				console.log("Subscribing to actions for you", unsubscribeActions, this);
+				console.log('Subscribing to actions for you', unsubscribeActions, this);
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 					querySnapshot.docChanges().forEach((change) => {
 						if (change.type === 'added') {
@@ -103,6 +105,22 @@
 	function textLookup(text: string) {
 		return 'textLookup ' + text;
 	}
+
+	let newListName = '';
+
+	function handleEnterKey(e: CustomEvent | KeyboardEvent) {
+		e = e as KeyboardEvent;
+		if (e.key === 'Enter') {
+			createList(newListName);
+			newListName = '';
+		}
+	}
+
+	function createList(name:string) {
+		const id = crypto.randomUUID();
+		firebase.dispatch(create_list({ id, name }));
+	}
+
 </script>
 
 <svelte:window bind:innerWidth={width} />
@@ -141,8 +159,13 @@
 		</Header>
 		<Content>
 			<ListMenu />
-
-			<List>
+			<Textfield
+				style="width: 100%"
+				bind:value={newListName}
+				label="New list"
+				on:keydown={handleEnterKey}
+				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+			><List>
 				<Separator />
 				<Subheader>Settings</Subheader>
 				<Item
