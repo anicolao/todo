@@ -9,8 +9,13 @@
 	import Textfield from '@smui/textfield';
 	import { crossfade } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
+	import { set_icon, set_title } from '$lib/components/ui';
 
 	$: listId = $page.url.searchParams.get('listId') || 'hmph';
+	$: if (listId) {
+		store.dispatch(set_icon('list'))
+		store.dispatch(set_title($store.lists.listIdToList[listId]))
+	}
 
 	function addListItem(list_id: string, description: string) {
 		if ($store.auth.uid) {

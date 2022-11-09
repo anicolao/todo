@@ -12,6 +12,7 @@ import { uiSettings, type UiSettings } from '$lib/components/UiSettings';
 import { lists, type ListsState } from '$lib/components/lists';
 import { users, type UsersState } from '$lib/components/users';
 import { items } from './components/items';
+import { ui } from './components/ui';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
@@ -32,6 +33,7 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 const reducer = {
 	auth,
 	uiSettings,
+	ui,
 	lists,
 	items,
 	users

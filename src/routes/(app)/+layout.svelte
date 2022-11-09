@@ -139,7 +139,7 @@
 							>menu</IconButton
 						>
 					{/if}
-					<Title>Page Title</Title>
+					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title>{$store.ui.title}</Title>
 				</Section>
 			</div>
 			<Section align="end" toolbar>
