@@ -15,6 +15,7 @@
 	import { add_user } from '$lib/components/users';
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Drawer, { AppContent, Content, Header, Subtitle, Scrim } from '@smui/drawer';
+	import Dialog, { Actions } from '@smui/dialog';
 	import List, { Item, Text, Graphic, Subheader } from '@smui/list';
 	import TopAppBar, { Row, Section, AutoAdjust, Title } from '@smui/top-app-bar';
 	import IconButton, { Icon } from '@smui/icon-button';
@@ -22,7 +23,10 @@
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import { onDestroy } from 'svelte';
 	import Textfield from '@smui/textfield';
-	import { create_list } from '$lib/components/lists';
+	import { create_list, rename_list } from '$lib/components/lists';
+	import { show_edit_dialog } from '$lib/components/ui';
+	import Button, { Label } from '@smui/button';
+	import { dispatch } from '$lib/components/ActionLog';
 
 	let count = 0;
 	onDestroy(() => {
@@ -123,6 +127,28 @@
 		const id = crypto.randomUUID();
 		firebase.dispatch(create_list({ id, name }));
 	}
+
+	$: dialogOpen = $store.ui.showEditDialog;
+	$: listName = '';
+	$: if ($store.ui.title && !dialogOpen) {
+		if (listName !== $store.ui.title) listName = $store.ui.title;
+	}
+
+	function closeDialog() {
+		if (listName !== $store.ui.title) {
+			const id = $store.ui.listId;
+			const name = listName;
+			const action = rename_list({ id, name });
+			const uid = $store.auth.uid;
+			if (uid) {
+				dispatch('lists', id, uid, action);
+			}
+		}
+		store.dispatch(show_edit_dialog(false));
+	}
+	function cancelDialog() {
+		store.dispatch(show_edit_dialog(false));
+	}
 </script>
 
 <svelte:window bind:innerWidth={width} />
@@ -139,7 +165,9 @@
 							>menu</IconButton
 						>
 					{/if}
-					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title>{$store.ui.title}</Title>
+					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
+						>{$store.ui.title}</Title
+					>
 				</Section>
 			</div>
 			<Section align="end" toolbar>
@@ -188,6 +216,27 @@
 	<Scrim fixed={false} />
 	<AppContent class="app-content">
 		<slot />
+		<Dialog
+			bind:open={dialogOpen}
+			aria-labelledby="autocomplete-dialog-title"
+			aria-describedby="autocomplete-dialog-content"
+		>
+			<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
+			<Title id="autocomplete-dialog-title">Edit list</Title>
+			<Content id="autocomplete-dialog-content">
+				<div class="autocomplete-dialog-content">
+					<Textfield bind:value={listName} label="Name" />
+				</div>
+			</Content>
+			<Actions>
+				<Button on:click={cancelDialog}>
+					<Label>Cancel</Label>
+				</Button>
+				<Button on:click={closeDialog}>
+					<Label>Done</Label>
+				</Button>
+			</Actions>
+		</Dialog>
 	</AppContent>
 </div>
 
@@ -239,5 +288,8 @@
 	}
 	.desk-margin {
 		margin-left: 256px;
+	}
+	.autocomplete-dialog-content {
+		padding: 2em;
 	}
 </style>
