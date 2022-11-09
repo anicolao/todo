@@ -33,6 +33,9 @@
 
 	type ExtendedTodoItem = TodoItem & { id: string };
 	let items: ExtendedTodoItem[] = [];
+	$: if (listId) {
+		items = [];
+	}
 	let dragTo: ExtendedTodoItem;
 	let lastListOfItems: ListOfItems | undefined = undefined;
 	$: if ($store.items.listIdToListOfItems[listId]) {
