@@ -27,18 +27,20 @@ describe('lists', () => {
 
 	it('can create a new list that is first', () => {
 		let nextState = createList(initialState, 'id1', 'First List');
-		nextState = createList(nextState, 'id2', 'Top List');
+		nextState = createList(nextState, 'id2', 'Second List');
 		expect(nextState.visibleLists.length).to.equal(2);
-		expect(nextState.visibleLists[0]).to.equal('id2');
+		expect(nextState.visibleLists[0]).to.equal('id1');
+		expect(nextState.visibleLists[1]).to.equal('id2');
 	});
 
 	it('can rename a list and renaming does not move the list', () => {
 		let nextState = createList(initialState, 'id1', 'First List');
-		nextState = createList(nextState, 'id2', 'Top List');
-		expect(nextState.visibleLists.indexOf('id1')).to.equal(1);
-		nextState = lists(nextState, rename_list({ id: 'id1', name: 'Should not move' }));
-		expect(nextState.listIdToList['id1']).to.equal('Should not move');
-		expect(nextState.visibleLists.indexOf('id1')).to.equal(1);
+		nextState = createList(nextState, 'id2', 'Second List');
+		expect(nextState.visibleLists.indexOf('id1')).to.equal(0);
+		expect(nextState.visibleLists.indexOf('id2')).to.equal(1);
+		nextState = lists(nextState, rename_list({ id: 'id2', name: 'Should not move' }));
+		expect(nextState.listIdToList['id2']).to.equal('Should not move');
+		expect(nextState.visibleLists.indexOf('id2')).to.equal(1);
 	});
 
 	it('can delete a list', () => {

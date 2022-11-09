@@ -23,7 +23,7 @@ export const lists = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_list, (state, action) => {
-		state.visibleLists = [action.payload.id, ...state.visibleLists];
+		state.visibleLists = [...state.visibleLists, action.payload.id];
 		state.listIdToList[action.payload.id] = action.payload.name;
 		return state;
 	});
