@@ -7,7 +7,11 @@
 	import { watch } from './ActionLog';
 
 	export let listId: string | undefined = undefined;
-	let unsub: Unsubscribe | undefined = listId ? watch('lists', listId) : undefined;
+	let unsub: Unsubscribe | undefined;
+	$: if (listId) {
+		if (unsub) unsub();
+		unsub = watch('lists', listId);
+	}
 
 	onDestroy(() => {
 		if (unsub) unsub();
