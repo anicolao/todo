@@ -5,6 +5,7 @@
 	import type { Unsubscribe } from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import { watch } from './ActionLog';
+	import ListIcon from './ListIcon.svelte';
 
 	export let listId: string | undefined = undefined;
 	let unsub: Unsubscribe | undefined;
@@ -24,7 +25,7 @@
 
 {#if listId}
 	<Item href="javascript:void(0)" on:click={gotoList(listId)}>
-		<Graphic class="material-icons" aria-hidden="true">account_circle</Graphic>
+		<ListIcon />
 		<Text>{$store.lists.listIdToList[listId]}</Text>
 	</Item>
 {/if}

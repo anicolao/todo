@@ -15,7 +15,7 @@
 	import { add_user } from '$lib/components/users';
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Drawer, { AppContent, Content, Header, Subtitle, Scrim } from '@smui/drawer';
-	import List, { Item, Text, Graphic, Separator, Subheader } from '@smui/list';
+	import List, { Item, Text, Graphic, Subheader } from '@smui/list';
 	import TopAppBar, { Row, Section, AutoAdjust, Title } from '@smui/top-app-bar';
 	import IconButton, { Icon } from '@smui/icon-button';
 	import Avatar from '$lib/components/Avatar.svelte';
@@ -100,10 +100,13 @@
 	let active: string;
 	function setActive(name: string) {}
 	function getIconName(name: string) {
-		return 'iconName ' + name;
+		return name;
 	}
 	function textLookup(text: string) {
-		return 'textLookup ' + text;
+		const i18n: { [k: string]: string } = {
+			account_circle: 'Profile'
+		};
+		return i18n[text];
 	}
 
 	let newListName = '';
@@ -116,11 +119,10 @@
 		}
 	}
 
-	function createList(name:string) {
+	function createList(name: string) {
 		const id = crypto.randomUUID();
 		firebase.dispatch(create_list({ id, name }));
 	}
-
 </script>
 
 <svelte:window bind:innerWidth={width} />
@@ -159,14 +161,15 @@
 		</Header>
 		<Content>
 			<ListMenu />
+			<div class="verticalspacer" />
 			<Textfield
-				style="width: 100%"
+				style="width: 100%; min-height: 55px;"
 				bind:value={newListName}
 				label="New list"
 				on:keydown={handleEnterKey}
 				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
-			><List>
-				<Separator />
+			>
+			<List>
 				<Subheader>Settings</Subheader>
 				<Item
 					href="javascript:void(0)"
@@ -189,6 +192,14 @@
 </div>
 
 <style>
+	:global(.mdc-drawer__content) {
+		display: flex;
+		flex-direction: column;
+	}
+	.verticalspacer {
+		display: flex;
+		flex: 1;
+	}
 	/* Hide everything above this component. */
 	:global(app),
 	:global(body),
