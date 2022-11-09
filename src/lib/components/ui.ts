@@ -16,7 +16,7 @@ const initialUiState = {
 	listId: '',
 	title: 'Todo',
 	icon: 'list',
-	showEditDialog: false,
+	showEditDialog: false
 } as UiState;
 
 export const ui = createReducer(initialUiState, (r) => {

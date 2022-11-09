@@ -9,11 +9,7 @@
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
 </script>
 
-<div
-	style:color="purple"
-	style:background-image={bgStyle}
-	style:background-size="cover"
->
+<div style:color="purple" style:background-image={bgStyle} style:background-size="cover">
 	<h1>The All New TODO</h1>
 	<p>A hopefully simpler, more robust, TODO list app.</p>
 

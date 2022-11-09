@@ -13,9 +13,9 @@
 
 	$: listId = $page.url.searchParams.get('listId') || 'hmph';
 	$: if (listId) {
-		store.dispatch(set_icon('list'))
-		store.dispatch(set_title($store.lists.listIdToList[listId]))
-		store.dispatch(set_current_listid(listId))
+		store.dispatch(set_icon('list'));
+		store.dispatch(set_title($store.lists.listIdToList[listId]));
+		store.dispatch(set_current_listid(listId));
 	}
 
 	function addListItem(list_id: string, description: string) {
