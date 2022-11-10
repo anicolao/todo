@@ -218,13 +218,15 @@
 		<slot />
 		<Dialog
 			bind:open={dialogOpen}
-			aria-labelledby="autocomplete-dialog-title"
-			aria-describedby="autocomplete-dialog-content"
+			aria-labelledby="editlist-dialog-title"
+			aria-describedby="editlist-dialog-content"
 		>
 			<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-			<Title id="autocomplete-dialog-title">Edit list</Title>
-			<Content id="autocomplete-dialog-content">
-				<div class="autocomplete-dialog-content">
+			<div class="editlist-dialog-title-div">
+				<Title id="editlist-dialog-title">Edit List</Title>
+			</div>
+			<Content id="editlist-dialog-content" >
+				<div class="editlist-dialog-content-div">
 					<Textfield bind:value={listName} label="Name" />
 				</div>
 			</Content>
@@ -289,7 +291,14 @@
 	.desk-margin {
 		margin-left: 256px;
 	}
-	.autocomplete-dialog-content {
-		padding: 2em;
+	.editlist-dialog-content-div {
+		padding-top: 1em;
+		padding-bottom: 1em;
+		padding-left: 1.25em;
+		padding-right:1.25em;
+	}
+
+	.editlist-dialog-title-div {
+		padding-top: 0.75em;
 	}
 </style>
