@@ -15,6 +15,7 @@
 	import { add_user } from '$lib/components/users';
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Drawer, { AppContent, Content, Header, Subtitle, Scrim } from '@smui/drawer';
+	import SgDialog from '$lib/components/SgDialog.svelte';
 	import Dialog, { Actions } from '@smui/dialog';
 	import List, { Item, Text, Graphic, Subheader } from '@smui/list';
 	import TopAppBar, { Row, Section, AutoAdjust, Title } from '@smui/top-app-bar';
@@ -216,10 +217,11 @@
 	<Scrim fixed={false} />
 	<AppContent class="app-content">
 		<slot />
-		<Dialog
+		<SgDialog
 			bind:open={dialogOpen}
-			aria-labelledby="editlist-dialog-title"
-			aria-describedby="editlist-dialog-content"
+			{cancelDialog}
+			labelledby="editlist-dialog-title"
+			describedby="editlist-dialog-content"
 		>
 			<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
 			<div class="editlist-dialog-title-div">
@@ -238,7 +240,7 @@
 					<Label>Done</Label>
 				</Button>
 			</Actions>
-		</Dialog>
+		</SgDialog>
 	</AppContent>
 </div>
 
