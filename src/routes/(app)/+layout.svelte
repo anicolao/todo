@@ -28,6 +28,7 @@
 	import { show_edit_dialog } from '$lib/components/ui';
 	import Button, { Label } from '@smui/button';
 	import { dispatch } from '$lib/components/ActionLog';
+	import { goto } from '$app/navigation';
 
 	let count = 0;
 	onDestroy(() => {
@@ -103,7 +104,11 @@
 	let topAppBar;
 
 	let active: string;
-	function setActive(name: string) {}
+	function setActive(name: string) {
+		active = name;
+		goto('/profile');
+	}
+
 	function getIconName(name: string) {
 		return name;
 	}

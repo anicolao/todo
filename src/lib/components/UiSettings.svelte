@@ -4,25 +4,15 @@
 	import { set_background_url } from '$lib/components/UiSettings';
 	import firebase from '$lib/firebase';
 	import { addDoc, doc, collection, serverTimestamp } from 'firebase/firestore';
-
-	let errorMessage: string;
+	import IconButton from '@smui/icon-button/src/IconButton.svelte';
 
 	function setBackground(event: { srcElement: { value: any } }) {
-		errorMessage = '';
 		let imgUrl = event.srcElement.value;
 		firebase.dispatch(set_background_url(imgUrl));
 	}
-
-	let visible = false;
-
-	function toggleVisible() {
-		visible = !visible;
-	}
 </script>
 
-<span style:font-size="1.5em" style:cursor="pointer" on:click={toggleVisible}> ⚙ </span>
-
-{#if visible}
+<div>
 	<h3>Settings</h3>
 	<label for="url">Background image url:</label>
 	<input
@@ -35,8 +25,4 @@
 	{#if $store.uiSettings.backgroundUrl}
 		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
 	{/if}
-
-	{#if errorMessage}
-		<p>{errorMessage}</p>
-	{/if}
-{/if}
+</div>
