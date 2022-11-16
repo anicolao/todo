@@ -302,7 +302,7 @@
 		padding-top: 1em;
 		padding-bottom: 1em;
 		padding-left: 1.25em;
-		padding-right:1.25em;
+		padding-right: 1.25em;
 	}
 
 	.editlist-dialog-title-div {
