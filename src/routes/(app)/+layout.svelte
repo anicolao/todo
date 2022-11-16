@@ -232,7 +232,7 @@
 			<div class="editlist-dialog-title-div">
 				<Title id="editlist-dialog-title">Edit List</Title>
 			</div>
-			<Content id="editlist-dialog-content" >
+				<Content id="editlist-dialog-content">
 				<div class="editlist-dialog-content-div">
 					<Textfield bind:value={listName} label="Name" />
 				</div>
