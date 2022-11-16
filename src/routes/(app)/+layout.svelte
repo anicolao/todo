@@ -155,98 +155,103 @@
 	function cancelDialog() {
 		store.dispatch(show_edit_dialog(false));
 	}
+
+	$: bgUrl = $store?.uiSettings?.backgroundUrl;
+	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
 </script>
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="drawer-container">
-	<TopAppBar bind:this={topAppBar} variant="fixed">
-		<Row>
-			<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
-				<Section>
-					{#if width <= MOBILE_LAYOUT_WIDTH}
-						<IconButton
-							class="material-icons"
-							on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
-							>menu</IconButton
+<div style:background-image={bgStyle} style:background-size="cover">
+	<div class="drawer-container">
+		<TopAppBar bind:this={topAppBar} variant="fixed">
+			<Row>
+				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
+					<Section>
+						{#if width <= MOBILE_LAYOUT_WIDTH}
+							<IconButton
+								class="material-icons"
+								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
+								>menu</IconButton
+							>
+						{/if}
+						<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
+							>{$store.ui.title}</Title
 						>
-					{/if}
-					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
-						>{$store.ui.title}</Title
-					>
-				</Section>
-			</div>
-			<Section align="end" toolbar>
-				<span><Avatar /></span>
-			</Section>
-		</Row>
-	</TopAppBar>
-
-	<AutoAdjust {topAppBar} />
-
-	<Drawer
-		variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
-		fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
-		bind:open={drawerOpen}
-	>
-		<Header>
-			<Title>Todo menu title</Title>
-			<Subtitle>Organize your todos</Subtitle>
-		</Header>
-		<Content>
-			<ListMenu />
-			<div class="verticalspacer" />
-			<Textfield
-				style="width: 100%; min-height: 55px;"
-				bind:value={newListName}
-				label="New list"
-				on:keydown={handleEnterKey}
-				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
-			>
-			<List>
-				<Subheader>Settings</Subheader>
-				<Item
-					href="javascript:void(0)"
-					on:click={() => setActive('account_circle')}
-					activated={active === 'account_circle'}
-				>
-					<Graphic class="material-icons" aria-hidden="true"
-						>{getIconName('account_circle')}</Graphic
-					>
-					<Text>{textLookup('account_circle')}</Text>
-				</Item>
-			</List>
-		</Content>
-	</Drawer>
-
-	<Scrim fixed={false} />
-	<AppContent class="app-content">
-		<slot />
-		<SgDialog
-			bind:open={dialogOpen}
-			{cancelDialog}
-			labelledby="editlist-dialog-title"
-			describedby="editlist-dialog-content"
-		>
-			<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-			<div class="editlist-dialog-title-div">
-				<Title id="editlist-dialog-title">Edit List</Title>
-			</div>
-				<Content id="editlist-dialog-content">
-				<div class="editlist-dialog-content-div">
-					<Textfield bind:value={listName} label="Name" />
+					</Section>
 				</div>
+				<Section align="end" toolbar>
+					<span><Avatar /></span>
+				</Section>
+			</Row>
+		</TopAppBar>
+
+		<AutoAdjust {topAppBar} />
+
+		<Drawer
+			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
+			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
+			bind:open={drawerOpen}
+		>
+			<Header>
+				<Title>Todo menu title</Title>
+				<Subtitle>Organize your todos</Subtitle>
+			</Header>
+			<Content>
+				<ListMenu />
+				<div class="verticalspacer" />
+				<Textfield
+					style="width: 100%; min-height: 55px;"
+					bind:value={newListName}
+					label="New list"
+					on:keydown={handleEnterKey}
+					><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+				>
+				<List>
+					<Subheader>Settings</Subheader>
+					<Item
+						href="javascript:void(0)"
+						on:click={() => setActive('account_circle')}
+						activated={active === 'account_circle'}
+					>
+						<Graphic class="material-icons" aria-hidden="true"
+							>{getIconName('account_circle')}</Graphic
+						>
+						<Text>{textLookup('account_circle')}</Text>
+					</Item>
+				</List>
 			</Content>
-			<Actions>
-				<Button on:click={cancelDialog}>
-					<Label>Cancel</Label>
-				</Button>
-				<Button on:click={closeDialog}>
-					<Label>Done</Label>
-				</Button>
-			</Actions>
-		</SgDialog>
-	</AppContent>
+		</Drawer>
+
+		<Scrim fixed={false} />
+		<AppContent class="app-content">
+			<slot />
+			<SgDialog
+				bind:open={dialogOpen}
+				{cancelDialog}
+				labelledby="editlist-dialog-title"
+				describedby="editlist-dialog-content"
+			>
+				<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
+				<div class="editlist-dialog-title-div">
+					<Title id="editlist-dialog-title">Edit List</Title>
+				</div>
+				<Content id="editlist-dialog-content">
+					<div class="editlist-dialog-content-div">
+						<Textfield bind:value={listName} label="Name" />
+					</div>
+				</Content>
+				<Actions>
+					<Button on:click={cancelDialog}>
+						<Label>Cancel</Label>
+					</Button>
+					<Button on:click={closeDialog}>
+						<Label>Done</Label>
+					</Button>
+				</Actions>
+			</SgDialog>
+		</AppContent>
+	</div>
 </div>
 
 <style>
