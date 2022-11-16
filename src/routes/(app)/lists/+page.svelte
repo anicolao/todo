@@ -55,17 +55,24 @@
 </script>
 
 <div class="container">
-	<Textfield
-		style="width: 100%"
-		bind:value={newItemText}
-		label="New task"
-		on:keydown={handleEnterKey}
-		><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+	<span
+		><Textfield
+			style="width: 100%"
+			bind:value={newItemText}
+			label="New task"
+			on:keydown={handleEnterKey}
+			><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+		></span
 	><ItemList {listId} {send} {receive} /><ItemList {listId} {send} {receive} completed={true} />
 </div>
 
 <style>
 	.container {
 		width: 100%;
+	}
+	span {
+		background-color: #fafaf0;
+		margin: 0em;
+		display: block;
 	}
 </style>

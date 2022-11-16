@@ -162,69 +162,69 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<div style:background-image={bgStyle} style:background-size="cover">
-	<div class="drawer-container">
-		<TopAppBar bind:this={topAppBar} variant="fixed">
-			<Row>
-				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
-					<Section>
-						{#if width <= MOBILE_LAYOUT_WIDTH}
-							<IconButton
-								class="material-icons"
-								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
-								>menu</IconButton
-							>
-						{/if}
-						<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
-							>{$store.ui.title}</Title
+<div class="drawer-container">
+	<TopAppBar bind:this={topAppBar} variant="fixed">
+		<Row>
+			<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
+				<Section>
+					{#if width <= MOBILE_LAYOUT_WIDTH}
+						<IconButton
+							class="material-icons"
+							on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
+							>menu</IconButton
 						>
-					</Section>
-				</div>
-				<Section align="end" toolbar>
-					<span><Avatar /></span>
-				</Section>
-			</Row>
-		</TopAppBar>
-
-		<AutoAdjust {topAppBar} />
-
-		<Drawer
-			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
-			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
-			bind:open={drawerOpen}
-		>
-			<Header>
-				<Title>Todo menu title</Title>
-				<Subtitle>Organize your todos</Subtitle>
-			</Header>
-			<Content>
-				<ListMenu />
-				<div class="verticalspacer" />
-				<Textfield
-					style="width: 100%; min-height: 55px;"
-					bind:value={newListName}
-					label="New list"
-					on:keydown={handleEnterKey}
-					><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
-				>
-				<List>
-					<Subheader>Settings</Subheader>
-					<Item
-						href="javascript:void(0)"
-						on:click={() => setActive('account_circle')}
-						activated={active === 'account_circle'}
+					{/if}
+					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
+						>{$store.ui.title}</Title
 					>
-						<Graphic class="material-icons" aria-hidden="true"
-							>{getIconName('account_circle')}</Graphic
-						>
-						<Text>{textLookup('account_circle')}</Text>
-					</Item>
-				</List>
-			</Content>
-		</Drawer>
+				</Section>
+			</div>
+			<Section align="end" toolbar>
+				<span><Avatar /></span>
+			</Section>
+		</Row>
+	</TopAppBar>
 
-		<Scrim fixed={false} />
-		<AppContent class="app-content">
+	<AutoAdjust {topAppBar} />
+
+	<Drawer
+		variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
+		fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
+		bind:open={drawerOpen}
+	>
+		<Header>
+			<Title>Todo menu title</Title>
+			<Subtitle>Organize your todos</Subtitle>
+		</Header>
+		<Content>
+			<ListMenu />
+			<div class="verticalspacer" />
+			<Textfield
+				style="width: 100%; min-height: 55px;"
+				bind:value={newListName}
+				label="New list"
+				on:keydown={handleEnterKey}
+				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+			>
+			<List>
+				<Subheader>Settings</Subheader>
+				<Item
+					href="javascript:void(0)"
+					on:click={() => setActive('account_circle')}
+					activated={active === 'account_circle'}
+				>
+					<Graphic class="material-icons" aria-hidden="true"
+						>{getIconName('account_circle')}</Graphic
+					>
+					<Text>{textLookup('account_circle')}</Text>
+				</Item>
+			</List>
+		</Content>
+	</Drawer>
+
+	<Scrim fixed={false} />
+	<AppContent class="app-content">
+		<div style:background-image={bgStyle} style:background-size="cover" style:width="100%">
 			<slot />
 			<SgDialog
 				bind:open={dialogOpen}
@@ -250,8 +250,8 @@
 					</Button>
 				</Actions>
 			</SgDialog>
-		</AppContent>
-	</div>
+		</div>
+	</AppContent>
 </div>
 
 <style>

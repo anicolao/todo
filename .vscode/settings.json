@@ -1,8 +1,8 @@
 {
-  "vim.ignorecase": false,
-  "vim.showmodename": true,
-  "vim.useCtrlKeys": true,
-  "liveshare.allowGuestDebugControl": true,
-  "liveshare.allowGuestTaskControl": true,
-  "liveshare.showInStatusBar": "whileCollaborating"
+	"vim.ignorecase": false,
+	"vim.showmodename": true,
+	"vim.useCtrlKeys": true,
+	"liveshare.allowGuestDebugControl": true,
+	"liveshare.allowGuestTaskControl": true,
+	"liveshare.showInStatusBar": "whileCollaborating"
 }

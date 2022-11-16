@@ -77,28 +77,39 @@
 	}
 </script>
 
-<Item
-	><Graphic
-		>{#if item.completed}<IconButton
-				class="material-icons"
-				on:click={complete(listId, item.id, false)}>check_box</IconButton
-			>
-		{:else}
-			<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
-				>check_box_outline_blank</IconButton
-			>
-		{/if}
-	</Graphic><Textfield
-		style="width: 100%"
-		value={item.description}
-		on:keydown={handleEnterKey(listId, item)}
-		on:blur={handleBlur(listId, item)}
-		on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
-	/><Meta
-		>{#if item.starred}<IconButton class="material-icons" on:click={star(listId, item.id, false)}
-				>star</IconButton
-			>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
-				>star_outline</IconButton
-			>{/if}</Meta
-	></Item
->
+<div>
+	<Item
+		><Graphic
+			>{#if item.completed}<IconButton
+					class="material-icons"
+					on:click={complete(listId, item.id, false)}>check_box</IconButton
+				>
+			{:else}
+				<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
+					>check_box_outline_blank</IconButton
+				>
+			{/if}
+		</Graphic><Textfield
+			style="width: 100%"
+			value={item.description}
+			on:keydown={handleEnterKey(listId, item)}
+			on:blur={handleBlur(listId, item)}
+			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
+		/><Meta
+			>{#if item.starred}<IconButton class="material-icons" on:click={star(listId, item.id, false)}
+					>star</IconButton
+				>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
+					>star_outline</IconButton
+				>{/if}</Meta
+		></Item
+	>
+</div>
+
+<style>
+	div {
+		background-color: #fafaf0;
+		border-radius: 0.3em;
+		margin: 0.25em;
+		opacity: 0.9;
+	}
+</style>

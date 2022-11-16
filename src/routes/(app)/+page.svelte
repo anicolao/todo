@@ -6,7 +6,7 @@
 	import Lists from '$lib/components/Lists.svelte';
 </script>
 
- <div>
+<div>
 	<h1>The All New TODO</h1>
 	<p>A hopefully simpler, more robust, TODO list app.</p>
 
@@ -15,4 +15,4 @@
 		<Lists />
 	{/if}
 	<Login />
- </div>
+</div>

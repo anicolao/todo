@@ -234,11 +234,15 @@
 		>{/if}{/if}
 
 <style>
+	:global(.mdc-deprecated-list) {
+		padding: 0;
+	}
+
 	.item {
 		box-sizing: border-box;
 		width: 100%;
 		min-height: 3em;
-		margin-bottom: 0.5em;
+		margin-bottom: 0;
 		user-select: none;
 	}
 

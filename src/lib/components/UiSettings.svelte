@@ -22,9 +22,10 @@
 		on:input={setBackground}
 	/>
 	{#if $store.uiSettings.backgroundUrl}
-		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" height="300" />
-		<Paper variant="outlined">
-			<Content>Hi Please This is where I'd like the image to go.</Content>
+		<Paper elevation={24}>
+			<Content>
+				<img src={$store.uiSettings.backgroundUrl} alt="background for the app" height="300" />
+			</Content>
 		</Paper>
 	{/if}
 </div>
