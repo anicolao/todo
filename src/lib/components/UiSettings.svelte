@@ -1,10 +1,9 @@
 <script lang="ts">
 	console.log('UiSettings.svelte');
-	import { store } from '$lib/store';
 	import { set_background_url } from '$lib/components/UiSettings';
 	import firebase from '$lib/firebase';
-	import { addDoc, doc, collection, serverTimestamp } from 'firebase/firestore';
-	import IconButton from '@smui/icon-button/src/IconButton.svelte';
+	import { store } from '$lib/store';
+	import Paper, { Content } from '@smui/paper';
 
 	function setBackground(event: { srcElement: { value: any } }) {
 		let imgUrl = event.srcElement.value;
@@ -23,6 +22,9 @@
 		on:input={setBackground}
 	/>
 	{#if $store.uiSettings.backgroundUrl}
-		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" />
+		<img src={$store.uiSettings.backgroundUrl} alt="background for the app" height="300" />
+		<Paper variant="outlined">
+			<Content>Hi Please This is where I'd like the image to go.</Content>
+		</Paper>
 	{/if}
 </div>
