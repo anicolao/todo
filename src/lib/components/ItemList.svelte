@@ -35,6 +35,7 @@
 	let items: ExtendedTodoItem[] = [];
 	$: if (listId) {
 		items = [];
+		lastListOfItems = undefined;
 	}
 	let dragTo: ExtendedTodoItem;
 	let lastListOfItems: ListOfItems | undefined = undefined;

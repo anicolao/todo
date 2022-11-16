@@ -6,7 +6,7 @@
 </script>
 
 <List>
-	{#each $store.lists.visibleLists as listId}
+	{#each $store.lists.visibleLists as listId (listId)}
 		<ListMenuItem {listId} />
 	{/each}
 </List>

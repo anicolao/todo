@@ -101,7 +101,9 @@ export const items = createReducer(initialState, (r) => {
 	r.addCase(create_item, (state, action) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		list.itemIdToItem = { ...list.itemIdToItem };
-		list.itemIds = [action.payload.id, ...list.itemIds];
+		if (list.itemIds.indexOf(action.payload.id) === -1) {
+			list.itemIds = [action.payload.id, ...list.itemIds];
+		}
 		list.itemIdToItem[action.payload.id] = {
 			completed: false,
 			starred: false,

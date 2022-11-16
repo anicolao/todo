@@ -24,7 +24,7 @@
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import { onDestroy } from 'svelte';
 	import Textfield from '@smui/textfield';
-	import { create_list, rename_list } from '$lib/components/lists';
+	import { create_list, delete_list, rename_list } from '$lib/components/lists';
 	import { show_edit_dialog } from '$lib/components/ui';
 	import Button, { Label } from '@smui/button';
 	import { dispatch } from '$lib/components/ActionLog';
@@ -156,6 +156,21 @@
 		store.dispatch(show_edit_dialog(false));
 	}
 
+	function deleteList() {
+		const id = $store.ui.listId;
+		const uid = $store.auth.uid;
+		if (uid) {
+			dispatch('lists', id, uid, delete_list(id));
+		}
+		store.dispatch(show_edit_dialog(false));
+		const remainingLists = $store.lists.visibleLists.filter((x) => x !== id);
+		if (remainingLists.length == 0) {
+			goto('/profile');
+		} else {
+			goto('/lists?listId=' + remainingLists[0]);
+		}
+	}
+
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
 </script>
@@ -242,6 +257,7 @@
 					</div>
 				</Content>
 				<Actions>
+					<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
 					<Button on:click={cancelDialog}>
 						<Label>Cancel</Label>
 					</Button>

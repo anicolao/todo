@@ -125,12 +125,12 @@
 	on:change={createNewList}
 />
 <ul>
-	{#each $store.lists.visibleLists as listId}
+	{#each $store.lists.visibleLists as listId (listId)}
 		<li>
 			<input type="text" value={$store.lists.listIdToList[listId]} on:change={renameList(listId)} />
 			<ul>
 				{#if $store.items.listIdToListOfItems[listId]}
-					{#each $store.items.listIdToListOfItems[listId].itemIds as itemId}
+					{#each $store.items.listIdToListOfItems[listId].itemIds as itemId (itemId)}
 						<li>
 							{#if $store.items.listIdToListOfItems[listId].itemIdToItem[itemId].completed}
 								<IconButton class="material-icons" on:click={completed(listId, itemId, false)}
@@ -161,7 +161,7 @@
 				</li>
 			</ul>
 			<p>
-				{#each $store.users.users.filter((u) => u.uid != $store.auth.uid) as user}
+				{#each $store.users.users.filter((u) => u.uid != $store.auth.uid) as user (user.uid)}
 					{#if user.uid}
 						<button on:click={shareList(listId, $store.lists.listIdToList[listId], user.uid)}
 							>Share list with {user.name}.</button
@@ -175,7 +175,7 @@
 </ul>
 
 <ul>
-	{#each $store.lists.pendingShares as { id, name, sharerId }}
+	{#each $store.lists.pendingShares as { id, name, sharerId } (id)}
 		<li>
 			<button on:click={acceptPendingShare(id)}
 				>Accept share of '{name}' from {getUserById(sharerId).name}</button
