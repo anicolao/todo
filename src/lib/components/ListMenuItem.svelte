@@ -1,22 +1,52 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import { Item, Text, Graphic, Meta } from '@smui/list';
-	import type { Unsubscribe } from 'firebase/firestore';
+	import IconButton from '@smui/icon-button';
+	import { Item, Meta, Text } from '@smui/list';
+	import { doc, setDoc, type Unsubscribe } from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
-	import { page } from '$app/stores';
-	import IconButton from '@smui/icon-button';
+	import { rename_list } from './lists';
 	import { show_edit_dialog } from './ui';
 
 	$: pageListId = $page.url.searchParams.get('listId') || 'hmph';
 
 	export let listId: string | undefined = undefined;
 	let unsub: Unsubscribe | undefined;
-	$: if (listId) {
-		if (unsub) unsub();
-		unsub = watch('lists', listId);
+	if (listId) {
+		if (unsub) {
+			unsub();
+			unsub = undefined;
+		}
+
+		const user = $store.auth;
+		if (user.uid) {
+			const id = listId;
+			const name = $store.lists.listIdToList[id];
+			console.log('Create new list for ', id);
+			setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), { email: user.email })
+				.then(() => {
+					console.log('Create new actions for ', id);
+					if (name === undefined) {
+						// this one isn't our own list.-
+						console.log(`No need to create actions for ${id}`);
+						return;
+					}
+					return setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
+						...rename_list({ id, name }),
+						timestamp: 0
+					});
+				})
+				.then(() => {
+					unsub = watch('lists', id);
+				})
+				.catch((message) => {
+					console.error(message);
+				});
+		}
 	}
 
 	onDestroy(() => {

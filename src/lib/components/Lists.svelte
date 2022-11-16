@@ -10,9 +10,8 @@
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
-	import { doc, setDoc, type Unsubscribe } from 'firebase/firestore';
-	import { onDestroy } from 'svelte';
 	import { dispatch } from './ActionLog';
+	import type { AuthState } from './auth';
 	import { complete_item, create_item, star_item } from './items';
 
 	let errorMessage: string;
@@ -29,49 +28,10 @@
 	}
 
 	function getUserById(id: string) {
-		let users = $store.users.users.filter((x) => x.uid === id);
+		let users = $store.users.users.filter((x: AuthState) => x.uid === id);
 		return users[0];
 	}
 
-	$: latestListCount = $store.lists.visibleLists.length;
-	let lastListCount = 0;
-	let subscriptions: Unsubscribe[] = [];
-	$: if (latestListCount > lastListCount) {
-		console.log({ latestListCount, lastListCount });
-		let numNewLists = latestListCount - lastListCount;
-		const user = store.getState().auth;
-		if (user.uid) {
-			for (let i = 0; i < numNewLists; ++i) {
-				const id = $store.lists.visibleLists[i];
-				const name = $store.lists.listIdToList[id];
-				console.log('Create new list for ', id);
-				setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), { email: user.email })
-					.then(() => {
-						console.log('Create new actions for ', id);
-						if (name === undefined) {
-							// this one isn't our own list.-
-							console.log(`No need to create actions for ${id}`);
-							return;
-						}
-						return setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
-							...rename_list({ id, name }),
-							timestamp: 0
-						});
-					})
-					.catch((message) => {
-						console.error(message);
-					});
-			}
-			lastListCount = latestListCount;
-		}
-	}
-	onDestroy(() => {
-		subscriptions.forEach((unsub) => {
-			console.log('UNSUBSCRIBE FROM LIST DETAIL...');
-			unsub();
-		});
-		subscriptions = [];
-	});
 
 	function addListItem(list_id: string) {
 		return (event: any) => {
