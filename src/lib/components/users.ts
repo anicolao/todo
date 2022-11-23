@@ -11,6 +11,14 @@ const initialState = {
 	users: []
 } as UsersState;
 
+export function emailToUid(state: UsersState, email: string): string {
+	const otherUser = state.users.filter((x) => x.email === email);
+	if (otherUser.length >= 1) {
+		return otherUser[0].uid || '';
+	}
+	return '';
+}
+
 export const users = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);

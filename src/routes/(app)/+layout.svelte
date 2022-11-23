@@ -1,13 +1,19 @@
 <script lang="ts">
 	console.log('routes/(app)/+layout.svelte');
 	import { goto } from '$app/navigation';
+	import AcceptShare from '$lib/components/AcceptShare.svelte';
 	import { dispatch } from '$lib/components/ActionLog';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
-	import { create_list, delete_list, rename_list } from '$lib/components/lists';
+	import {
+		create_list,
+		delete_list,
+		register_pending_share,
+		rename_list
+	} from '$lib/components/lists';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog } from '$lib/components/ui';
-	import { add_user } from '$lib/components/users';
+	import { add_user, emailToUid } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import type { AnyAction } from '@reduxjs/toolkit';
@@ -15,11 +21,7 @@
 	import { Actions } from '@smui/dialog';
 	import Drawer, { AppContent, Content, Header, Scrim, Subtitle } from '@smui/drawer';
 	import IconButton, { Icon } from '@smui/icon-button';
-	import List, {
-		Graphic,
-		Item, Subheader,
-		Text
-	} from '@smui/list';
+	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Paper from '@smui/paper';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
@@ -145,15 +147,24 @@
 		if (listName !== $store.ui.title) listName = $store.ui.title;
 	}
 
+	function mapEmailToUid(email: string): string {
+		return emailToUid($store.users, email);
+	}
 	function closeDialog() {
-		if (listName !== $store.ui.title) {
-			const id = $store.ui.listId;
-			const name = listName;
-			const action = rename_list({ id, name });
-			const uid = $store.auth.uid;
-			if (uid) {
+		const uid = $store.auth.uid;
+		const id = $store.ui.listId;
+		const name = listName;
+		if (uid) {
+			if (listName !== $store.ui.title) {
+				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
 			}
+			const newShares = selectedShareUsers.filter((x) => true).map(mapEmailToUid);
+			newShares.forEach((shareWith) => {
+				if (shareWith) {
+					firebase.request(shareWith, register_pending_share({ id, name }));
+				}
+			});
 		}
 		store.dispatch(show_edit_dialog(false));
 	}
@@ -178,6 +189,8 @@
 
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
+
+	let selectedShareUsers: string[] = [];
 </script>
 
 <svelte:window bind:innerWidth={width} />
@@ -200,7 +213,7 @@
 				</Section>
 			</div>
 			<Section align="end" toolbar>
-				<span><Avatar name={$store.auth.name} photo={$store.auth.photo}/></span>
+				<span><Avatar name={$store.auth.name} photo={$store.auth.photo} /></span>
 			</Section>
 		</Row>
 	</TopAppBar>
@@ -219,6 +232,7 @@
 		<Content>
 			<ListMenu />
 			<div class="verticalspacer" />
+			<AcceptShare />
 			<Textfield
 				style="width: 100%; min-height: 55px;"
 				bind:value={newListName}
@@ -261,8 +275,9 @@
 						<Paper variant="unelevated">
 							<Textfield bind:value={listName} label="Name" />
 						</Paper>
-						<Paper variant="unelevated"><Subtitle>Share with:</Subtitle>
-							<ShareList />
+						<Paper variant="unelevated"
+							><Subtitle>Share with:</Subtitle>
+							<ShareList bind:selected={selectedShareUsers} />
 						</Paper>
 					</div>
 				</Content>

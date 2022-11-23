@@ -1,17 +1,11 @@
-import {
-	combineReducers,
-	configureStore,
-	createStore,
-	type AnyAction,
-	type EnhancedStore
-} from '@reduxjs/toolkit';
-import type { ThunkMiddleware } from 'redux-thunk';
+import { auth } from '$lib/components/auth';
+import { lists } from '$lib/components/lists';
+import { uiSettings } from '$lib/components/UiSettings';
+import { users } from '$lib/components/users';
+import { configureStore } from '@reduxjs/toolkit';
 import type { Writable } from 'svelte/store';
-import { auth, type AuthState } from '$lib/components/auth';
-import { uiSettings, type UiSettings } from '$lib/components/UiSettings';
-import { lists, type ListsState } from '$lib/components/lists';
-import { users, type UsersState } from '$lib/components/users';
 import { items } from './components/items';
+import { requests } from './components/requests';
 import { ui } from './components/ui';
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
@@ -36,6 +30,7 @@ const reducer = {
 	ui,
 	lists,
 	items,
+	requests,
 	users
 };
 const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer] });
