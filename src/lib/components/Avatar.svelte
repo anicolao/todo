@@ -9,13 +9,7 @@
 
 {#if name}
 	{#if photo}
-		<img
-			alt={name}
-			src={photo}
-			width="48"
-			height="48"
-			referrerpolicy="no-referrer"
-		/>
+		<img alt={name} src={photo} width="48" height="48" referrerpolicy="no-referrer" />
 	{:else}
 		<Graphic
 			style="background-image: url(https://place-hold.it/43x38?text={name

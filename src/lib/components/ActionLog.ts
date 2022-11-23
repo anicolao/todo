@@ -69,7 +69,7 @@ export function watch(type: string, id: string) {
 						delete action.timestamp;
 						store.dispatch(action);
 					} else {
-						 //console.log('Ignore local echo for consistency', action);
+						//console.log('Ignore local echo for consistency', action);
 					}
 				}
 			});

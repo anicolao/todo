@@ -32,7 +32,6 @@
 		return users[0];
 	}
 
-
 	function addListItem(list_id: string) {
 		return (event: any) => {
 			if ($store.auth.uid) {
