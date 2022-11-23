@@ -1,34 +1,39 @@
 <script lang="ts">
 	console.log('routes/(app)/+layout.svelte');
-	import {
-		collection,
-		query,
-		onSnapshot,
-		where,
-		type Unsubscribe,
-		orderBy,
-		collectionGroup
-	} from 'firebase/firestore';
-	import { store } from '$lib/store';
-	import firebase from '$lib/firebase';
-	import Login from '$lib/components/Login.svelte';
-	import { add_user } from '$lib/components/users';
-	import type { AnyAction } from '@reduxjs/toolkit';
-	import Drawer, { AppContent, Content, Header, Subtitle, Scrim } from '@smui/drawer';
-	import SgDialog from '$lib/components/SgDialog.svelte';
-	import Dialog, { Actions } from '@smui/dialog';
-	import List, { Item, Text, Graphic, Subheader } from '@smui/list';
-	import TopAppBar, { Row, Section, AutoAdjust, Title } from '@smui/top-app-bar';
-	import IconButton, { Icon } from '@smui/icon-button';
+	import { goto } from '$app/navigation';
+	import { dispatch } from '$lib/components/ActionLog';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
-	import { onDestroy } from 'svelte';
-	import Textfield from '@smui/textfield';
 	import { create_list, delete_list, rename_list } from '$lib/components/lists';
+	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog } from '$lib/components/ui';
+	import { add_user } from '$lib/components/users';
+	import firebase from '$lib/firebase';
+	import { store } from '$lib/store';
+	import type { AnyAction } from '@reduxjs/toolkit';
 	import Button, { Label } from '@smui/button';
-	import { dispatch } from '$lib/components/ActionLog';
-	import { goto } from '$app/navigation';
+	import { Actions } from '@smui/dialog';
+	import Drawer, { AppContent, Content, Header, Scrim, Subtitle } from '@smui/drawer';
+	import IconButton, { Icon } from '@smui/icon-button';
+	import List, {
+		Graphic,
+		Item, Subheader,
+		Text
+	} from '@smui/list';
+	import Paper from '@smui/paper';
+	import Textfield from '@smui/textfield';
+	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
+	import {
+		collection,
+		collectionGroup,
+		onSnapshot,
+		orderBy,
+		query,
+		where,
+		type Unsubscribe
+	} from 'firebase/firestore';
+	import { onDestroy } from 'svelte';
+	import ShareList from './ShareList.svelte';
 
 	let count = 0;
 	onDestroy(() => {
@@ -195,7 +200,7 @@
 				</Section>
 			</div>
 			<Section align="end" toolbar>
-				<span><Avatar /></span>
+				<span><Avatar name={$store.auth.name} photo={$store.auth.photo}/></span>
 			</Section>
 		</Row>
 	</TopAppBar>
@@ -253,7 +258,12 @@
 				</div>
 				<Content id="editlist-dialog-content">
 					<div class="editlist-dialog-content-div">
-						<Textfield bind:value={listName} label="Name" />
+						<Paper variant="unelevated">
+							<Textfield bind:value={listName} label="Name" />
+						</Paper>
+						<Paper variant="unelevated"><Subtitle>Share with:</Subtitle>
+							<ShareList />
+						</Paper>
 					</div>
 				</Content>
 				<Actions>
@@ -320,10 +330,8 @@
 		margin-left: 256px;
 	}
 	.editlist-dialog-content-div {
-		padding-top: 1em;
-		padding-bottom: 1em;
-		padding-left: 1.25em;
-		padding-right: 1.25em;
+		padding-left: 0.5em;
+		padding-right: 0.5em;
 	}
 
 	.editlist-dialog-title-div {
