@@ -188,7 +188,7 @@
 	}
 
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
-	$: bgStyle = bgUrl ? `url(${bgUrl})` : undefined;
+	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
 	let selectedShareUsers: string[] = [];
 </script>
