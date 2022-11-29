@@ -66,7 +66,7 @@
 		<i class="material-icons" aria-hidden="true">arrow_forward</i>
 	</Button>
 {:else}
-	<p><img src={$store.auth.photo} referrerpolicy="no-referrer" />{$store.auth.email}</p>
+	<p><img src={$store.auth.photo} referrerpolicy="no-referrer" alt="User avatar"/>{$store.auth.email}</p>
 	<p>{$store.auth.name}</p>
 	<button on:click={signout}>Sign Out Fully</button>
 {/if}

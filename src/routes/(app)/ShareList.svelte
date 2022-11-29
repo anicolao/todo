@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { emailToUid, type UsersState } from '$lib/components/users';
 	import { store } from '$lib/store';
@@ -6,7 +7,7 @@
 	import { Icon } from '@smui/icon-button';
 	import List, { Item, Meta, PrimaryText, SecondaryText, Text } from '@smui/list';
 
-	$: otherUsers = $store.users.users.filter((u) => u.email !== $store.auth.email);
+	$: otherUsers = $store.users.users.filter((u: AuthState) => u.email !== $store.auth.email);
 	export let selected: string[] = [];
 
 	function selectUser(email: string) {

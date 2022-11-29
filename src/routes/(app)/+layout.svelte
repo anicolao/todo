@@ -65,7 +65,7 @@
 				console.log('SUBSCRIBE to actions');
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-				console.log('Subscribing to actions for you', unsubscribeActions, this);
+				console.log('Subscribing to actions for you', unsubscribeActions);
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 					querySnapshot.docChanges().forEach((change) => {
 						if (change.type === 'added') {
@@ -179,7 +179,7 @@
 			dispatch('lists', id, uid, delete_list(id));
 		}
 		store.dispatch(show_edit_dialog(false));
-		const remainingLists = $store.lists.visibleLists.filter((x) => x !== id);
+		const remainingLists = $store.lists.visibleLists.filter((x: string) => x !== id);
 		if (remainingLists.length == 0) {
 			goto('/profile');
 		} else {

@@ -32,6 +32,8 @@
 		return users[0];
 	}
 
+	$: otherUsers = $store.users.users.filter((u: AuthState) => u.uid != $store.auth.uid);
+
 	function addListItem(list_id: string) {
 		return (event: any) => {
 			if ($store.auth.uid) {
@@ -120,7 +122,7 @@
 				</li>
 			</ul>
 			<p>
-				{#each $store.users.users.filter((u) => u.uid != $store.auth.uid) as user (user.uid)}
+				{#each otherUsers as user (user.uid)}
 					{#if user.uid}
 						<button on:click={shareList(listId, $store.lists.listIdToList[listId], user.uid)}
 							>Share list with {user.name}.</button
