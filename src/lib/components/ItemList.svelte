@@ -59,8 +59,7 @@
 
 	let ghost: Element;
 	let anchor: Element;
-	type ExtendedElement = Element | { dataset: { grabY: number } };
-	let grabbed: ExtendedElement | null;
+	let grabbed: HTMLElement | null;
 	let grabbedItem: ExtendedTodoItem;
 	let lastTarget: Element;
 
@@ -70,12 +69,12 @@
 
 	let dragTimeElapsed = false;
 
-	function grab(clientY: number, element: Element) {
+	function grab(clientY: number, element: HTMLElement) {
 		// modify grabbed element
-		grabbed = element as ExtendedElement;
-		grabbed.dataset.grabY = clientY;
+		grabbed = element;
 
-		grabbedItem = items[grabbed.dataset.index];
+		let dataMap: DOMStringMap = grabbed.dataset;
+		grabbedItem = items[Number(dataMap.index)];
 		// record offset from cursor to top of element
 		// (used for positioning ghost)
 		offsetY = grabbed.getBoundingClientRect().y - clientY;
@@ -87,7 +86,9 @@
 	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
-			layerY = anchor.parentNode.getBoundingClientRect().y;
+			if(anchor.parentElement) {
+				layerY = anchor.parentElement.getBoundingClientRect().y;
+			}
 		}
 	}
 
@@ -128,10 +129,10 @@
 		dragTimeElapsed = false;
 		console.log('release', grabbed);
 		console.log({ dragTo, grabbed });
-		if ($store.auth.uid) {
+		if ($store.auth.uid && grabbed) {
 			const payload: { list_id: string; id: string; goes_before?: string } = {
 				list_id: listId,
-				id: grabbed?.dataset.id
+				id: grabbed.dataset.id
 			};
 			if (dragTo) {
 				payload.goes_before = dragTo.id;
@@ -186,7 +187,7 @@
 	};
 
 	let itemDragHandlers = {
-		onMouseDown: (ev: Event, srcElement: Element) => {
+		onMouseDown: (ev: Event, srcElement: HTMLElement) => {
 			const e = ev as MouseEvent;
 			if (dragEnabled) {
 				console.log('my onMouseDown');
@@ -194,7 +195,7 @@
 				grab(e.clientY, srcElement);
 			}
 		},
-		makeTouchStart: (srcElement: Element) => (ev: Event) => {
+		makeTouchStart: (srcElement: HTMLElement) => (ev: Event) => {
 			const e = ev as TouchEvent;
 			if (dragEnabled) {
 				grab(e.touches[0].clientY, srcElement);
@@ -240,7 +241,6 @@
 					class="item"
 					data-index={i}
 					data-id={item.id}
-					data-grabY="0"
 					on:mousedown={function (e) {
 						itemDragHandlers.onMouseDown(e, this);
 					}}
