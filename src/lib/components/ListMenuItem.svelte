@@ -10,12 +10,13 @@
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
 	import { accept_pending_share, rename_list } from './lists';
+	import { accept_request_by_payload_id } from './requests';
 	import { show_edit_dialog } from './ui';
 
 	$: pageListId = $page.url.searchParams.get('listId') || 'hmph';
 
 	export let listId: string | undefined = undefined;
-	export let sharing = false;
+	export let sharerId = '';
 
 	let unsub: Unsubscribe | undefined;
 	if (listId) {
@@ -61,7 +62,10 @@
 	$: activated = pageListId === listId;
 
 	function acceptPendingShare(id: string) {
-		return () => firebase.dispatch(accept_pending_share(id));
+		return () => {
+			firebase.request(sharerId, accept_request_by_payload_id({id}));
+			firebase.dispatch(accept_pending_share(id));
+		}
 	}
 </script>
 
@@ -71,7 +75,7 @@
 		<Text>{$store.lists.listIdToList[listId]}</Text>
 		{#if activated}
 			<Meta
-				>{#if !sharing}<IconButton
+				>{#if sharerId === ''}<IconButton
 						class="material-icons"
 						on:click={() => store.dispatch(show_edit_dialog(true))}>edit</IconButton
 					>{:else}<IconButton class="material-icons" on:click={acceptPendingShare(listId)}

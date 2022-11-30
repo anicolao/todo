@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { emailToUid, type UsersState } from '$lib/components/users';
+	import { shareAccepted, sharePending } from '$lib/components/users';
 	import { store } from '$lib/store';
 	import Checkbox from '@smui/checkbox';
 	import { Icon } from '@smui/icon-button';
 	import List, { Item, Meta, PrimaryText, SecondaryText, Text } from '@smui/list';
 
 	$: otherUsers = $store.users.users.filter((u: AuthState) => u.email !== $store.auth.email);
-	export let selected: string[] = [];
+	export let selected: string[];
 
 	function selectUser(email: string) {
 		return () => {
@@ -25,14 +25,13 @@
 		};
 	}
 
-	function sharePending(users: UsersState, email: string) {
-		const uid = emailToUid(users, email);
-		const pendingRequests = $store.requests.pendingRequests.filter(
-			(id: string) =>
-				$store.requests.requestIdToUid[id] === uid &&
-				$store.requests.requestIdToRequest[id].payload.id === $store.ui.listId
-		);
-		return pendingRequests.length > 0;
+	function updateUserList(e: CustomEvent) {
+		const t = (e.target as unknown) as { value: string; checked: boolean };
+		console.log(t.value, t.checked);
+		selected = selected.filter(x => x !== t.value);
+		if (t.checked) {
+			selected.push(t.value);
+		}
 	}
 
 	// Official material icons: https://fonts.google.com/icons?icon.query=table_bar&icon.set=Material+Icons
@@ -41,7 +40,7 @@
 <div>
 	<List twoLine avatarList>
 		{#each otherUsers as user (user.email)}
-			<Item on:SMUI:action={selectUser(user.email)}>
+			<Item>
 				<Avatar name={user.name} photo={user.photo} />
 				<Text>
 					<PrimaryText>{user.name}</PrimaryText>
@@ -51,7 +50,11 @@
 					{#if sharePending($store.users, user.email)}
 						<Icon class="material-icons">sync</Icon>
 					{:else}
-						<Checkbox bind:group={selected} value={user.email} />
+						<Checkbox
+							value={user.email}
+							checked={shareAccepted($store.users, user.email)}
+							on:change={updateUserList}
+						/>
 					{/if}
 				</Meta>
 			</Item>

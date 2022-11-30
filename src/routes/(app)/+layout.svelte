@@ -3,17 +3,19 @@
 	import { goto } from '$app/navigation';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
 	import { dispatch } from '$lib/components/ActionLog';
+	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
 		create_list,
 		delete_list,
 		register_pending_share,
-		rename_list
+		rename_list,
+		revoke_share
 	} from '$lib/components/lists';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog } from '$lib/components/ui';
-	import { add_user, emailToUid } from '$lib/components/users';
+	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import type { AnyAction } from '@reduxjs/toolkit';
@@ -147,9 +149,6 @@
 		if (listName !== $store.ui.title) listName = $store.ui.title;
 	}
 
-	function mapEmailToUid(email: string): string {
-		return emailToUid($store.users, email);
-	}
 	function closeDialog() {
 		const uid = $store.auth.uid;
 		const id = $store.ui.listId;
@@ -159,12 +158,39 @@
 				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
 			}
-			const newShares = selectedShareUsers.filter((x) => true).map(mapEmailToUid);
-			newShares.forEach((shareWith) => {
-				if (shareWith) {
-					firebase.request(shareWith, register_pending_share({ id, name }));
+			const previousShares = getSharedUsers().map((u: AuthState) => u.email).sort();
+			const currentShares = selectedShareUsers.sort();
+			console.log({previousShares, currentShares});
+			let pi = 0;
+			let ci = 0;
+			function revokeShare(dontShareWith: string) {
+				console.log('remove share for ' + dontShareWith);
+				firebase.request(emailToUid($store.users, dontShareWith), revoke_share({ id }));
+			}
+			function grantShare(shareWith: string) {
+				console.log('new share for ' + shareWith);
+				firebase.request(emailToUid($store.users, shareWith), register_pending_share({ id, name }));
+			}
+			while (pi < previousShares.length && ci < currentShares.length) {
+				if (previousShares[pi] === currentShares[ci]) {
+					pi++;
+					ci++;
+				} else if (previousShares[pi] < currentShares[ci]) {
+					// remove a previously granted share
+					revokeShare(previousShares[pi]);
+					pi++;
+				} else {
+					// grant a new share
+					grantShare(currentShares[ci]);
+					ci++;
 				}
-			});
+			}
+			for (; pi < previousShares.length; ++pi) {
+				revokeShare(previousShares[pi]);
+			}
+			for (; ci < currentShares.length; ++ci) {
+				grantShare(currentShares[ci]);
+			}
 		}
 		selectedShareUsers = [];
 		store.dispatch(show_edit_dialog(false));

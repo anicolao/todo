@@ -7,6 +7,6 @@
 
 <List>
 	{#each $store.lists.pendingShares as { id, name, sharerId } (id)}
-		<ListMenuItem listId={id} sharing={true} />
+		<ListMenuItem listId={id} {sharerId} />
 	{/each}
 </List>
