@@ -166,6 +166,7 @@
 				}
 			});
 		}
+		selectedShareUsers = [];
 		store.dispatch(show_edit_dialog(false));
 	}
 	function cancelDialog() {
