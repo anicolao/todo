@@ -43,7 +43,7 @@
 		if (lastListOfItems !== $store.items.listIdToListOfItems[listId]) {
 			lastListOfItems = $store.items.listIdToListOfItems[listId];
 			items = [];
-			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId, i) => {
+			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId: string, i: number) => {
 				const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
 				if (item.completed === completed) {
 					items.push({ ...item, id: itemId, description: item.description });
@@ -60,7 +60,7 @@
 	let ghost: Element;
 	let anchor: Element;
 	type ExtendedElement = Element | { dataset: { grabY: number } };
-	let grabbed: ExtendedElement;
+	let grabbed: ExtendedElement | null;
 	let grabbedItem: ExtendedTodoItem;
 	let lastTarget: Element;
 
@@ -84,7 +84,7 @@
 	}
 
 	// drag handler updates cursor position
-	function drag(clientY) {
+	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
 			layerY = anchor.parentNode.getBoundingClientRect().y;
@@ -93,17 +93,17 @@
 
 	// touchEnter handler emulates the mouseenter event for touch input
 	// (more or less)
-	function touchEnter(ev) {
+	function touchEnter(ev: Touch) {
 		drag(ev.clientY);
 		// trigger dragEnter the first time the cursor moves over a list item
-		let target = document.elementFromPoint(ev.clientX, ev.clientY).closest('.item');
+		let target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.item');
 		if (target && target != lastTarget) {
 			lastTarget = target;
-			dragEnter(ev, target);
+			dragEnter(target);
 		}
 	}
 
-	function dragEnter(ev, target) {
+	function dragEnter(target: Element | EventTarget) {
 		// swap items in data
 		if (grabbed && target != grabbed && target.classList.contains('item')) {
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
@@ -111,14 +111,14 @@
 	}
 
 	// does the actual moving of items in data
-	function moveDatum(from, to) {
+	function moveDatum(from: number, to: number) {
 		let temp = items[from];
 		items = [...items.slice(0, from), ...items.slice(from + 1)];
 		dragTo = items[to];
 		items = [...items.slice(0, to), temp, ...items.slice(to)];
 	}
 
-	function release(ev) {
+	function release(ev: Event | Touch) {
 		if (!dragTimeElapsed) {
 			console.log('ignore drag');
 			window.setTimeout(() => (dragTimeElapsed = false), 400);
@@ -131,7 +131,7 @@
 		if ($store.auth.uid) {
 			const payload: { list_id: string; id: string; goes_before?: string } = {
 				list_id: listId,
-				id: grabbed.dataset.id
+				id: grabbed?.dataset.id
 			};
 			if (dragTo) {
 				payload.goes_before = dragTo.id;
@@ -152,6 +152,70 @@
 			console.log({ dragEnabled, grabbed, dragTimeElapsed });
 		}, 900);
 	}
+
+	let containerDragHandlers = {
+		onMouseMove: (ev: Event) => {
+			const e = ev as MouseEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				e.preventDefault();
+				drag(e.clientY);
+			}
+		},
+		onTouchMove: (ev: Event) => {
+			const e = ev as TouchEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				drag(e.touches[0].clientY);
+			}
+		},
+		onMouseUp: (ev: Event) => {
+			const e = ev as MouseEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				release(e);
+			}
+		},
+		onTouchEnd: (ev: Event) => {
+			const e = ev as TouchEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				release(e.touches[0]);
+			}
+		}
+	};
+
+	let itemDragHandlers = {
+		onMouseDown: (ev: Event, srcElement: Element) => {
+			const e = ev as MouseEvent;
+			if (dragEnabled) {
+				console.log('my onMouseDown');
+				console.log(srcElement);
+				grab(e.clientY, srcElement);
+			}
+		},
+		makeTouchStart: (srcElement: Element) => (ev: Event) => {
+			const e = ev as TouchEvent;
+			if (dragEnabled) {
+				grab(e.touches[0].clientY, srcElement);
+			}
+		},
+		onMouseEnter: (ev: Event) => {
+			const e = ev as MouseEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				e.target && dragEnter(e.target);
+			}
+		},
+		onTouchMove: (ev: Event) => {
+			const e = ev as TouchEvent;
+			if (dragEnabled) {
+				e.stopPropagation();
+				e.preventDefault();
+				touchEnter(e.touches[0]);
+			}
+		}
+	};
 </script>
 
 <div bind:this={anchor} />
@@ -159,31 +223,10 @@
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
 		>{/if}{#if show || completed === false}<List
-			on:mousemove={function (ev) {
-				if (dragEnabled) {
-					ev.stopPropagation();
-					ev.preventDefault();
-					drag(ev.clientY);
-				}
-			}}
-			on:touchmove={function (ev) {
-				if (dragEnabled) {
-					ev.stopPropagation();
-					drag(ev.touches[0].clientY);
-				}
-			}}
-			on:mouseup={function (ev) {
-				if (dragEnabled) {
-					ev.stopPropagation();
-					release(ev);
-				}
-			}}
-			on:touchend={function (ev) {
-				if (dragEnabled) {
-					ev.stopPropagation();
-					release(ev.touches[0]);
-				}
-			}}
+			on:mousemove={containerDragHandlers.onMouseMove}
+			on:touchmove={containerDragHandlers.onTouchMove}
+			on:mouseup={containerDragHandlers.onMouseUp}
+			on:touchend={containerDragHandlers.onTouchEnd}
 			><div
 				bind:this={ghost}
 				id="ghost"
@@ -198,29 +241,14 @@
 					data-index={i}
 					data-id={item.id}
 					data-grabY="0"
-					on:mousedown={function (ev) {
-						if (dragEnabled) {
-							grab(ev.clientY, this);
-						}
+					on:mousedown={function (e) {
+						itemDragHandlers.onMouseDown(e, this);
 					}}
-					on:touchstart={function (ev) {
-						if (dragEnabled) {
-							grab(ev.touches[0].clientY, this);
-						}
+					on:touchstart={function (e) {
+						itemDragHandlers.makeTouchStart(this);
 					}}
-					on:mouseenter={function (ev) {
-						if (dragEnabled) {
-							ev.stopPropagation();
-							dragEnter(ev, ev.target);
-						}
-					}}
-					on:touchmove={function (ev) {
-						if (dragEnabled) {
-							ev.stopPropagation();
-							ev.preventDefault();
-							touchEnter(ev.touches[0]);
-						}
-					}}
+					on:mouseenter={itemDragHandlers.onMouseEnter}
+					on:touchmove={itemDragHandlers.onTouchMove}
 					animate:flip={{ duration: 200 }}
 					in:receive={{ key: item.id }}
 					out:send={{ key: item.id }}
