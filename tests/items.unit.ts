@@ -176,6 +176,15 @@ describe('items', () => {
 		'E̶v̶e̶n̶ ̶p̶r̶e̶t̶t̶y̶ ̶s̶m̶a̶l̶l̶ ̶o̶v̶e̶r̶l̶a̶p̶s̶ Even very small overlaps'
 	);
 
+	test_merge(
+		{
+			orig: 'Not the same.',
+			first: 'The same.',
+			second: 'The same.'
+		},
+		'The same.'
+	);
+
 	it('can complete an item', () => {
 		const list_id = 'List 9';
 		const id = 'abcd1234';

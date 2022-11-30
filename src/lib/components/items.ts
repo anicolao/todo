@@ -67,6 +67,9 @@ function merge({ orig, first, second }: { orig: string; first: string; second: s
 	if (orig === first) {
 		return second;
 	}
+	if (first === second) {
+		return second;
+	}
 	let prefixF = matchCharacters(orig, first, 0, 0, 1);
 	let prefixS = matchCharacters(orig, second, 0, 0, 1);
 	let suffixF = matchCharacters(orig, first, orig.length - 1, first.length - 1, -1);
@@ -76,6 +79,7 @@ function merge({ orig, first, second }: { orig: string; first: string; second: s
 
 	if (suffixF < prefixS) {
 		//non overlapping and F is before S
+		console.log('calling ourselves with', orig, '1:', first, '2:', second);
 		return merge({ first: second, second: first, orig });
 	} else if (suffixS < prefixF) {
 		//non overlapping and S is before F
