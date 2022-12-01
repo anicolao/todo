@@ -6,7 +6,7 @@
 </script>
 
 <List>
-	{#each $store.lists.pendingShares as { id, name, sharerId } (id)}
+	{#each $store.lists.pendingShares as { id, sharerId } (id)}
 		<ListMenuItem listId={id} {sharerId} />
 	{/each}
 </List>

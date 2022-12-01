@@ -1,23 +1,15 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
-	import { page } from '$app/stores';
 	import { dispatch } from '$lib/components/ActionLog';
 	import {
-		complete_item,
-		create_item,
-		describe_item,
-		reorder_item,
-		star_item,
-		type ListOfItems,
+		reorder_item, type ListOfItems,
 		type TodoItem
 	} from '$lib/components/items';
 	import { store } from '$lib/store';
-	import IconButton, { Icon } from '@smui/icon-button';
-	import Textfield from '@smui/textfield';
-	import List, { Item, Meta, Graphic } from '@smui/list';
-	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
 	import Button from '@smui/button';
+	import List from '@smui/list';
+	import { flip } from 'svelte/animate';
+	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import ItemDisplay from './ItemDisplay.svelte';
 
 	export let listId = '';

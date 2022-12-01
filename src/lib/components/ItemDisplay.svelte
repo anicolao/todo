@@ -1,23 +1,13 @@
 <script lang="ts">
 	console.log('ItemDisplay.svelte');
-	import { page } from '$app/stores';
 	import { dispatch } from '$lib/components/ActionLog';
 	import {
-		complete_item,
-		create_item,
-		describe_item,
-		reorder_item,
-		star_item,
-		type ListOfItems,
-		type TodoItem
+		complete_item, describe_item, star_item, type TodoItem
 	} from '$lib/components/items';
 	import { store } from '$lib/store';
-	import IconButton, { Icon } from '@smui/icon-button';
+	import IconButton from '@smui/icon-button';
+	import { Graphic, Item, Meta } from '@smui/list';
 	import Textfield from '@smui/textfield';
-	import List, { Item, Meta, Graphic } from '@smui/list';
-	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
-	import Button from '@smui/button';
 	import { createEventDispatcher } from 'svelte';
 
 	type ExtendedTodoItem = TodoItem & { id: string };
@@ -43,14 +33,12 @@
 		};
 	}
 
-	function handleEnterKey(list_id: string, item: TodoItem & { id: string }) {
-		return (e: KeyboardEvent | CustomEvent) => {
-			e = e as KeyboardEvent;
-			if (e.key === 'Enter') {
-				const target = e.target as HTMLInputElement;
-				target.blur();
-			}
-		};
+	function handleEnterKey(e: KeyboardEvent | CustomEvent) {
+		e = e as KeyboardEvent;
+		if (e.key === 'Enter') {
+			const target = e.target as HTMLInputElement;
+			target.blur();
+		}
 	}
 
 	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
@@ -92,7 +80,7 @@
 		</Graphic><Textfield
 			style="width: 100%"
 			value={item.description}
-			on:keydown={handleEnterKey(listId, item)}
+			on:keydown={handleEnterKey}
 			on:blur={handleBlur(listId, item)}
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta

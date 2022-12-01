@@ -1,15 +1,14 @@
 <script>
+	import { error, signed_in, signed_out } from '$lib/components/auth';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
 	import Button, { Label } from '@smui/button';
+	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+	import { doc, setDoc } from 'firebase/firestore';
+	import { onDestroy } from 'svelte';
 
 	const auth = firebase.auth;
 	const gAuthProvider = firebase.google_auth_provider;
-	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-	import { error, signed_in, signed_out } from '$lib/components/auth';
-	import { onDestroy } from 'svelte';
-
 	console.log('Login.svelte set up auth state callback');
 	const unsubAuth = onAuthStateChanged(auth, (user) => {
 		if (user) {

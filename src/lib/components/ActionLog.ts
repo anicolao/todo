@@ -1,15 +1,11 @@
 import firebase from '$lib/firebase';
+import { store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
-	collection,
-	query,
-	onSnapshot,
-	orderBy,
-	serverTimestamp
+	collection, onSnapshot,
+	orderBy, query, serverTimestamp
 } from 'firebase/firestore';
-import { store } from '$lib/store';
-import type { Unsubscribe } from 'firebase/auth';
 
 /*
 export async function create(type: string, uid: string) {

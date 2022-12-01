@@ -5,8 +5,7 @@ import {
 	accept_request,
 	initialState,
 	pending_request,
-	requests,
-	type RequestsState
+	requests
 } from '$lib/components/requests';
 
 describe('requests', () => {
