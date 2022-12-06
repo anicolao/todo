@@ -35,7 +35,7 @@
 		if (lastListOfItems !== $store.items.listIdToListOfItems[listId]) {
 			lastListOfItems = $store.items.listIdToListOfItems[listId];
 			items = [];
-			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId: string, i: number) => {
+			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId: string) => {
 				const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
 				if (item.completed === completed) {
 					items.push({ ...item, id: itemId, description: item.description });
@@ -117,7 +117,7 @@
 		items = [...items.slice(0, to), temp, ...items.slice(to)];
 	}
 
-	function release(ev: Event | Touch) {
+	function release() {
 		if (!dragTimeElapsed) {
 			console.log('ignore drag');
 			window.setTimeout(() => (dragTimeElapsed = false), 400);
@@ -172,14 +172,14 @@
 			const e = ev as MouseEvent;
 			if (dragEnabled) {
 				e.stopPropagation();
-				release(e);
+				release();
 			}
 		},
 		onTouchEnd: (ev: Event) => {
 			const e = ev as TouchEvent;
 			if (dragEnabled) {
 				e.stopPropagation();
-				release(e.touches[0]);
+				release();
 			}
 		}
 	};

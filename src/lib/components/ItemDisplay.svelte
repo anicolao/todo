@@ -47,7 +47,6 @@
 			dispatchEvent('blur', { originalEvent: e });
 			console.log('value', e.detail.target.value);
 			if ($store.auth.uid) {
-				const target = e.target as HTMLInputElement;
 				const origItem = $store.items.listIdToListOfItems[listId].itemIdToItem[item.id];
 				dispatch(
 					'lists',
