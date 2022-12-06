@@ -92,13 +92,19 @@
 		let target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.item');
 		if (target && target != lastTarget) {
 			lastTarget = target;
-			dragEnter(target);
+			dragEnter(target as HTMLElement);
 		}
 	}
 
-	function dragEnter(target: Element | EventTarget) {
+	function dragEnter(target: HTMLElement) {
 		// swap items in data
-		if (grabbed && target != grabbed && target.classList.contains('item')) {
+		if (
+			grabbed &&
+			target != grabbed &&
+			target.classList.contains('item') &&
+			grabbed.dataset.index &&
+			target.dataset.index
+		) {
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
 		}
 	}
@@ -121,7 +127,7 @@
 		dragTimeElapsed = false;
 		console.log('release', grabbed);
 		console.log({ dragTo, grabbed });
-		if ($store.auth.uid && grabbed) {
+		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
 			const payload: { list_id: string; id: string; goes_before?: string } = {
 				list_id: listId,
 				id: grabbed.dataset.id
@@ -179,29 +185,25 @@
 	};
 
 	let itemDragHandlers = {
-		onMouseDown: (ev: Event, srcElement: HTMLElement) => {
-			const e = ev as MouseEvent;
+		onMouseDown: (e: MouseEvent, src: any) => {
 			if (dragEnabled) {
-				console.log('my onMouseDown');
-				console.log(srcElement);
+				const srcElement = src as HTMLElement;
 				grab(e.clientY, srcElement);
 			}
 		},
-		makeTouchStart: (srcElement: HTMLElement) => (ev: Event) => {
-			const e = ev as TouchEvent;
+		onTouchStart: (e: TouchEvent, src: any) => {
 			if (dragEnabled) {
+				const srcElement = src as HTMLElement;
 				grab(e.touches[0].clientY, srcElement);
 			}
 		},
-		onMouseEnter: (ev: Event) => {
-			const e = ev as MouseEvent;
+		onMouseEnter: (e: MouseEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
-				e.target && dragEnter(e.target);
+				e.target && dragEnter(e.target as HTMLElement);
 			}
 		},
-		onTouchMove: (ev: Event) => {
-			const e = ev as TouchEvent;
+		onTouchMove: (e: TouchEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				e.preventDefault();
@@ -237,7 +239,7 @@
 						itemDragHandlers.onMouseDown(e, this);
 					}}
 					on:touchstart={function (e) {
-						itemDragHandlers.makeTouchStart(this);
+						itemDragHandlers.onTouchStart(e, this);
 					}}
 					on:mouseenter={itemDragHandlers.onMouseEnter}
 					on:touchmove={itemDragHandlers.onTouchMove}
