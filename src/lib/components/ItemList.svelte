@@ -7,6 +7,7 @@
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
 	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
+	import DraggableItem from './DraggableItem.svelte';
 	import ItemDisplay from './ItemDisplay.svelte';
 
 	export let listId = '';
@@ -15,6 +16,7 @@
 		node: Element,
 		params: CrossfadeParams & { key: any }
 	) => () => TransitionConfig;
+
 	export let receive: (
 		node: Element,
 		params: CrossfadeParams & { key: any }
@@ -58,6 +60,9 @@
 
 	let mouseY = 0; // pointer y coordinate within client
 	let offsetY = 0; // y distance from top of grabbed element to pointer
+	let height = 0;
+	let origY = 0;
+	let offset = 0; 
 	let layerY = 0; // distance from top of list to top of client
 
 	let dragTimeElapsed = false;
@@ -76,6 +81,8 @@
 		// record offset from cursor to top of element
 		// (used for positioning ghost)
 		offsetY = element.getBoundingClientRect().y - clientY;
+		origY = clientY;
+		height = element.getBoundingClientRect().height;
 		drag(clientY);
 		window.setTimeout(() => (dragTimeElapsed = true), 400);
 	}
@@ -84,6 +91,7 @@
 	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
+			offset = mouseY - origY;
 			if (anchor.parentElement) {
 				layerY = anchor.parentElement.getBoundingClientRect().y;
 			}
@@ -92,10 +100,10 @@
 
 	// touchEnter handler emulates the mouseenter event for touch input
 	// (more or less)
-	function touchEnter(ev: Touch, target: Grabbed) {
-		drag(ev.clientY);
+	function touchEnter(y: number, target: Grabbed) {
+		drag(y);
 		// trigger dragEnter the first time the cursor moves over a list item
-		if (target.id !== lastTarget.id) {
+		if (!lastTarget || target.id !== lastTarget.id) {
 			lastTarget = target;
 			dragEnter(target);
 		}
@@ -108,6 +116,14 @@
 		}
 	}
 
+	function moveUp(index: number) {
+		return () => moveDatum(index, index - 1);
+	}
+
+	function moveDown(index: number) {
+		return () => moveDatum(index, index + 1);
+	}
+
 	function moveDatumById(from: Grabbed, to: Grabbed) {
 		const f = items.findIndex((a) => a.id === from.id);
 		const t = items.findIndex((a) => a.id === to.id);
@@ -118,10 +134,15 @@
 
 	// does the actual moving of items in data
 	function moveDatum(from: number, to: number) {
-		let temp = items[from];
-		items = [...items.slice(0, from), ...items.slice(from + 1)];
-		dragTo = items[to];
-		items = [...items.slice(0, to), temp, ...items.slice(to)];
+		if (to >= 0 && to < items.length) {
+			console.log("moveDatum: from " + from + " to " + to);
+			let moveCount = to - from;
+			origY += height*moveCount;
+			let temp = items[from];
+			items = [...items.slice(0, from), ...items.slice(from + 1)];
+			dragTo = items[to];
+			items = [...items.slice(0, to), temp, ...items.slice(to)];
+		}
 	}
 
 	function release() {
@@ -192,31 +213,18 @@
 	};
 
 	let itemDragHandlers = {
-		onMouseDown: (id: string, src: any) => (e: MouseEvent) => {
+		onStart: (id: string) => (e: CustomEvent) => {
 			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.clientY, id, srcElement);
+				console.log({ onStart: e.detail });
+				grab(e.detail.y, id, e.detail.element);
 			}
 		},
-		onTouchStart: (id: string, src: any) => (e: TouchEvent) => {
-			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.touches[0].clientY, id, srcElement);
-			}
-		},
-		onMouseEnter: (id: string) => (e: MouseEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				const target = { id };
-				dragEnter(target);
-			}
-		},
-		onTouchMove: (id: string) => (e: TouchEvent) => {
+		onMove: (id: string) => (e: CustomEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				e.preventDefault();
 				const target = { id };
-				touchEnter(e.touches[0], target);
+				touchEnter(e.detail.y, target);
 			}
 		}
 	};
@@ -239,24 +247,27 @@
 			>
 				{#if grabbedItem}<ItemDisplay {listId} item={grabbedItem} />{/if}
 			</div>
-			{#each items as item, i (item.id)}<div
-					id={grabbed && item.id == grabbed.id ? 'grabbed' : ''}
-					class="item"
-					on:mousedown={itemDragHandlers.onMouseDown(item.id, this)}
-					on:touchstart={itemDragHandlers.onTouchStart(item.id, this)}
-					on:mouseenter={itemDragHandlers.onMouseEnter(item.id)}
-					on:touchmove={itemDragHandlers.onTouchMove(item.id)}
-					animate:flip={{ duration: 200 }}
-					in:receive={{ key: item.id }}
-					out:send={{ key: item.id }}
-				>
-					<ItemDisplay
-						{listId}
-						{item}
-						on:blur={() => (dragEnabled = true)}
-						on:focus={itemTextfieldFocused}
-					/>
-				</div>{/each}</List
+			{#each items as item, i (item.id)}
+				<div animate:flip={{ duration: 200 }}>
+					<DraggableItem
+						invisible={grabbed && item.id == grabbed.id}
+						on:start={itemDragHandlers.onStart(item.id)}
+						on:move={itemDragHandlers.onMove(item.id)}
+						on:moveup={moveUp(i)}
+						on:movedown={moveDown(i)}
+						{offset}
+						{send}
+						{receive}
+					>
+						<ItemDisplay
+							{listId}
+							{item}
+							on:blur={() => (dragEnabled = true)}
+							on:focus={itemTextfieldFocused}
+						/>
+					</DraggableItem>
+				</div>
+			{/each}</List
 		>{/if}{/if}
 
 <style>
@@ -278,10 +289,6 @@
 
 	.item:not(#grabbed):not(#ghost) {
 		z-index: 10;
-	}
-
-	#grabbed {
-		opacity: 0;
 	}
 
 	#ghost {
