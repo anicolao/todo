@@ -1,10 +1,7 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
-	import {
-		reorder_item, type ListOfItems,
-		type TodoItem
-	} from '$lib/components/items';
+	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
 	import Button from '@smui/button';
 	import List from '@smui/list';
@@ -49,11 +46,15 @@
 		show = !show;
 	}
 
+	interface Grabbed {
+		id: string;
+	}
+
 	let ghost: Element;
 	let anchor: Element;
-	let grabbed: HTMLElement | null;
-	let grabbedItem: ExtendedTodoItem;
-	let lastTarget: Element;
+	let grabbed: Grabbed | undefined;
+	let grabbedItem: ExtendedTodoItem | undefined;
+	let lastTarget: Grabbed;
 
 	let mouseY = 0; // pointer y coordinate within client
 	let offsetY = 0; // y distance from top of grabbed element to pointer
@@ -61,15 +62,20 @@
 
 	let dragTimeElapsed = false;
 
-	function grab(clientY: number, element: HTMLElement) {
-		// modify grabbed element
-		grabbed = element;
+	function getItem(id: string): ExtendedTodoItem | undefined {
+		return items.filter((item) => item.id === id).shift();
+	}
 
-		let dataMap: DOMStringMap = grabbed.dataset;
-		grabbedItem = items[Number(dataMap.index)];
+	function grab(clientY: number, id: string, element: HTMLElement) {
+		// modify grabbed element
+		grabbed = {
+			id
+		};
+		grabbedItem = getItem(grabbed.id);
+
 		// record offset from cursor to top of element
 		// (used for positioning ghost)
-		offsetY = grabbed.getBoundingClientRect().y - clientY;
+		offsetY = element.getBoundingClientRect().y - clientY;
 		drag(clientY);
 		window.setTimeout(() => (dragTimeElapsed = true), 400);
 	}
@@ -78,7 +84,7 @@
 	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
-			if(anchor.parentElement) {
+			if (anchor.parentElement) {
 				layerY = anchor.parentElement.getBoundingClientRect().y;
 			}
 		}
@@ -86,26 +92,27 @@
 
 	// touchEnter handler emulates the mouseenter event for touch input
 	// (more or less)
-	function touchEnter(ev: Touch) {
+	function touchEnter(ev: Touch, target: Grabbed) {
 		drag(ev.clientY);
 		// trigger dragEnter the first time the cursor moves over a list item
-		let target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.item');
-		if (target && target != lastTarget) {
+		if (target.id !== lastTarget.id) {
 			lastTarget = target;
-			dragEnter(target as HTMLElement);
+			dragEnter(target);
 		}
 	}
 
-	function dragEnter(target: HTMLElement) {
+	function dragEnter(target: Grabbed) {
 		// swap items in data
-		if (
-			grabbed &&
-			target != grabbed &&
-			target.classList.contains('item') &&
-			grabbed.dataset.index &&
-			target.dataset.index
-		) {
-			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
+		if (grabbed && target.id !== grabbed.id) {
+			moveDatumById(grabbed, target);
+		}
+	}
+
+	function moveDatumById(from: Grabbed, to: Grabbed) {
+		const f = items.findIndex((a) => a.id === from.id);
+		const t = items.findIndex((a) => a.id === to.id);
+		if (f !== -1 && t !== -1) {
+			moveDatum(f, t);
 		}
 	}
 
@@ -121,23 +128,23 @@
 		if (!dragTimeElapsed) {
 			console.log('ignore drag');
 			window.setTimeout(() => (dragTimeElapsed = false), 400);
-			grabbed = null;
+			grabbed = undefined;
 			return;
 		}
 		dragTimeElapsed = false;
 		console.log('release', grabbed);
 		console.log({ dragTo, grabbed });
-		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
+		if ($store.auth.uid && grabbed) {
 			const payload: { list_id: string; id: string; goes_before?: string } = {
 				list_id: listId,
-				id: grabbed.dataset.id
+				id: grabbed.id
 			};
 			if (dragTo) {
 				payload.goes_before = dragTo.id;
 			}
 			dispatch('lists', listId, $store.auth.uid, reorder_item(payload));
 		}
-		grabbed = null;
+		grabbed = undefined;
 	}
 
 	let dragEnabled = true;
@@ -185,29 +192,31 @@
 	};
 
 	let itemDragHandlers = {
-		onMouseDown: (e: MouseEvent, src: any) => {
+		onMouseDown: (id: string, src: any) => (e: MouseEvent) => {
 			if (dragEnabled) {
 				const srcElement = src as HTMLElement;
-				grab(e.clientY, srcElement);
+				grab(e.clientY, id, srcElement);
 			}
 		},
-		onTouchStart: (e: TouchEvent, src: any) => {
+		onTouchStart: (id: string, src: any) => (e: TouchEvent) => {
 			if (dragEnabled) {
 				const srcElement = src as HTMLElement;
-				grab(e.touches[0].clientY, srcElement);
+				grab(e.touches[0].clientY, id, srcElement);
 			}
 		},
-		onMouseEnter: (e: MouseEvent) => {
+		onMouseEnter: (id: string) => (e: MouseEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
-				e.target && dragEnter(e.target as HTMLElement);
+				const target = { id };
+				dragEnter(target);
 			}
 		},
-		onTouchMove: (e: TouchEvent) => {
+		onTouchMove: (id: string) => (e: TouchEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				e.preventDefault();
-				touchEnter(e.touches[0]);
+				const target = { id };
+				touchEnter(e.touches[0], target);
 			}
 		}
 	};
@@ -228,21 +237,15 @@
 				class={grabbed ? 'item haunting' : 'item'}
 				style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
 			>
-				{#if grabbed}<ItemDisplay {listId} item={grabbedItem} />{/if}
+				{#if grabbedItem}<ItemDisplay {listId} item={grabbedItem} />{/if}
 			</div>
 			{#each items as item, i (item.id)}<div
-					id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
+					id={grabbed && item.id == grabbed.id ? 'grabbed' : ''}
 					class="item"
-					data-index={i}
-					data-id={item.id}
-					on:mousedown={function (e) {
-						itemDragHandlers.onMouseDown(e, this);
-					}}
-					on:touchstart={function (e) {
-						itemDragHandlers.onTouchStart(e, this);
-					}}
-					on:mouseenter={itemDragHandlers.onMouseEnter}
-					on:touchmove={itemDragHandlers.onTouchMove}
+					on:mousedown={itemDragHandlers.onMouseDown(item.id, this)}
+					on:touchstart={itemDragHandlers.onTouchStart(item.id, this)}
+					on:mouseenter={itemDragHandlers.onMouseEnter(item.id)}
+					on:touchmove={itemDragHandlers.onTouchMove(item.id)}
 					animate:flip={{ duration: 200 }}
 					in:receive={{ key: item.id }}
 					out:send={{ key: item.id }}
