@@ -27,35 +27,77 @@
 	let bottom = 0;
 	let height = 0;
 
+	let needNewTop = false;
+
 	function fireStart(y: number, element: HTMLElement) {
 		startY = y;
 		const originalBox = element.getBoundingClientRect();
 		top = originalBox.top;
 		bottom = originalBox.bottom;
 		height = originalBox.height;
-    console.log({top, bottom, height, h2: bottom-top});
+		console.log({ top, bottom, height, h2: bottom - top });
 		offsetY = 0;
+		console.log({ fireStart: '', offset, 'Drag.offsetY': offsetY, startY, top, bottom, height });
 		dispatchEvent('start', { y, element });
 	}
 	function fireMove(y: number, element: HTMLElement) {
-		offsetY = y - startY;
-		if (invisible) {
-			if (y < top) {
-				console.log('MOVE ME UP');
-				startY -= height;
-				top -= height;
-				bottom -= height;
-				//dispatchEvent('moveup', { y, element });
-			} else if (y > bottom) {
-				console.log('MOVE ME DOWN');
-				startY += height;
-				top += height;
-				bottom += height;
-				//dispatchEvent('movedown', { y, element });
+		/*
+		if(needNewTop) {
+			const box = element.getBoundingClientRect();
+			if(top !== element.getBoundingClientRect().top) {
+				top = box.top;
+				bottom = box.bottom;
+				height = box.height;
+				startY = y;
+				offsetY = 0;
+
+				needNewTop = false;
+			} else {
+				console.log("Need New Top");
+				return;
 			}
 		}
+		*/
+		offsetY = y - startY;
 		if (invisible) {
-			console.log({ offsetY });
+			console.log({ fireMove: offsetY, top, bottom });
+			if (y < top) {
+				console.log('MOVE ME UP');
+				// needNewTop = true;
+				// startY -= height;
+				startY = y;
+				offsetY = 0;
+				top -= height;
+				bottom -= height;
+				console.log({
+					fireMove: 'up',
+					offset,
+					'Drag.offsetY': offsetY,
+					startY,
+					top,
+					bottom,
+					height
+				});
+				dispatchEvent('moveup', { y, element });
+			} else if (y > bottom) {
+				console.log('MOVE ME DOWN');
+				// needNewTop = true;
+				// startY += height;
+				startY = y;
+				offsetY = 0;
+				top += height;
+				bottom += height;
+				console.log({
+					fireMove: 'down',
+					offset,
+					'Drag.offsetY': offsetY,
+					startY,
+					top,
+					bottom,
+					height
+				});
+				dispatchEvent('movedown', { y, element });
+			}
 		}
 		dispatchEvent('move', { y, element });
 	}
@@ -75,6 +117,8 @@
 	}
 	function mouseMove(element: HTMLElement) {
 		return (e: MouseEvent) => {
+			e.stopPropagation();
+			e.preventDefault();
 			fireMove(e.clientY, element);
 		};
 	}
@@ -92,7 +136,7 @@
 	bind:this={self}
 	class="item"
 	class:invisible
-	style="transform: translateY({invisible ? offset : 0}px)"
+	style="transform: translateY({invisible ? offsetY : 0}px)"
 	on:mousedown={mouseDown(self)}
 	on:touchstart={touchStart(self)}
 	on:mousemove={mouseMove(self)}
@@ -105,7 +149,6 @@
 
 <style>
 	.item {
-		box-sizing: border-box;
 		width: 100%;
 		min-height: 3em;
 		margin-bottom: 0;
@@ -113,10 +156,9 @@
 	}
 
 	.invisible {
-		opacity: 1;
+		opacity: 0.7;
 		background-color: aqua;
 		position: relative;
 		z-index: 100;
-		pointer-events: none;
 	}
 </style>

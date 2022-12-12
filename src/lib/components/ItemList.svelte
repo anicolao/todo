@@ -83,6 +83,7 @@
 		offsetY = element.getBoundingClientRect().y - clientY;
 		origY = clientY;
 		height = element.getBoundingClientRect().height;
+		console.log({"grab": true, offset, offsetY, origY, mouseY, layerY, height});
 		drag(clientY);
 		window.setTimeout(() => (dragTimeElapsed = true), 400);
 	}
@@ -95,6 +96,8 @@
 			if (anchor.parentElement) {
 				layerY = anchor.parentElement.getBoundingClientRect().y;
 			}
+			console.log({'drag top': (mouseY + offsetY - layerY), offset, offsetY, origY, mouseY});
+			let dragDist = mouseY - origY;
 		}
 	}
 
@@ -112,7 +115,7 @@
 	function dragEnter(target: Grabbed) {
 		// swap items in data
 		if (grabbed && target.id !== grabbed.id) {
-			moveDatumById(grabbed, target);
+			// moveDatumById(grabbed, target);
 		}
 	}
 
@@ -137,7 +140,7 @@
 		if (to >= 0 && to < items.length) {
 			console.log("moveDatum: from " + from + " to " + to);
 			let moveCount = to - from;
-			origY += height*moveCount;
+			// origY += height*moveCount;
 			let temp = items[from];
 			items = [...items.slice(0, from), ...items.slice(from + 1)];
 			dragTo = items[to];
@@ -232,11 +235,13 @@
 
 <div bind:this={anchor} />
 
+   <!--
+			on:mousemove={containerDragHandlers.onMouseMove}
+			on:touchmove={containerDragHandlers.onTouchMove}
+	 -->
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
 		>{/if}{#if show || completed === false}<List
-			on:mousemove={containerDragHandlers.onMouseMove}
-			on:touchmove={containerDragHandlers.onTouchMove}
 			on:mouseup={containerDragHandlers.onMouseUp}
 			on:touchend={containerDragHandlers.onTouchEnd}
 			><div
@@ -248,7 +253,8 @@
 				{#if grabbedItem}<ItemDisplay {listId} item={grabbedItem} />{/if}
 			</div>
 			{#each items as item, i (item.id)}
-				<div animate:flip={{ duration: 200 }}>
+				<!-- <div animate:flip={{ duration: 200 }}> -->
+				<div>
 					<DraggableItem
 						invisible={grabbed && item.id == grabbed.id}
 						on:start={itemDragHandlers.onStart(item.id)}
@@ -293,7 +299,7 @@
 
 	#ghost {
 		pointer-events: none;
-		z-index: -5;
+		z-index: -10;
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -303,5 +309,6 @@
 	#ghost.haunting {
 		z-index: 20;
 		opacity: 1;
+		background-color: red;
 	}
 </style>
