@@ -96,8 +96,9 @@
 			if (anchor.parentElement) {
 				layerY = anchor.parentElement.getBoundingClientRect().y;
 			}
-			console.log({'drag top': (mouseY + offsetY - layerY), offset, offsetY, origY, mouseY});
-			let dragDist = mouseY - origY;
+			// console.log({'drag top': (mouseY + offsetY - layerY), offset, offsetY, origY, mouseY});
+			console.log({'drag': true, mouseY, offsetY, layerY, offset, origY});
+			// dragDistance = mouseY - origY;
 		}
 	}
 
@@ -235,13 +236,11 @@
 
 <div bind:this={anchor} />
 
-   <!--
-			on:mousemove={containerDragHandlers.onMouseMove}
-			on:touchmove={containerDragHandlers.onTouchMove}
-	 -->
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
 		>{/if}{#if show || completed === false}<List
+			on:mousemove={containerDragHandlers.onMouseMove}
+			on:touchmove={containerDragHandlers.onTouchMove}
 			on:mouseup={containerDragHandlers.onMouseUp}
 			on:touchend={containerDragHandlers.onTouchEnd}
 			><div
@@ -261,7 +260,8 @@
 						on:move={itemDragHandlers.onMove(item.id)}
 						on:moveup={moveUp(i)}
 						on:movedown={moveDown(i)}
-						{offset}
+						{mouseY}
+						index={i}
 						{send}
 						{receive}
 					>
@@ -308,7 +308,7 @@
 
 	#ghost.haunting {
 		z-index: 20;
-		opacity: 1;
+		opacity: 0.3;
 		background-color: red;
 	}
 </style>

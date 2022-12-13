@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { current } from '@reduxjs/toolkit';
 	import { createEventDispatcher } from 'svelte';
 	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 
 	export let invisible = false;
-	export let offset = 0;
+	export let mouseY = 0;
+	export let index = 0;
 
 	export let send: (
 		node: Element,
@@ -21,49 +23,69 @@
 
 	const dispatchEvent = createEventDispatcher();
 
+	let currentIndex = 0;
+	$: if (invisible && currentIndex !== index) {
+		console.log('Index changed from ' + currentIndex + ' to ' + index);
+		currentIndex = index;
+	}
+
 	let startY = 0;
 	let offsetY = 0;
-	let top = 0;
-	let bottom = 0;
-	let height = 0;
 
-	let needNewTop = false;
+	let clickOffset = 0;
+	let yposOffset = 0;
+	let box: DOMRect | undefined;
+
+	$: updatePositionOffset(mouseY);
+
+	function boxToString(box: DOMRect) {
+		if (box) {
+			return `t:${box.top} b:${box.bottom}`;
+		}
+		return '';
+	}
+	function updatePositionOffset(mouseY: number) {
+		if (invisible) {
+			if (!box) {
+				box = self.getBoundingClientRect();
+				console.log({ updatePositionOffset: 'box', b: boxToString(box), startY });
+				box.y -= yposOffset;
+				startY = box.top + clickOffset;
+				console.log({ updatePositionOffset: 'box', b: boxToString(box), startY });
+			}
+			let pos = self.getBoundingClientRect();
+			console.log({ updatePositionOffset: mouseY, b: boxToString(pos), clickOffset });
+			yposOffset = mouseY - startY;
+			console.log({ yposOffset });
+		}
+	}
 
 	function fireStart(y: number, element: HTMLElement) {
 		startY = y;
-		const originalBox = element.getBoundingClientRect();
-		top = originalBox.top;
-		bottom = originalBox.bottom;
-		height = originalBox.height;
+		box = element.getBoundingClientRect();
+		clickOffset = y - box.top;
+		console.log({ fireStart: boxToString(box), startY, clickOffset });
+		/*
+		top = box.top;
+		bottom = box.bottom;
+		height = box.height;
+		*/
+		/*
 		console.log({ top, bottom, height, h2: bottom - top });
 		offsetY = 0;
 		console.log({ fireStart: '', offset, 'Drag.offsetY': offsetY, startY, top, bottom, height });
+		*/
 		dispatchEvent('start', { y, element });
 	}
 	function fireMove(y: number, element: HTMLElement) {
-		/*
-		if(needNewTop) {
-			const box = element.getBoundingClientRect();
-			if(top !== element.getBoundingClientRect().top) {
-				top = box.top;
-				bottom = box.bottom;
-				height = box.height;
-				startY = y;
-				offsetY = 0;
-
-				needNewTop = false;
-			} else {
-				console.log("Need New Top");
-				return;
-			}
-		}
-		*/
 		offsetY = y - startY;
 		if (invisible) {
-			console.log({ fireMove: offsetY, top, bottom });
-			if (y < top) {
-				console.log('MOVE ME UP');
-				// needNewTop = true;
+			// console.log({ fireMove: offsetY });
+			if (box) {
+				// console.log({ top: box.top, bottom: box.bottom });
+				if (y < box.top - 10) {
+					console.log('MOVE ME UP');
+					/*
 				// startY -= height;
 				startY = y;
 				offsetY = 0;
@@ -78,10 +100,12 @@
 					bottom,
 					height
 				});
-				dispatchEvent('moveup', { y, element });
-			} else if (y > bottom) {
-				console.log('MOVE ME DOWN');
-				// needNewTop = true;
+				*/
+					dispatchEvent('moveup', { y, element });
+					box = undefined;
+				} else if (y > box.bottom + 10) {
+					console.log('MOVE ME DOWN');
+					/*
 				// startY += height;
 				startY = y;
 				offsetY = 0;
@@ -96,10 +120,13 @@
 					bottom,
 					height
 				});
-				dispatchEvent('movedown', { y, element });
+				*/
+					dispatchEvent('movedown', { y, element });
+					box = undefined;
+				}
 			}
 		}
-		dispatchEvent('move', { y, element });
+		// dispatchEvent('move', { y, element });
 	}
 	function end(y: number) {
 		dispatchEvent('end', { y });
@@ -108,17 +135,14 @@
 	let self: HTMLElement;
 
 	function mouseDown(element: HTMLElement) {
-		console.log({ 'mouseDown setup': element });
 		return (e: MouseEvent) => {
-			console.log(e, e.target);
-			console.log({ mouseDown: element });
+			e.stopPropagation();
+			e.preventDefault();
 			fireStart(e.clientY, element);
 		};
 	}
 	function mouseMove(element: HTMLElement) {
 		return (e: MouseEvent) => {
-			e.stopPropagation();
-			e.preventDefault();
 			fireMove(e.clientY, element);
 		};
 	}
@@ -136,7 +160,7 @@
 	bind:this={self}
 	class="item"
 	class:invisible
-	style="transform: translateY({invisible ? offsetY : 0}px)"
+	style="transform: translateY({invisible ? yposOffset : 0}px)"
 	on:mousedown={mouseDown(self)}
 	on:touchstart={touchStart(self)}
 	on:mousemove={mouseMove(self)}
@@ -156,7 +180,7 @@
 	}
 
 	.invisible {
-		opacity: 0.7;
+		opacity: 0.8;
 		background-color: aqua;
 		position: relative;
 		z-index: 100;
