@@ -261,7 +261,6 @@
 						on:moveup={moveUp(i)}
 						on:movedown={moveDown(i)}
 						{mouseY}
-						index={i}
 						{send}
 						{receive}
 					>
