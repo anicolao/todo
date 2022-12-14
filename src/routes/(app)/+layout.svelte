@@ -158,9 +158,11 @@
 				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
 			}
-			const previousShares = getSharedUsers().map((u: AuthState) => u.email).sort();
+			const previousShares = getSharedUsers()
+				.map((u: AuthState) => u.email)
+				.sort();
 			const currentShares = selectedShareUsers.sort();
-			console.log({previousShares, currentShares});
+			console.log({ previousShares, currentShares });
 			let pi = 0;
 			let ci = 0;
 			function revokeShare(dontShareWith: string) {

@@ -5,7 +5,7 @@
 	import { store } from '$lib/store';
 	import Paper, { Content } from '@smui/paper';
 
-	function setBackground(event: {currentTarget: HTMLInputElement}) {
+	function setBackground(event: { currentTarget: HTMLInputElement }) {
 		let imgUrl = event.currentTarget.value;
 		firebase.dispatch(set_background_url(imgUrl));
 	}

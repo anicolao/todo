@@ -3,8 +3,11 @@ import { store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
-	collection, onSnapshot,
-	orderBy, query, serverTimestamp
+	collection,
+	onSnapshot,
+	orderBy,
+	query,
+	serverTimestamp
 } from 'firebase/firestore';
 
 /*

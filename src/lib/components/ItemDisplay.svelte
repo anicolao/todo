@@ -1,9 +1,7 @@
 <script lang="ts">
 	console.log('ItemDisplay.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
-	import {
-		complete_item, describe_item, star_item, type TodoItem
-	} from '$lib/components/items';
+	import { complete_item, describe_item, star_item, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
 	import { Graphic, Item, Meta } from '@smui/list';

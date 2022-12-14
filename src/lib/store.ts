@@ -33,7 +33,11 @@ const reducer = {
 	requests,
 	users
 };
-const reduxStore = configureStore({ reducer, enhancers: [svelteStoreEnhancer], devTools:{maxAge: 100000} });
+const reduxStore = configureStore({
+	reducer,
+	enhancers: [svelteStoreEnhancer],
+	devTools: { maxAge: 100000 }
+});
 export type ReduxStore = typeof reduxStore;
 export type GlobalState = ReturnType<typeof reduxStore.getState>;
 export type SvelteStore = Writable<GlobalState>;

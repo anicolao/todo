@@ -26,9 +26,9 @@
 	}
 
 	function updateUserList(e: CustomEvent) {
-		const t = (e.target as unknown) as { value: string; checked: boolean };
+		const t = e.target as unknown as { value: string; checked: boolean };
 		console.log(t.value, t.checked);
-		selected = selected.filter(x => x !== t.value);
+		selected = selected.filter((x) => x !== t.value);
 		if (t.checked) {
 			selected.push(t.value);
 		}

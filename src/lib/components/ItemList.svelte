@@ -1,10 +1,7 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
-	import {
-		reorder_item, type ListOfItems,
-		type TodoItem
-	} from '$lib/components/items';
+	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
 	import Button from '@smui/button';
 	import List from '@smui/list';
@@ -78,7 +75,7 @@
 	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
-			if(anchor.parentElement) {
+			if (anchor.parentElement) {
 				layerY = anchor.parentElement.getBoundingClientRect().y;
 			}
 		}
