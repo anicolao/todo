@@ -185,35 +185,19 @@
 	}
 
 	let containerDragHandlers = {
-		onMouseMove: (ev: Event) => {
-			const e = ev as MouseEvent;
+		onPointerMove: (e: PointerEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				e.preventDefault();
 				drag(e.clientY);
 			}
 		},
-		onTouchMove: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				drag(e.touches[0].clientY);
-			}
-		},
-		onMouseUp: (ev: Event) => {
-			const e = ev as MouseEvent;
+		onPointerUp: (e: PointerEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				release();
 			}
 		},
-		onTouchEnd: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				release();
-			}
-		}
 	};
 
 	let itemDragHandlers = {
@@ -223,26 +207,18 @@
 				grab(e.detail.y, id, e.detail.element);
 			}
 		},
-		onMove: (id: string) => (e: CustomEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.preventDefault();
-				const target = { id };
-				touchEnter(e.detail.y, target);
-			}
-		}
 	};
 </script>
 
 <div bind:this={anchor} />
+   <!--
+			on:pointermove={containerDragHandlers.onPointerMove}
+			on:pointerup={containerDragHandlers.onPointerUp}
+	 -->
 
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
 		>{/if}{#if show || completed === false}<List
-			on:mousemove={containerDragHandlers.onMouseMove}
-			on:touchmove={containerDragHandlers.onTouchMove}
-			on:mouseup={containerDragHandlers.onMouseUp}
-			on:touchend={containerDragHandlers.onTouchEnd}
 			><div
 				bind:this={ghost}
 				id="ghost"
@@ -257,10 +233,8 @@
 					<DraggableItem
 						invisible={grabbed && item.id == grabbed.id}
 						on:start={itemDragHandlers.onStart(item.id)}
-						on:move={itemDragHandlers.onMove(item.id)}
 						on:moveup={moveUp(i)}
 						on:movedown={moveDown(i)}
-						{mouseY}
 						{send}
 						{receive}
 					>
