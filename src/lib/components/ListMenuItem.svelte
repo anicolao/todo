@@ -10,12 +10,13 @@
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
 	import { accept_pending_share, rename_list } from './lists';
-	import { accept_request_by_payload_id } from './requests';
+	import { accept_request } from './requests';
 	import { show_edit_dialog } from './ui';
 
 	$: pageListId = $page.url.searchParams.get('listId') || 'hmph';
 
 	export let listId: string | undefined = undefined;
+	export let requestId = '';
 	export let sharerId = '';
 
 	let unsub: Unsubscribe | undefined;
@@ -63,9 +64,11 @@
 
 	function acceptPendingShare(id: string) {
 		return () => {
-			firebase.request(sharerId, accept_request_by_payload_id({id}));
-			firebase.dispatch(accept_pending_share(id));
-		}
+			const accept = accept_request({ id: requestId });
+			firebase.request(sharerId, accept);
+			firebase.dispatch(accept);
+			firebase.dispatch($store.requests.requestIdToRequest[requestId]);
+		};
 	}
 </script>
 

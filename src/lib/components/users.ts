@@ -19,35 +19,45 @@ export function emailToUid(state: UsersState, email: string): string {
 	}
 	return '';
 }
+function shareType(type: string) {
+	return type === 'accept_pending_share' || type === 'revoke_share';
+}
+function filterPendingShares(uid: string) {
+	return (requestId: string) =>
+		store.getState().requests.requestIdToUid[requestId] === uid &&
+		shareType(store.getState().requests.requestIdToRequest[requestId].type) &&
+		(store.getState().requests.requestIdToRequest[requestId].payload ===
+			store.getState().ui.listId ||
+			store.getState().requests.requestIdToRequest[requestId].payload.id ===
+				store.getState().ui.listId);
+}
 
 export function sharePending(users: UsersState, email: string) {
 	const uid = emailToUid(users, email);
-	const pendingRequests = store.getState().requests.pendingRequests.filter(
-		(id: string) =>
-			store.getState().requests.requestIdToUid[id] === uid &&
-			store.getState().requests.requestIdToRequest[id].type === 'register_pending_share' &&
-			store.getState().requests.requestIdToRequest[id].payload.id === store.getState().ui.listId
-	);
-	return pendingRequests.length > 0;
+	const outgoingRequests = store
+		.getState()
+		.requests.outgoingRequests.filter(filterPendingShares(uid));
+	return outgoingRequests.length > 0;
 }
 
 export function getSharedUsers() {
-	let otherUsers = store.getState().users.users.filter((u: AuthState) => u.email !== store.getState().auth.email);
-	return otherUsers.filter((u: AuthState) => u.email && shareAccepted(store.getState().users, u.email));
+	let otherUsers = store
+		.getState()
+		.users.users.filter((u: AuthState) => u.email !== store.getState().auth.email);
+	return otherUsers.filter(
+		(u: AuthState) => u.email && shareAccepted(store.getState().users, u.email)
+	);
 }
 
 export function shareAccepted(users: UsersState, email: string) {
 	const uid = emailToUid(users, email);
-	const completedRequests = store.getState().requests.completedRequests.filter((id: string) => {
-		const ret =
-			store.getState().requests.requestIdToUid[id] === uid &&
-			store.getState().requests.requestIdToRequest[id].type === 'register_pending_share' &&
-			store.getState().requests.requestIdToRequest[id].payload.id === store.getState().ui.listId;
-		return ret;
-	});
-	return completedRequests.length > 0;
+	const completedRequests = store
+		.getState()
+		.requests.completedRequests.filter(filterPendingShares(uid));
+	if (completedRequests.length === 0) return false;
+	const lastRequest = completedRequests[completedRequests.length - 1];
+	return store.getState().requests.requestIdToRequest[lastRequest].type === 'accept_pending_share';
 }
-
 
 export const users = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);

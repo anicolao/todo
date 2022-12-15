@@ -4,7 +4,6 @@
 		accept_pending_share,
 		create_list,
 		delete_list,
-		register_pending_share,
 		rename_list
 	} from '$lib/components/lists';
 	import firebase from '$lib/firebase';
@@ -68,10 +67,6 @@
 		return () => firebase.dispatch(delete_list(listId));
 	}
 
-	function shareList(listId: string, name: string, uid: string) {
-		return () => firebase.request(uid, register_pending_share({ id: listId, name }));
-	}
-
 	function acceptPendingShare(listId: string) {
 		return () => firebase.dispatch(accept_pending_share(listId));
 	}
@@ -121,26 +116,7 @@
 					<input type="text" value="" on:change={addListItem(listId)} />
 				</li>
 			</ul>
-			<p>
-				{#each otherUsers as user (user.uid)}
-					{#if user.uid}
-						<button on:click={shareList(listId, $store.lists.listIdToList[listId], user.uid)}
-							>Share list with {user.name}.</button
-						>
-					{/if}
-				{/each}
-			</p>
 			<button on:click={deleteList(listId)}>Trash</button>
-		</li>
-	{/each}
-</ul>
-
-<ul>
-	{#each $store.lists.pendingShares as { id, name, sharerId } (id)}
-		<li>
-			<button on:click={acceptPendingShare(id)}
-				>Accept share of '{name}' from {getUserById(sharerId).name}</button
-			>
 		</li>
 	{/each}
 </ul>

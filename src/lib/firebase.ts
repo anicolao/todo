@@ -9,7 +9,7 @@ import {
 	serverTimestamp,
 	connectFirestoreEmulator
 } from 'firebase/firestore';
-import { pending_request } from './components/requests';
+import { outgoing_request } from './components/requests';
 //import { getAnalytics } from 'firebase/analytics';
 //
 // TODO: Add SDKs for Firebase products that you want to use
@@ -49,6 +49,7 @@ function request(to: string, action: any) {
 	const user = store.getState().auth;
 	if (user.uid) {
 		console.log('Share request ', action);
+		console.log('to', to);
 		addDoc(collection(firebase.firestore, 'from', user.uid, 'to', to, 'requests'), {
 			...action,
 			creator: user.uid,
@@ -57,7 +58,7 @@ function request(to: string, action: any) {
 		})
 			.then((docRef) => {
 				const id = docRef.id;
-				dispatch(pending_request({ id, uid: to, action }));
+				dispatch(outgoing_request({ id, uid: to, action }));
 			})
 			.catch((message) => {
 				console.error(message);

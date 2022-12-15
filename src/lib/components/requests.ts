@@ -1,42 +1,48 @@
 import { createAction, createReducer, type AnyAction } from '@reduxjs/toolkit';
 
 export interface RequestsState {
-	pendingRequests: string[];
+	outgoingRequests: string[];
+	incomingRequests: string[];
 	completedRequests: string[];
 	requestIdToRequest: { [k: string]: AnyAction };
 	requestIdToUid: { [k: string]: string };
 }
 
-export const pending_request = createAction<{ id: string; uid: string; action: AnyAction }>(
-	'pending_request'
+export const outgoing_request = createAction<{ id: string; uid: string; action: AnyAction }>(
+	'outgoing_request'
+);
+export const incoming_request = createAction<{ id: string; uid: string; action: AnyAction }>(
+	'incoming_request'
 );
 export const accept_request = createAction<{ id: string }>('accept_request');
-export const accept_request_by_payload_id = createAction<{ id: string }>('accept_request_by_payload_id');
 
 export const initialState = {
-	pendingRequests: [],
+	outgoingRequests: [],
+	incomingRequests: [],
 	completedRequests: [],
 	requestIdToRequest: {},
 	requestIdToUid: {}
 } as RequestsState;
 
 export const requests = createReducer(initialState, (r) => {
-	r.addCase(pending_request, (state, { payload }) => {
+	r.addCase(outgoing_request, (state, { payload }) => {
 		state.requestIdToRequest[payload.id] = payload.action;
 		state.requestIdToUid[payload.id] = payload.uid;
-		state.pendingRequests.push(payload.id);
+		if (payload.action.type === 'accept_request') {
+			// don't wait for an ack of an ack
+			state.completedRequests.push(payload.id);
+		} else {
+			state.outgoingRequests.push(payload.id);
+		}
+	});
+	r.addCase(incoming_request, (state, { payload }) => {
+		state.requestIdToRequest[payload.id] = payload.action;
+		state.requestIdToUid[payload.id] = payload.uid;
+		state.incomingRequests.push(payload.id);
 	});
 	r.addCase(accept_request, (state, { payload }) => {
-		state.pendingRequests = state.pendingRequests.filter((id) => id !== payload.id);
+		state.outgoingRequests = state.outgoingRequests.filter((id) => id !== payload.id);
+		state.incomingRequests = state.incomingRequests.filter((id) => id !== payload.id);
 		state.completedRequests.push(payload.id);
-	});
-	r.addCase(accept_request_by_payload_id, (state, { payload }) => {
-		const requests = Object.entries(state.requestIdToRequest);
-		for (const [key, value] of requests) {
-			if (value.payload.id === payload.id) {
-				state.pendingRequests = state.pendingRequests.filter((id) => id !== key);
-				state.completedRequests.push(key);
-			}
-		}
 	});
 });

@@ -7,12 +7,13 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
+		accept_pending_share,
 		create_list,
 		delete_list,
-		register_pending_share,
 		rename_list,
 		revoke_share
 	} from '$lib/components/lists';
+	import { incoming_request } from '$lib/components/requests';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog } from '$lib/components/ui';
 	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
@@ -79,7 +80,13 @@
 							} else {
 								console.log('client side data: ', data);
 							}
-							store.dispatch(data as AnyAction);
+							if (data.creator === user.uid || data.type === 'accept_request') {
+								store.dispatch(data as AnyAction);
+							} else {
+								store.dispatch(
+									incoming_request({ id: doc.id, uid: data.creator, action: data as AnyAction })
+								);
+							}
 						}
 					});
 				});
@@ -171,7 +178,7 @@
 			}
 			function grantShare(shareWith: string) {
 				console.log('new share for ' + shareWith);
-				firebase.request(emailToUid($store.users, shareWith), register_pending_share({ id, name }));
+				firebase.request(emailToUid($store.users, shareWith), accept_pending_share(id));
 			}
 			while (pi < previousShares.length && ci < currentShares.length) {
 				if (previousShares[pi] === currentShares[ci]) {
