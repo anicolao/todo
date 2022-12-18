@@ -9,7 +9,7 @@
 	import { onDestroy } from 'svelte';
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
-	import { accept_pending_share, rename_list } from './lists';
+	import { rename_list } from './lists';
 	import { accept_request } from './requests';
 	import { show_edit_dialog } from './ui';
 
@@ -62,7 +62,7 @@
 	}
 	$: activated = pageListId === listId;
 
-	function acceptPendingShare(id: string) {
+	function acceptPendingShare() {
 		return () => {
 			const accept = accept_request({ id: requestId });
 			firebase.request(sharerId, accept);
@@ -81,7 +81,7 @@
 				>{#if sharerId === ''}<IconButton
 						class="material-icons"
 						on:click={() => store.dispatch(show_edit_dialog(true))}>edit</IconButton
-					>{:else}<IconButton class="material-icons" on:click={acceptPendingShare(listId)}
+					>{:else}<IconButton class="material-icons" on:click={acceptPendingShare()}
 						>check</IconButton
 					>{/if}</Meta
 			>

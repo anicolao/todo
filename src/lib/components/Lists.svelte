@@ -1,16 +1,10 @@
 <script lang="ts">
 	console.log('Lists.svelte');
-	import {
-		accept_pending_share,
-		create_list,
-		delete_list,
-		rename_list
-	} from '$lib/components/lists';
+	import { create_list, delete_list, rename_list } from '$lib/components/lists';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
 	import { dispatch } from './ActionLog';
-	import type { AuthState } from './auth';
 	import { complete_item, create_item, star_item } from './items';
 
 	let errorMessage: string;
@@ -26,13 +20,6 @@
 		listName = undefined;
 	}
 
-	function getUserById(id: string) {
-		let users = $store.users.users.filter((x: AuthState) => x.uid === id);
-		return users[0];
-	}
-
-	$: otherUsers = $store.users.users.filter((u: AuthState) => u.uid != $store.auth.uid);
-
 	function addListItem(list_id: string) {
 		return (event: any) => {
 			if ($store.auth.uid) {
@@ -44,14 +31,14 @@
 	}
 
 	function star(list_id: string, id: string, starred: boolean) {
-		return (event: any) => {
+		return () => {
 			if ($store.auth.uid) {
 				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred }));
 			}
 		};
 	}
 	function completed(list_id: string, id: string, completed: boolean) {
-		return (event: any) => {
+		return () => {
 			if ($store.auth.uid) {
 				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed }));
 			}
@@ -65,10 +52,6 @@
 
 	function deleteList(listId: string) {
 		return () => firebase.dispatch(delete_list(listId));
-	}
-
-	function acceptPendingShare(listId: string) {
-		return () => firebase.dispatch(accept_pending_share(listId));
 	}
 </script>
 

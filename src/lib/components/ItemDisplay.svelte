@@ -16,7 +16,7 @@
 	const dispatchEvent = createEventDispatcher();
 
 	function star(list_id: string, id: string, starred: boolean) {
-		return (event: any) => {
+		return () => {
 			if ($store.auth.uid) {
 				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred }));
 			}
@@ -24,7 +24,7 @@
 	}
 
 	function complete(list_id: string, id: string, completed: boolean) {
-		return (event: any) => {
+		return () => {
 			if ($store.auth.uid) {
 				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed }));
 			}
