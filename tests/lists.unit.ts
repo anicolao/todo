@@ -1,15 +1,16 @@
 import { expect } from 'chai';
 import { describe, it } from 'vitest';
 
+import { signed_in, signed_out } from '$lib/components/auth';
 import {
-	initialState,
+	accept_pending_share,
 	create_list,
 	delete_list,
+	initialState,
 	lists,
-	type ListsState,
 	rename_list,
-	register_pending_share,
-	accept_pending_share
+	revoke_share,
+	type ListsState
 } from '$lib/components/lists';
 
 describe('lists', () => {
@@ -46,43 +47,49 @@ describe('lists', () => {
 	it('can delete a list', () => {
 		let nextState = createList(initialState, 'id1', 'First List');
 		expect(nextState.visibleLists.length).to.equal(1);
+		expect(nextState.listIdToList['id1']).to.equal('First List');
 		nextState = lists(nextState, delete_list('id1'));
 		expect(nextState.visibleLists.length).to.equal(0);
+		expect(nextState.listIdToList['id1']).to.equal(undefined);
 	});
 
-	it('registers a list share', () => {
-		let nextState = initialState;
-		expect(nextState.pendingShares.length).to.equal(0);
-		nextState = lists(nextState, {
-			...register_pending_share({ id: 'id1', name: 'shareMe' }),
-			creator: 'god'
-		});
-		expect(nextState.pendingShares.length).to.equal(1);
-		expect(nextState.pendingShares[0].id).to.equal('id1');
-		expect(nextState.pendingShares[0].name).to.equal('shareMe');
-		expect(nextState.pendingShares[0].sharerId).to.equal('god');
-	});
-
-	it('accepts a list share', () => {
-		let nextState = initialState;
-		expect(nextState.pendingShares.length).to.equal(0);
-		nextState = lists(nextState, {
-			...register_pending_share({ id: 'id1', name: 'shareMe' }),
-			creator: 'god'
-		});
-
-		expect(nextState.visibleLists.length).to.equal(0);
-		expect(nextState.pendingShares.length).to.equal(1);
-		expect(nextState.pendingShares[0].id).to.equal('id1');
-		expect(nextState.pendingShares[0].name).to.equal('shareMe');
-		expect(nextState.pendingShares[0].sharerId).to.equal('god');
-
-		let action = accept_pending_share('id1');
-		nextState = lists(nextState, action);
-
-		expect(nextState.pendingShares.length).to.equal(0);
+	it('accepts a share request', () => {
+		const firstListId = 'id1';
+		let nextState = createList(initialState, firstListId, 'First List');
 		expect(nextState.visibleLists.length).to.equal(1);
-		expect(nextState.visibleLists[0]).to.equal('id1');
-		expect(nextState.listIdToList['id1']).to.equal('shareMe');
+		const newListId = 'abcdefg';
+		nextState = lists(nextState, accept_pending_share(newListId));
+		expect(nextState.visibleLists.length).to.equal(2);
+		expect(nextState.visibleLists[0]).to.equal(newListId);
+		expect(nextState.visibleLists[1]).to.equal(firstListId);
+
+		// TODO: What about the list name that should go into listIdToList?
+		// But we don't have the name in the accept_pending_share payload.
+	});
+
+	it('revokes a list share', () => {
+		let nextState = createList(initialState, 'id1', 'First List');
+		nextState = createList(nextState, 'id2', 'Second List');
+		expect(nextState.visibleLists.length).to.equal(2);
+		expect(nextState.listIdToList['id1']).to.equal('First List');
+		expect(nextState.listIdToList['id2']).to.equal('Second List');
+
+		nextState = lists(nextState, revoke_share({ id: 'id1' }));
+		expect(nextState.visibleLists.length).to.equal(1);
+		expect(nextState.visibleLists[0]).to.equal('id2');
+		expect(nextState.listIdToList['id2']).to.equal('Second List');
+		expect(nextState.listIdToList['id1']).to.equal(undefined);
+	});
+
+	it('returns initial state on sign in', () => {
+		const state: ListsState = { visibleLists: ['x', 'y', 'z'], listIdToList: { a: 'A', b: 'B' } };
+		const nextState = lists(state, signed_in);
+		expect(nextState).to.equal(initialState);
+	});
+
+	it('returns initial state on sign out', () => {
+		const state: ListsState = { visibleLists: ['x', 'y', 'z'], listIdToList: { a: 'A', b: 'B' } };
+		const nextState = lists(state, signed_out);
+		expect(nextState).to.equal(initialState);
 	});
 });
