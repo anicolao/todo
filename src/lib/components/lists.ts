@@ -11,6 +11,7 @@ export const rename_list = createAction<{ id: string; name: string }>('rename_li
 export const delete_list = createAction<string>('delete_list');
 export const accept_pending_share = createAction<string>('accept_pending_share');
 export const revoke_share = createAction<{ id: string }>('revoke_share');
+export const reorder_list = createAction<{ id: string; goes_before?: string }>('reorder_list');
 
 export const initialState = {
 	visibleLists: [],
@@ -41,5 +42,25 @@ export const lists = createReducer(initialState, (r) => {
 	});
 	r.addCase(accept_pending_share, (state, action) => {
 		state.visibleLists = [action.payload, ...state.visibleLists];
+	});
+	r.addCase(reorder_list, (state, action) => {
+		const lists = [...state.visibleLists];
+		const index = lists.indexOf(action.payload.id);
+		if (index !== -1) {
+			const removedItem = lists.splice(index, 1);
+			const newIndex = action.payload.goes_before
+				? lists.indexOf(action.payload.goes_before)
+				: lists.length;
+			if (newIndex === -1) {
+				throw `ERROR: goes_before ${action.payload.goes_before} not found in visible lists`;
+			}
+			state.visibleLists = [
+				lists.slice(0, newIndex),
+				removedItem[0],
+				lists.slice(newIndex)
+			].flat();
+		} else {
+			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
+		}
 	});
 });

@@ -9,6 +9,7 @@ import {
 	initialState,
 	lists,
 	rename_list,
+	reorder_list,
 	revoke_share,
 	type ListsState
 } from '$lib/components/lists';
@@ -91,5 +92,60 @@ describe('lists', () => {
 		const state: ListsState = { visibleLists: ['x', 'y', 'z'], listIdToList: { a: 'A', b: 'B' } };
 		const nextState = lists(state, signed_out);
 		expect(nextState).to.equal(initialState);
+	});
+
+	it('reorders a list', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = createList(state, 'id2', 'Second List');
+		expect(state.visibleLists.length).to.equal(2);
+		expect(state.visibleLists[0]).to.equal('id1');
+		expect(state.visibleLists[1]).to.equal('id2');
+
+		state = lists(state, reorder_list({ id: 'id2', goes_before: 'id1' }));
+		expect(state.visibleLists[0]).to.equal('id2');
+		expect(state.visibleLists[1]).to.equal('id1');
+	});
+
+	it('reorders a list to the end', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = createList(state, 'id2', 'Second List');
+		expect(state.visibleLists.length).to.equal(2);
+		expect(state.visibleLists[0]).to.equal('id1');
+		expect(state.visibleLists[1]).to.equal('id2');
+
+		state = lists(state, reorder_list({ id: 'id1' }));
+		expect(state.visibleLists[0]).to.equal('id2');
+		expect(state.visibleLists[1]).to.equal('id1');
+	});
+
+	it('throws when a reordered list does not exist', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = createList(state, 'id2', 'Second List');
+		expect(state.visibleLists.length).to.equal(2);
+		expect(state.visibleLists[0]).to.equal('id1');
+		expect(state.visibleLists[1]).to.equal('id2');
+
+		try {
+			state = lists(state, reorder_list({ id: 'XYZ' }));
+		}
+		catch (e) {
+			expect(e).to.equal('ERROR: list_id XYZ not found in visible lists');
+			expect(state.visibleLists[0]).to.equal('id1');
+			expect(state.visibleLists[1]).to.equal('id2');
+		}
+	});
+
+	it('reorders when list before does not exist', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = createList(state, 'id2', 'Second List');
+		expect(state.visibleLists.length).to.equal(2);
+		expect(state.visibleLists[0]).to.equal('id1');
+		expect(state.visibleLists[1]).to.equal('id2');
+
+		try {
+			state = lists(state, reorder_list({ id: 'id2', goes_before: 'XYZ' }));
+		} catch (e) {
+			expect(e).to.equal('ERROR: goes_before XYZ not found in visible lists');
+		}
 	});
 });
