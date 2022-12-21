@@ -80,7 +80,11 @@
 							} else {
 								console.log('client side data: ', data);
 							}
-							if (data.creator === user.uid || data.type === 'accept_request') {
+							if (
+								data.creator === user.uid ||
+								data.type === 'accept_request' ||
+								data.type === 'reject_request'
+							) {
 								store.dispatch(data as AnyAction);
 							} else {
 								store.dispatch(

@@ -10,7 +10,7 @@
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
 	import { rename_list } from './lists';
-	import { accept_request } from './requests';
+	import { accept_request, reject_request } from './requests';
 	import { show_edit_dialog } from './ui';
 
 	$: pageListId = $page.url.searchParams.get('listId') || 'hmph';
@@ -70,6 +70,14 @@
 			firebase.dispatch($store.requests.requestIdToRequest[requestId]);
 		};
 	}
+
+	function rejectPendingShare() {
+		return () => {
+			const reject = reject_request({ id: requestId });
+			firebase.request(sharerId, reject);
+			firebase.dispatch(reject);
+		};
+	}
 </script>
 
 {#if listId}
@@ -81,10 +89,17 @@
 				>{#if sharerId === ''}<IconButton
 						class="material-icons"
 						on:click={() => store.dispatch(show_edit_dialog(true))}>edit</IconButton
-					>{:else}<IconButton class="material-icons" on:click={acceptPendingShare()}
-						>check</IconButton
-					>{/if}</Meta
+					>{:else}<div>
+						<IconButton class="material-icons" on:click={acceptPendingShare()}>check</IconButton
+						><IconButton class="material-icons" on:click={rejectPendingShare()}>close</IconButton>
+					</div>{/if}</Meta
 			>
 		{/if}
 	</Item>
 {/if}
+
+<style>
+	div {
+		min-width: 96px; /* 2 x icon width. */
+	}
+</style>

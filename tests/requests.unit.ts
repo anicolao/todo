@@ -6,6 +6,7 @@ import {
 	incoming_request,
 	initialState,
 	outgoing_request,
+	reject_request,
 	requests
 } from '$lib/components/requests';
 
@@ -61,11 +62,31 @@ describe('requests', () => {
 		expect(state.completedRequests.length).to.equal(0);
 		expect(state.incomingRequests[0]).to.equal('abc');
 		expect(state.requestIdToRequest['abc'].type).to.equal('pendingRA');
+		expect(state.requestIdToAccepted['abc']).to.be.undefined;
 		state = requests(state, accept_request({ id: 'abc' }));
 		expect(state.outgoingRequests.length).to.equal(0);
 		expect(state.incomingRequests.length).to.equal(0);
 		expect(state.completedRequests.length).to.equal(1);
 		expect(state.completedRequests[0]).to.equal('abc');
+		expect(state.requestIdToAccepted['abc']).to.be.true;
+	});
+
+	it('can reject an incoming request', () => {
+		let state = requests(
+			initialState,
+			incoming_request({ id: 'abc', uid: 'user0', action: { type: 'pendingRA' } })
+		);
+		expect(state.incomingRequests.length).to.equal(1);
+		expect(state.completedRequests.length).to.equal(0);
+		expect(state.incomingRequests[0]).to.equal('abc');
+		expect(state.requestIdToRequest['abc'].type).to.equal('pendingRA');
+		expect(state.requestIdToAccepted['abc']).to.be.undefined;
+		state = requests(state, reject_request({ id: 'abc' }));
+		expect(state.outgoingRequests.length).to.equal(0);
+		expect(state.incomingRequests.length).to.equal(0);
+		expect(state.completedRequests.length).to.equal(1);
+		expect(state.completedRequests[0]).to.equal('abc');
+		expect(state.requestIdToAccepted['abc']).to.be.false;
 	});
 
 	it('automatically completes an accept_request ack.', () => {
@@ -78,5 +99,17 @@ describe('requests', () => {
 		expect(state.completedRequests.length).to.equal(1);
 		expect(state.completedRequests[0]).to.equal('abc');
 		expect(state.requestIdToRequest['abc'].type).to.equal('accept_request');
+	});
+
+	it('automatically completes an reject_request ack.', () => {
+		let state = requests(
+			initialState,
+			outgoing_request({ id: 'abc', uid: 'user0', action: { type: 'reject_request' } })
+		);
+		expect(state.outgoingRequests.length).to.equal(0);
+		expect(state.incomingRequests.length).to.equal(0);
+		expect(state.completedRequests.length).to.equal(1);
+		expect(state.completedRequests[0]).to.equal('abc');
+		expect(state.requestIdToRequest['abc'].type).to.equal('reject_request');
 	});
 });
