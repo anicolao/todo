@@ -18,7 +18,7 @@
 		type="url"
 		id="url"
 		placeholder="image URL"
-		value={$store.uiSettings.backgroundUrl}
+		value={$store.uiSettings.backgroundUrl || ''}
 		on:input={setBackground}
 	/>
 	{#if $store.uiSettings.backgroundUrl}
