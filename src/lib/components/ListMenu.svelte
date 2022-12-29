@@ -1,11 +1,9 @@
 <script lang="ts">
-	import firebase from '$lib/firebase';
 	console.log('ListMenu.svelte');
+	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
-	import { construct_svelte_component } from 'svelte/internal';
-	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { reorder_list } from './lists';
 
@@ -24,14 +22,14 @@
 	$: items = $store.lists.visibleLists;
 	let dragTo: string;
 
-	let ghost: Element;
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem: string;
 	let lastTarget: Element;
+	let boxHeight: number;
 
-	let mouseY = 0; // pointer y coordinate within client
-	let offsetY = 0; // y distance from top of grabbed element to pointer
+	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
+	let offsetY = 0; // negative y distance from top of grabbed element to pointer
 	let layerY = 0; // distance from top of list to top of client
 
 	function grab(clientY: number, element: HTMLElement) {
@@ -39,10 +37,18 @@
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
-		grabbedItem = items[Number(dataMap.index)];
+		const index = Number(dataMap.index);
+		grabbedItem = items[index];
+		if (index + 1 < items.length) {
+			dragTo = items[index + 1];
+		} else {
+			dragTo = '';
+		}
 		// record offset from cursor to top of element
 		// (used for positioning ghost)
-		offsetY = grabbed.getBoundingClientRect().y - clientY;
+		const box = grabbed.getBoundingClientRect();
+		offsetY = box.y - clientY;
+		boxHeight = box.height;
 		drag(clientY);
 	}
 
@@ -51,7 +57,6 @@
 		if (grabbed) {
 			mouseY = clientY;
 			layerY = anchor.getBoundingClientRect().y;
-			console.log({ layerY });
 		}
 	}
 
@@ -73,7 +78,7 @@
 			grabbed &&
 			target != grabbed &&
 			target.classList.contains('item') &&
-			grabbed.dataset.index &&
+			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
@@ -84,7 +89,11 @@
 	function moveDatum(from: number, to: number) {
 		let temp = items[from];
 		items = [...items.slice(0, from), ...items.slice(from + 1)];
-		dragTo = items[to];
+		if (to < items.length) {
+			dragTo = items[to];
+		} else {
+			dragTo = '';
+		}
 		items = [...items.slice(0, to), temp, ...items.slice(to)];
 	}
 
@@ -103,99 +112,62 @@
 		grabbed = null;
 	}
 
-	let dragEnabled = true;
-	$: console.log({ dragEnabled });
-
 	let containerDragHandlers = {
-		onMouseMove: (ev: Event) => {
-			const e = ev as MouseEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.preventDefault();
-				drag(e.clientY);
+		onPointerDown: (e: PointerEvent) => {
+			let target: HTMLElement | null | undefined = document
+				.elementFromPoint(e.clientX, e.clientY)
+				?.closest('.item');
+			if (target) {
+				grab(e.clientY, target);
 			}
 		},
-		onTouchMove: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				drag(e.touches[0].clientY);
+		onPointerMove: (e: PointerEvent) => {
+			e.stopPropagation();
+			e.preventDefault();
+			drag(e.clientY);
+			if (grabbed) {
+				const srcElement = e.currentTarget as HTMLElement;
+				srcElement.setPointerCapture(e.pointerId);
+				const midPoint = e.clientY + offsetY + boxHeight / 2;
+				let target: HTMLElement | null | undefined = document
+					.elementFromPoint(e.clientX, midPoint)
+					?.closest('.item');
+				if (target) {
+					if (target != lastTarget) {
+						lastTarget = target;
+						dragEnter(target);
+					}
+				}
 			}
 		},
-		onMouseUp: (ev: Event) => {
-			const e = ev as MouseEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				release();
-			}
-		},
-		onTouchEnd: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				release();
-			}
-		}
-	};
-
-	let itemDragHandlers = {
-		onMouseDown: (e: MouseEvent, src: any) => {
-			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.clientY, srcElement);
-			}
-		},
-		onTouchStart: (e: TouchEvent, src: any) => {
-			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.touches[0].clientY, srcElement);
-			}
-		},
-		onMouseEnter: (e: MouseEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.target && dragEnter(e.target as HTMLElement);
-			}
-		},
-		onTouchMove: (e: TouchEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.preventDefault();
-				touchEnter(e.touches[0]);
-			}
+		onPointerUp: (e: PointerEvent) => {
+			e.stopPropagation();
+			release();
 		}
 	};
 </script>
 
 <div bind:this={anchor} />
 
-<div class="listContainer">
-	<List
-		on:mousemove={containerDragHandlers.onMouseMove}
-		on:touchmove={containerDragHandlers.onTouchMove}
-		on:mouseup={containerDragHandlers.onMouseUp}
-		on:touchend={containerDragHandlers.onTouchEnd}
-		><div
-			bind:this={ghost}
-			id="ghost"
-			class={grabbed ? 'item haunting' : 'item'}
-			style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
-		>
-			{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
-		</div>
+<div
+	class="listContainer"
+	on:pointerdown={containerDragHandlers.onPointerDown}
+	on:pointermove={containerDragHandlers.onPointerMove}
+	on:pointerup={containerDragHandlers.onPointerUp}
+>
+	<div
+		id="ghost"
+		class={grabbed ? 'item haunting' : 'item'}
+		style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
+	>
+		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
+	</div>
+	<List>
 		{#each items as listId, i (listId)}<div
 				id={grabbed && listId == grabbed.dataset.id ? 'grabbed' : ''}
 				class="item"
 				data-index={i}
 				data-id={listId}
-				on:mousedown={function (e) {
-					itemDragHandlers.onMouseDown(e, this);
-				}}
-				on:touchstart={function (e) {
-					itemDragHandlers.onTouchStart(e, this);
-				}}
-				on:mouseenter={itemDragHandlers.onMouseEnter}
-				on:touchmove={itemDragHandlers.onTouchMove}
 				animate:flip={{ duration: 200 }}
 			>
 				<ListMenuItem {listId} />
