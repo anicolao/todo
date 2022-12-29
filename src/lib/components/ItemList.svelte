@@ -26,7 +26,7 @@
 		items = [];
 		lastListOfItems = undefined;
 	}
-	let dragTo: ExtendedTodoItem;
+	let dragTo: ExtendedTodoItem | undefined;
 	let lastListOfItems: ListOfItems | undefined = undefined;
 	$: if ($store.items.listIdToListOfItems[listId]) {
 		if (lastListOfItems !== $store.items.listIdToListOfItems[listId]) {
@@ -46,14 +46,14 @@
 		show = !show;
 	}
 
-	let ghost: Element;
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem: ExtendedTodoItem;
 	let lastTarget: Element;
+	let boxHeight: number;
 
-	let mouseY = 0; // pointer y coordinate within client
-	let offsetY = 0; // y distance from top of grabbed element to pointer
+	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
+	let offsetY = 0; // negative y distance from top of grabbed element to pointer
 	let layerY = 0; // distance from top of list to top of client
 
 	let dragTimeElapsed = false;
@@ -63,10 +63,18 @@
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
-		grabbedItem = items[Number(dataMap.index)];
+		const index = Number(dataMap.index);
+		grabbedItem = items[index];
+		if (index + 1 < items.length) {
+			dragTo = items[index + 1];
+		} else {
+			dragTo = undefined;
+		}
 		// record offset from cursor to top of element
 		// (used for positioning ghost)
-		offsetY = grabbed.getBoundingClientRect().y - clientY;
+		const box = grabbed.getBoundingClientRect();
+		offsetY = box.y - clientY;
+		boxHeight = box.height;
 		drag(clientY);
 		window.setTimeout(() => (dragTimeElapsed = true), 400);
 	}
@@ -99,7 +107,7 @@
 			grabbed &&
 			target != grabbed &&
 			target.classList.contains('item') &&
-			grabbed.dataset.index &&
+			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
@@ -110,7 +118,11 @@
 	function moveDatum(from: number, to: number) {
 		let temp = items[from];
 		items = [...items.slice(0, from), ...items.slice(from + 1)];
-		dragTo = items[to];
+		if (to < items.length) {
+			dragTo = items[to];
+		} else {
+			dragTo = undefined;
+		}
 		items = [...items.slice(0, to), temp, ...items.slice(to)];
 	}
 
@@ -150,61 +162,41 @@
 	}
 
 	let containerDragHandlers = {
-		onMouseMove: (ev: Event) => {
-			const e = ev as MouseEvent;
+		onPointerDown: (e: PointerEvent) => {
+			if (dragEnabled) {
+				let target: HTMLElement | null | undefined = document
+					.elementFromPoint(e.clientX, e.clientY)
+					?.closest('.item');
+				if (target) {
+					grab(e.clientY, target);
+				}
+			}
+		},
+		onPointerMove: (e: PointerEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				e.preventDefault();
 				drag(e.clientY);
+				if (grabbed) {
+					const srcElement = e.currentTarget as HTMLElement;
+					srcElement.setPointerCapture(e.pointerId);
+					const midPoint = e.clientY + offsetY + boxHeight / 2;
+					let target: HTMLElement | null | undefined = document
+						.elementFromPoint(e.clientX, midPoint)
+						?.closest('.item');
+					if (target) {
+						if (target != lastTarget) {
+							lastTarget = target;
+							dragEnter(target);
+						}
+					}
+				}
 			}
 		},
-		onTouchMove: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				drag(e.touches[0].clientY);
-			}
-		},
-		onMouseUp: (ev: Event) => {
-			const e = ev as MouseEvent;
+		onPointerUp: (e: PointerEvent) => {
 			if (dragEnabled) {
 				e.stopPropagation();
 				release();
-			}
-		},
-		onTouchEnd: (ev: Event) => {
-			const e = ev as TouchEvent;
-			if (dragEnabled) {
-				e.stopPropagation();
-				release();
-			}
-		}
-	};
-
-	let itemDragHandlers = {
-		onMouseDown: (e: MouseEvent, src: any) => {
-			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.clientY, srcElement);
-			}
-		},
-		onTouchStart: (e: TouchEvent, src: any) => {
-			if (dragEnabled) {
-				const srcElement = src as HTMLElement;
-				grab(e.touches[0].clientY, srcElement);
-			}
-		},
-		onMouseEnter: (e: MouseEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.target && dragEnter(e.target as HTMLElement);
-			}
-		},
-		onTouchMove: (e: TouchEvent) => {
-			if (dragEnabled) {
-				e.stopPropagation();
-				e.preventDefault();
-				touchEnter(e.touches[0]);
 			}
 		}
 	};
@@ -214,44 +206,37 @@
 
 {#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
 			>{show ? 'Hide ' : 'Show '}Completed Items</Button
-		>{/if}{#if show || completed === false}<List
-			on:mousemove={containerDragHandlers.onMouseMove}
-			on:touchmove={containerDragHandlers.onTouchMove}
-			on:mouseup={containerDragHandlers.onMouseUp}
-			on:touchend={containerDragHandlers.onTouchEnd}
-			><div
-				bind:this={ghost}
-				id="ghost"
-				class={grabbed ? 'item haunting' : 'item'}
-				style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
-			>
-				{#if grabbed}<ItemDisplay {listId} item={grabbedItem} />{/if}
-			</div>
-			{#each items as item, i (item.id)}<div
-					id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
-					class="item"
-					data-index={i}
-					data-id={item.id}
-					on:mousedown={function (e) {
-						itemDragHandlers.onMouseDown(e, this);
-					}}
-					on:touchstart={function (e) {
-						itemDragHandlers.onTouchStart(e, this);
-					}}
-					on:mouseenter={itemDragHandlers.onMouseEnter}
-					on:touchmove={itemDragHandlers.onTouchMove}
-					animate:flip={{ duration: 200 }}
-					in:receive={{ key: item.id }}
-					out:send={{ key: item.id }}
+		>{/if}{#if show || completed === false}<div
+			on:pointerdown={containerDragHandlers.onPointerDown}
+			on:pointermove={containerDragHandlers.onPointerMove}
+			on:pointerup={containerDragHandlers.onPointerUp}
+		>
+			<List
+				><div
+					id="ghost"
+					class={grabbed ? 'item haunting' : 'item'}
+					style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
 				>
-					<ItemDisplay
-						{listId}
-						{item}
-						on:blur={() => (dragEnabled = true)}
-						on:focus={itemTextfieldFocused}
-					/>
-				</div>{/each}</List
-		>{/if}{/if}
+					{#if grabbed}<ItemDisplay {listId} item={grabbedItem} />{/if}
+				</div>
+				{#each items as item, i (item.id)}<div
+						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
+						class="item"
+						data-index={i}
+						data-id={item.id}
+						animate:flip={{ duration: 200 }}
+						in:receive={{ key: item.id }}
+						out:send={{ key: item.id }}
+					>
+						<ItemDisplay
+							{listId}
+							{item}
+							on:blur={() => (dragEnabled = true)}
+							on:focus={itemTextfieldFocused}
+						/>
+					</div>{/each}</List
+			>
+		</div>{/if}{/if}
 
 <style>
 	:global(.mdc-deprecated-list) {
