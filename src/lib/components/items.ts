@@ -5,7 +5,20 @@ export interface TodoItem {
 	completed: boolean;
 	starred: boolean;
 	description: string;
+	dueDate: Date;               // A date of 0 means no due date.
+	dueDateRepeats: RepeatType;  // Repeat type of 'none' means no repeat.
+	dueDateRepeatsEvery: number;
 }
+
+export enum RepeatType {
+	NONE = 'none',
+	DAILY = 'daily',  // every N day(s)
+	WEEKLY = 'weekly', // on dayOfWeek (from 'due') AND every N weeks
+	MONTHLY = 'monthly', // on day N (from 'due')    AND every N months
+	YEARLY = 'yearly', // on Month Day (Jan 1 .. Jan 31, Dec 1 .. Dec 31)
+	WEEKDAYS = 'weekdays'
+}
+
 export interface ListOfItems {
 	itemIds: string[];
 	itemIdToItem: { [id: string]: TodoItem };
@@ -37,6 +50,11 @@ export const star_item = createAction<{ list_id: string; id: string; starred: bo
 export const reorder_item = createAction<{ list_id: string; id: string; goes_before?: string }>(
 	'reorder_item'
 );
+export const set_due_date = createAction<{
+	list_id: string; id: string;
+	due_date: Date, due_date_repeats: RepeatType, due_date_repeats_every: number
+}>('set_due_date');
+export const remove_due_date = createAction<{ list_id: string; id: string }>('remove_due_date');
 
 function strikethrough(s: string) {
 	const strike = '̶';
@@ -111,7 +129,10 @@ export const items = createReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = {
 			completed: false,
 			starred: false,
-			description: action.payload.description
+			description: action.payload.description,
+			dueDate: new Date(0),
+			dueDateRepeats: RepeatType.NONE,
+			dueDateRepeatsEvery: 0
 		};
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 	});
@@ -159,6 +180,24 @@ export const items = createReducer(initialState, (r) => {
 		} else {
 			throw `ERROR: itemid ${action.payload.id} not found in items array`;
 		}
+		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+	});
+
+	r.addCase(set_due_date, (state, action) => {
+		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = list.itemIdToItem[action.payload.id];
+		item.dueDate = action.payload.due_date;
+		item.dueDateRepeats = action.payload.due_date_repeats;
+		item.dueDateRepeatsEvery = action.payload.due_date_repeats_every;
+		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+	});
+
+	r.addCase(remove_due_date, (state, action) => {
+		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = list.itemIdToItem[action.payload.id];
+		item.dueDate = new Date(0);
+		item.dueDateRepeats = RepeatType.NONE;
+		item.dueDateRepeatsEvery = 0;
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 	});
 });
