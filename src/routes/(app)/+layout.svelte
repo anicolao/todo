@@ -5,6 +5,7 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { describe_item } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
 		accept_pending_share,
@@ -15,7 +16,7 @@
 	} from '$lib/components/lists';
 	import { incoming_request } from '$lib/components/requests';
 	import SgDialog from '$lib/components/SgDialog.svelte';
-	import { show_edit_dialog } from '$lib/components/ui';
+	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
@@ -154,6 +155,18 @@
 		firebase.dispatch(create_list({ id, name }));
 	}
 
+	$: itemDetailsOpen = $store.ui.showItemDetailsDialog;
+	$: itemDescription = '';
+	let currentItemId = '';
+	$: if ($store.ui.itemId) {
+		if (currentItemId !== $store.ui.itemId) {
+			const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
+			const desc = listOfItems.itemIdToItem[$store.ui.itemId].description;
+			currentItemId = $store.ui.itemId;
+			itemDescription = desc;
+		}
+	}
+
 	$: dialogOpen = $store.ui.showEditDialog;
 	$: listName = '';
 	$: if ($store.ui.title && !dialogOpen) {
@@ -208,8 +221,32 @@
 		selectedShareUsers = [];
 		store.dispatch(show_edit_dialog(false));
 	}
+
+	function closeItemDetailsDialog() {
+		const uid = $store.auth.uid;
+		const listId = $store.ui.listId;
+		const id = $store.ui.itemId;
+		if (uid) {
+			const listOfItems = $store.items.listIdToListOfItems[listId];
+			const orig_description = listOfItems.itemIdToItem[$store.ui.itemId].description;
+			if (itemDescription !== orig_description) {
+				dispatch(
+					'lists',
+					listId,
+					uid,
+					describe_item({ list_id: listId, id, orig_description, description: itemDescription })
+				);
+			}
+		}
+	}
+
 	function cancelDialog() {
 		store.dispatch(show_edit_dialog(false));
+	}
+
+	function cancelItemDetailsDialog() {
+		currentItemId = '';
+		store.dispatch(show_item_detail_dialog(false));
 	}
 
 	function deleteList() {
@@ -300,6 +337,29 @@
 	<AppContent class="app-content">
 		<div style:background-image={bgStyle} style:background-size="cover" style:width="100%">
 			<slot />
+			<SgDialog
+				bind:open={itemDetailsOpen}
+				cancelDialog={cancelItemDetailsDialog}
+				labelledby="itemdetails-dialog-title"
+				describedby="itemdetails-dialog-content"
+			>
+				<div class="itemdetails-title-div">
+					<Title id="itemdetails-dialog-title">Edit Task</Title>
+				</div>
+				<Content id="itemdetails-dialog-content">
+					<Paper variant="unelevated">
+						<Textfield bind:value={itemDescription} label="Task" />
+					</Paper>
+				</Content>
+				<Actions>
+					<Button on:click={cancelItemDetailsDialog}>
+						<Label>Cancel</Label>
+					</Button>
+					<Button on:click={closeItemDetailsDialog}>
+						<Label>Save</Label>
+					</Button>
+				</Actions>
+			</SgDialog>
 			<SgDialog
 				bind:open={dialogOpen}
 				{cancelDialog}

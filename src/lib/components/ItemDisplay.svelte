@@ -7,6 +7,7 @@
 	import { Graphic, Item, Meta } from '@smui/list';
 	import Textfield from '@smui/textfield';
 	import { createEventDispatcher } from 'svelte';
+	import { set_current_item, set_current_listid, show_item_detail_dialog } from './ui';
 
 	type ExtendedTodoItem = TodoItem & { id: string };
 
@@ -14,6 +15,16 @@
 	export let listId = '';
 
 	const dispatchEvent = createEventDispatcher();
+
+	function showEditDetailsDialog(list_id: string, id: string) {
+		return () => {
+			if ($store.auth.uid) {
+				store.dispatch(set_current_listid(list_id));
+				store.dispatch(set_current_item(id));
+				store.dispatch(show_item_detail_dialog(true));
+			}
+		};
+	}
 
 	function star(list_id: string, id: string, starred: boolean) {
 		return () => {
@@ -27,7 +38,12 @@
 		return () => {
 			if ($store.auth.uid) {
 				const completed_time = new Date().getTime();
-				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed, completed_time }));
+				dispatch(
+					'lists',
+					list_id,
+					$store.auth.uid,
+					complete_item({ list_id, id, completed, completed_time })
+				);
 			}
 		};
 	}
@@ -82,11 +98,16 @@
 			on:blur={handleBlur(listId, item)}
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta
-			>{#if item.starred}<IconButton class="material-icons" on:click={star(listId, item.id, false)}
-					>star</IconButton
-				>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
-					>star_outline</IconButton
-				>{/if}</Meta
+			><span
+				><IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
+					>edit_note</IconButton
+				>{#if item.starred}<IconButton
+						class="material-icons"
+						on:click={star(listId, item.id, false)}>star</IconButton
+					>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
+						>star_outline</IconButton
+					>{/if}</span
+			></Meta
 		></Item
 	>
 </div>
@@ -97,5 +118,9 @@
 		border-radius: 0.3em;
 		margin: 0.25em;
 		opacity: 0.9;
+	}
+	span {
+		display: inline-block;
+		min-width: 96px;
 	}
 </style>

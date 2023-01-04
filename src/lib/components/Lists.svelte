@@ -41,7 +41,12 @@
 		return () => {
 			if ($store.auth.uid) {
 				const completed_time = new Date().getTime();
-				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed, completed_time }));
+				dispatch(
+					'lists',
+					list_id,
+					$store.auth.uid,
+					complete_item({ list_id, id, completed, completed_time })
+				);
 			}
 		};
 	}
