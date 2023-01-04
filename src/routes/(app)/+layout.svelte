@@ -5,7 +5,7 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { describe_item, remove_due_date, set_due_date } from '$lib/components/items';
+	import { describe_item, remove_due_date, RepeatType, set_due_date } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
 		accept_pending_share,
@@ -23,6 +23,7 @@
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
+	import Select, { Option } from '@smui/select';
 	import { Actions } from '@smui/dialog';
 	import Drawer, { AppContent, Content, Header, Scrim, Subtitle } from '@smui/drawer';
 	import IconButton, { Icon } from '@smui/icon-button';
@@ -162,7 +163,20 @@
 	let dueDateStr = '';
 	let currentItemId = '';
 	let useDueDate = false;
-	$: if ($store.ui.itemId) {
+	let repeatValue = "Doesn't repeat";
+	let repeatKind = ["Doesn't repeat", 'Daily', 'Weekly', 'Monthly', 'Yearly', 'Every Weekday'];
+	const repeatType = [
+		RepeatType.NONE,
+		RepeatType.DAILY,
+		RepeatType.WEEKLY,
+		RepeatType.MONTHLY,
+		RepeatType.YEARLY,
+		RepeatType.WEEKDAYS
+	];
+	let lastItemId = '';
+	$: if ($store.ui.itemId && $store.ui.itemId !== lastItemId) {
+		lastItemId = $store.ui.itemId;
+		console.log({ currentItemId });
 		if (currentItemId !== $store.ui.itemId) {
 			const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
 			const item = listOfItems.itemIdToItem[$store.ui.itemId];
@@ -177,6 +191,25 @@
 			const d = dueDate.getDate();
 			dueDateStr =
 				dueDate.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+			const dayName = dueDate.toLocaleDateString('en-us', { weekday: 'long' });
+			const monthDay = dueDate.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
+			/*
+			repeatKind = [
+				"Doesn't repeat",
+				'Daily',
+				`Weekly on ${dayName}`,
+				'Monthly on day ' + d,
+				`Yearly on ${monthDay}`,
+				'Every Weekday (Mon to Fri)'
+			];
+			*/
+			if (item.dueDate?.repeats) {
+				const indexOfKind = repeatType.indexOf(item.dueDate.repeats.type);
+				repeatValue = repeatKind[indexOfKind];
+			} else {
+				repeatValue = repeatKind[0];
+			}
+			// console.log({ repeatValue, repeatKind, kinds: repeatKind.toString() });
 		}
 	}
 
@@ -256,19 +289,33 @@
 			const year = parseInt(ymd[0]);
 			const month = parseInt(ymd[1]);
 			const day = parseInt(ymd[2]);
+			const indexOfRepeat = repeatKind.indexOf(repeatValue);
+			const type = repeatType[indexOfRepeat];
 			if (
 				useDueDate !== origUseDueDate ||
 				(useDueDate &&
-					(year !== item.dueDate.year || month !== item.dueDate.month || day !== item.dueDate.day))
+					(year !== item.dueDate.year ||
+						month !== item.dueDate.month ||
+						day !== item.dueDate.day)) ||
+				(useDueDate && item.dueDate.repeats && item.dueDate.repeats.type !== type) ||
+				(useDueDate && !item.dueDate.repeats && type !== RepeatType.NONE)
 			) {
 				if (useDueDate) {
-					const due_date = { ...item.dueDate, year, month, day };
+					const every = 1;
+					const due_date = {
+						...item.dueDate,
+						year,
+						month,
+						day,
+						repeats: { ...item.dueDate?.repeats, type, every }
+					};
 					dispatch('lists', listId, uid, set_due_date({ list_id: listId, id, due_date }));
 				} else {
 					dispatch('lists', listId, uid, remove_due_date({ list_id: listId, id }));
 				}
 			}
 		}
+		currentItemId = '';
 	}
 
 	function cancelDialog() {
@@ -384,6 +431,16 @@
 					<Paper>
 						<Checkbox bind:checked={useDueDate} />
 						<Textfield type="date" bind:value={dueDateStr} disabled={!useDueDate} />
+						<Select
+							key={(x) => x.substr(0, 3)}
+							bind:value={repeatValue}
+							label="Repeat"
+							disabled={!useDueDate}
+						>
+							{#each repeatKind as value}
+								<Option {value}>{value}</Option>
+							{/each}
+						</Select>
 					</Paper>
 				</Content>
 				<Actions>
