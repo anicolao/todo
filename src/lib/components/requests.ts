@@ -45,7 +45,7 @@ export const requests = createReducer(initialState, (r) => {
 		state.requestIdToUid[payload.id] = payload.uid;
 		state.incomingRequests.push(payload.id);
 	});
-	function ack(state: WritableDraft<RequestsState>, payload: { id: string; }, accepted: boolean) {
+	function ack(state: WritableDraft<RequestsState>, payload: { id: string }, accepted: boolean) {
 		state.outgoingRequests = state.outgoingRequests.filter((id: string) => id !== payload.id);
 		state.incomingRequests = state.incomingRequests.filter((id: string) => id !== payload.id);
 		state.completedRequests.push(payload.id);

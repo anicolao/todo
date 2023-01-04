@@ -54,11 +54,7 @@ export const lists = createReducer(initialState, (r) => {
 			if (newIndex === -1) {
 				throw `ERROR: goes_before ${action.payload.goes_before} not found in visible lists`;
 			}
-			state.visibleLists = [
-				lists.slice(0, newIndex),
-				removedItem[0],
-				lists.slice(newIndex)
-			].flat();
+			state.visibleLists = [lists.slice(0, newIndex), removedItem[0], lists.slice(newIndex)].flat();
 		} else {
 			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
 		}

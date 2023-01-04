@@ -127,8 +127,7 @@ describe('lists', () => {
 
 		try {
 			state = lists(state, reorder_list({ id: 'XYZ' }));
-		}
-		catch (e) {
+		} catch (e) {
 			expect(e).to.equal('ERROR: list_id XYZ not found in visible lists');
 			expect(state.visibleLists[0]).to.equal('id1');
 			expect(state.visibleLists[1]).to.equal('id2');
