@@ -34,6 +34,8 @@
 		}
 		dueDateStr = dueDateStr.replaceAll(' ', '\u00a0');
 		overdue = isOverdue(date);
+	} else {
+		dueDateStr = '';
 	}
 
 	function isSameDay(d1: Date, d2: Date) {
