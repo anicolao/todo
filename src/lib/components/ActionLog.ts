@@ -53,6 +53,7 @@ export async function watchAll(type: string) {
 
 */
 export function watch(type: string, id: string) {
+	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
@@ -63,12 +64,12 @@ export function watch(type: string, id: string) {
 				if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 					let doc = change.doc;
 					let action = doc.data() as any;
-					if (action.timestamp !== undefined) {
-						//console.log('server side action: ', action);
+					if (action.timestamp !== undefined && action.timestamp !== null) {
+						// console.log('server side action: ', action);
 						delete action.timestamp;
 						store.dispatch(action);
 					} else {
-						//console.log('Ignore local echo for consistency', action);
+						// console.log('Ignore local echo for consistency', action);
 					}
 				}
 			});
