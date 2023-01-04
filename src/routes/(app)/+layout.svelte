@@ -5,7 +5,7 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { describe_item } from '$lib/components/items';
+	import { describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
 		accept_pending_share,
@@ -22,6 +22,7 @@
 	import { store } from '$lib/store';
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Button, { Label } from '@smui/button';
+	import Checkbox from '@smui/checkbox';
 	import { Actions } from '@smui/dialog';
 	import Drawer, { AppContent, Content, Header, Scrim, Subtitle } from '@smui/drawer';
 	import IconButton, { Icon } from '@smui/icon-button';
@@ -157,13 +158,25 @@
 
 	$: itemDetailsOpen = $store.ui.showItemDetailsDialog;
 	$: itemDescription = '';
+	let dueDate = new Date(0);
+	let dueDateStr = '';
 	let currentItemId = '';
+	let useDueDate = false;
 	$: if ($store.ui.itemId) {
 		if (currentItemId !== $store.ui.itemId) {
 			const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
-			const desc = listOfItems.itemIdToItem[$store.ui.itemId].description;
+			const item = listOfItems.itemIdToItem[$store.ui.itemId];
+			const desc = item.description;
 			currentItemId = $store.ui.itemId;
 			itemDescription = desc;
+			useDueDate = !!item.dueDate;
+			dueDate = item.dueDate
+				? new Date(item.dueDate.year, item.dueDate.month - 1, item.dueDate.day)
+				: new Date();
+			const m = dueDate.getMonth() + 1;
+			const d = dueDate.getDate();
+			dueDateStr =
+				dueDate.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
 		}
 	}
 
@@ -228,7 +241,8 @@
 		const id = $store.ui.itemId;
 		if (uid) {
 			const listOfItems = $store.items.listIdToListOfItems[listId];
-			const orig_description = listOfItems.itemIdToItem[$store.ui.itemId].description;
+			const item = listOfItems.itemIdToItem[$store.ui.itemId];
+			const orig_description = item.description;
 			if (itemDescription !== orig_description) {
 				dispatch(
 					'lists',
@@ -236,6 +250,23 @@
 					uid,
 					describe_item({ list_id: listId, id, orig_description, description: itemDescription })
 				);
+			}
+			const origUseDueDate = !!item.dueDate;
+			const ymd = dueDateStr.split('-');
+			const year = parseInt(ymd[0]);
+			const month = parseInt(ymd[1]);
+			const day = parseInt(ymd[2]);
+			if (
+				useDueDate !== origUseDueDate ||
+				(useDueDate &&
+					(year !== item.dueDate.year || month !== item.dueDate.month || day !== item.dueDate.day))
+			) {
+				if (useDueDate) {
+					const due_date = { ...item.dueDate, year, month, day };
+					dispatch('lists', listId, uid, set_due_date({ list_id: listId, id, due_date }));
+				} else {
+					dispatch('lists', listId, uid, remove_due_date({ list_id: listId, id }));
+				}
 			}
 		}
 	}
@@ -350,6 +381,10 @@
 					<Paper variant="unelevated">
 						<Textfield bind:value={itemDescription} label="Task" />
 					</Paper>
+					<Paper>
+						<Checkbox bind:checked={useDueDate} />
+						<Textfield type="date" bind:value={dueDateStr} disabled={!useDueDate} />
+					</Paper>
 				</Content>
 				<Actions>
 					<Button on:click={cancelItemDetailsDialog}>
@@ -451,5 +486,9 @@
 
 	.editlist-dialog-title-div {
 		padding-top: 0.75em;
+	}
+
+	:global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
+		display: initial !important;
 	}
 </style>

@@ -14,6 +14,57 @@
 	export let item: ExtendedTodoItem;
 	export let listId = '';
 
+	let dueDateStr = '';
+	let overdue = false;
+	$: if (item.dueDate) {
+		const date = new Date(item.dueDate.year, item.dueDate.month - 1, item.dueDate.day);
+		if (isToday(date)) {
+			dueDateStr = 'Today';
+		} else if (isTomorrow(date)) {
+			dueDateStr = 'Tomorrow';
+		} else if (isYesterday(date)) {
+			dueDateStr = 'Yesterday';
+		} else {
+			dueDateStr = date.toLocaleDateString('en-us', {
+				weekday: 'short',
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric'
+			});
+		}
+		dueDateStr = dueDateStr.replaceAll(' ', '\u00a0');
+		overdue = isOverdue(date);
+	}
+
+	function isSameDay(d1: Date, d2: Date) {
+		return (
+			d1.getFullYear() === d2.getFullYear() &&
+			d1.getMonth() === d2.getMonth() &&
+			d1.getDate() === d2.getDate()
+		);
+	}
+
+	function isToday(d: Date) {
+		return isSameDay(d, new Date());
+	}
+
+	function isTomorrow(d: Date) {
+		const other = new Date();
+		other.setDate(other.getDate() + 1);
+		return isSameDay(d, other);
+	}
+
+	function isYesterday(d: Date) {
+		const other = new Date();
+		other.setDate(other.getDate() - 1);
+		return isSameDay(d, other);
+	}
+
+	function isOverdue(date: Date) {
+		const now = new Date();
+		return date.getTime() < now.getTime() && !isToday(date);
+	}
+
 	const dispatchEvent = createEventDispatcher();
 
 	function showEditDetailsDialog(list_id: string, id: string) {
@@ -99,8 +150,9 @@
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta
 			><span
-				><IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
-					>edit_note</IconButton
+				><span class:overdue>{dueDateStr}</span><IconButton
+					class="material-icons"
+					on:click={showEditDetailsDialog(listId, item.id)}>edit_note</IconButton
 				>{#if item.starred}<IconButton
 						class="material-icons"
 						on:click={star(listId, item.id, false)}>star</IconButton
@@ -120,7 +172,10 @@
 		opacity: 0.9;
 	}
 	span {
-		display: inline-block;
-		min-width: 96px;
+		display: flex;
+		align-items: center;
+	}
+	.overdue {
+		color: red;
 	}
 </style>
