@@ -622,4 +622,51 @@ describe('items', () => {
 			}
 		});
 	});
+
+	it('completes a repeating DAILY task twice', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			31,
+			RepeatType.DAILY,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 1,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				}
+			}
+		});
+
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 2,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				}
+			}
+		});
+	});
+
 });

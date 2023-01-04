@@ -167,8 +167,11 @@ export const items = createReducer(initialState, (r) => {
 			let d = item.dueDate.day;
 
 			item.completed = false;
-			const today = new Date(action.payload.completed_time);
+			let today = new Date(action.payload.completed_time);
 			let nextDate = new Date(y, m - 1, d);
+			if(nextDate > today) {
+				today = new Date(nextDate);
+			}
 			while (nextDate <= today) {
 				switch (item.dueDate.repeats.type) {
 					case RepeatType.DAILY:
