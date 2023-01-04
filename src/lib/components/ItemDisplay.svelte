@@ -26,7 +26,8 @@
 	function complete(list_id: string, id: string, completed: boolean) {
 		return () => {
 			if ($store.auth.uid) {
-				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed }));
+				const completed_time = new Date().getTime();
+				dispatch('lists', list_id, $store.auth.uid, complete_item({ list_id, id, completed, completed_time }));
 			}
 		};
 	}

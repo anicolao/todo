@@ -31,8 +31,9 @@ describe('items', () => {
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
-				completed: false, starred: false, description,
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description
 			}
 		});
 	});
@@ -47,8 +48,9 @@ describe('items', () => {
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
-				completed: false, starred: false, description,
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description
 			}
 		});
 
@@ -68,8 +70,9 @@ describe('items', () => {
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
-				completed: false, starred: false, description,
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description
 			}
 		});
 
@@ -82,8 +85,9 @@ describe('items', () => {
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
-				completed: false, starred: false, description: 'newly minted',
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description: 'newly minted'
 			}
 		});
 	});
@@ -101,8 +105,9 @@ describe('items', () => {
 			expect(list.itemIds[0]).to.equal(id);
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
-					completed: false, starred: false, description: mergeObject.orig,
-					dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+					completed: false,
+					starred: false,
+					description: mergeObject.orig
 				}
 			});
 
@@ -120,8 +125,9 @@ describe('items', () => {
 			expect(list.itemIds[0]).to.equal(id);
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
-					completed: false, starred: false, description: mergeObject.first,
-					dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+					completed: false,
+					starred: false,
+					description: mergeObject.first
 				}
 			});
 
@@ -139,8 +145,9 @@ describe('items', () => {
 			expect(list.itemIds[0]).to.equal(id);
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
-					completed: false, starred: false, description: expected,
-					dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+					completed: false,
+					starred: false,
+					description: expected
 				}
 			});
 		});
@@ -217,7 +224,10 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(nextState, complete_item({ list_id, id, completed: true }));
+		nextState = items(
+			nextState,
+			complete_item({ list_id, id, completed: true, completed_time: 0 })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(true);
 	});
@@ -230,11 +240,17 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(nextState, complete_item({ id, list_id, completed: true }));
+		nextState = items(
+			nextState,
+			complete_item({ id, list_id, completed: true, completed_time: 0 })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(true);
 
-		nextState = items(nextState, complete_item({ id, list_id, completed: false }));
+		nextState = items(
+			nextState,
+			complete_item({ id, list_id, completed: false, completed_time: 0 })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 	});
@@ -381,64 +397,228 @@ describe('items', () => {
 		}
 	});
 
-	function makeListItemWithDueDate(dateMillis: number, dueDateRepeats: RepeatType, dueDateRepeatsEvery: number) {
+	function makeListItemWithDueDate(
+		due_date_year: number,
+		due_date_month: number,
+		due_date_day: number,
+		due_date_repeats: RepeatType,
+		due_date_repeats_every: number
+	) {
 		const list_id = 'List 10';
 		const id = 'item id 1';
-		const description = 'Item One'
+		const description = 'Item One';
 		let state = createItem(initialState, list_id, id, description);
 
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
-				completed: false, starred: false, description,
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description
 			}
 		});
 
-		const due_date = new Date(dateMillis);
-		const due_date_repeats = dueDateRepeats;
-		const due_date_repeats_every = dueDateRepeatsEvery;
-		state = items(state, set_due_date({
-			list_id, id,
-			due_date, due_date_repeats, due_date_repeats_every
-		}));
+		state = items(
+			state,
+			set_due_date({
+				list_id,
+				id,
+				due_date: {
+					year: due_date_year,
+					month: due_date_month,
+					day: due_date_day,
+					repeats: { type: due_date_repeats, every: due_date_repeats_every }
+				}
+			})
+		);
 
 		list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
-				completed: false, starred: false, description,
-				dueDate: new Date(dateMillis), dueDateRepeats, dueDateRepeatsEvery
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: due_date_year,
+					month: due_date_month,
+					day: due_date_day,
+					repeats: { type: due_date_repeats, every: due_date_repeats_every }
+				}
 			}
 		});
 		return { state, list_id, id, description };
 	}
 
 	it('sets a simple due date', () => {
-		const dateMillis = 1672629159000;
-		makeListItemWithDueDate(dateMillis, RepeatType.NONE, 0);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.NONE, 0);
 	});
 
 	it('sets a repeating due date', () => {
-		const dateMillis = 1672629159001;
-		makeListItemWithDueDate(dateMillis, RepeatType.NONE, 0);
-		makeListItemWithDueDate(dateMillis, RepeatType.DAILY, 2);
-		makeListItemWithDueDate(dateMillis, RepeatType.MONTHLY, 3);
-		makeListItemWithDueDate(dateMillis, RepeatType.WEEKLY, 4);
-		makeListItemWithDueDate(dateMillis, RepeatType.YEARLY, 5);
-		makeListItemWithDueDate(dateMillis, RepeatType.WEEKDAYS, 0);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.NONE, 0);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.DAILY, 2);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.MONTHLY, 3);
+		makeListItemWithDueDate(2022, 12, 3, RepeatType.WEEKLY, 4);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.YEARLY, 5);
+		makeListItemWithDueDate(2022, 12, 31, RepeatType.WEEKDAYS, 0);
 	});
 
 	it('removes a due date', () => {
-		const dateMillis = 1672629159002;
-		let { state, list_id, id, description } = makeListItemWithDueDate(dateMillis, RepeatType.DAILY, 2);
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			31,
+			RepeatType.DAILY,
+			2
+		);
 
 		state = items(state, remove_due_date({ list_id, id }));
 
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
-				completed: false, starred: false, description,
-				dueDate: new Date(0), dueDateRepeats: RepeatType.NONE, dueDateRepeatsEvery: 0
+				completed: false,
+				starred: false,
+				description
+			}
+		});
+	});
+
+	it('completes a repeating DAILY task', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			31,
+			RepeatType.DAILY,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 1,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				}
+			}
+		});
+	});
+
+	it('completes a repeating WEEKLY task', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			31,
+			RepeatType.WEEKLY,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 7,
+					repeats: { type: RepeatType.WEEKLY, every: 1 }
+				}
+			}
+		});
+	});
+
+	it('completes a repeating MONTHLY task', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			30,
+			RepeatType.MONTHLY,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 30,
+					repeats: { type: RepeatType.MONTHLY, every: 1 }
+				}
+			}
+		});
+	});
+
+	it('completes a repeating YEARLY task', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			30,
+			RepeatType.YEARLY,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 12,
+					day: 30,
+					repeats: { type: RepeatType.YEARLY, every: 1 }
+				}
+			}
+		});
+	});
+
+	it('completes a repeating WEEKDAYS task', () => {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			2022,
+			12,
+			30,
+			RepeatType.WEEKDAYS,
+			1
+		);
+		const completed_time = new Date(2022, 11, 31).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				starred: false,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 2,
+					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
+				}
 			}
 		});
 	});
