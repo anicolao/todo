@@ -165,6 +165,26 @@
 	let useDueDate = false;
 	let repeatValue = "Doesn't repeat";
 	let repeatKind = ["Doesn't repeat", 'Daily', 'Weekly', 'Monthly', 'Yearly', 'Every Weekday'];
+	const repeatDescription = [
+		'Never',
+		'Every # Days',
+		'Every # Weeks',
+		'Every # Months',
+		'Every # Years',
+		'Every # Weekdays'
+	];
+	function getRepeatEveryDesciption(kind: string, every: number) {
+		console.log({ every, repeatEvery });
+		const idx = repeatKind.indexOf(kind);
+		let desc = '';
+		if (idx > 0) {
+			desc = repeatDescription[idx].replaceAll('#', '' + every);
+			if (every === 1) {
+				desc = desc.replace(/s$/, '');
+			}
+		}
+		return desc;
+	}
 	const repeatType = [
 		RepeatType.NONE,
 		RepeatType.DAILY,
@@ -173,6 +193,10 @@
 		RepeatType.YEARLY,
 		RepeatType.WEEKDAYS
 	];
+	let repeatEvery = 1;
+	$: if (!repeatEvery || repeatEvery < 1 || repeatEvery > 365) {
+		repeatEvery = 1;
+	}
 	let lastItemId = '';
 	$: if ($store.ui.itemId && $store.ui.itemId !== lastItemId) {
 		lastItemId = $store.ui.itemId;
@@ -206,8 +230,10 @@
 			if (item.dueDate?.repeats) {
 				const indexOfKind = repeatType.indexOf(item.dueDate.repeats.type);
 				repeatValue = repeatKind[indexOfKind];
+				repeatEvery = item.dueDate.repeats.every;
 			} else {
 				repeatValue = repeatKind[0];
+				repeatEvery = 1;
 			}
 			// console.log({ repeatValue, repeatKind, kinds: repeatKind.toString() });
 		}
@@ -291,6 +317,7 @@
 			const day = parseInt(ymd[2]);
 			const indexOfRepeat = repeatKind.indexOf(repeatValue);
 			const type = repeatType[indexOfRepeat];
+			const every = repeatEvery;
 			if (
 				useDueDate !== origUseDueDate ||
 				(useDueDate &&
@@ -298,10 +325,10 @@
 						month !== item.dueDate.month ||
 						day !== item.dueDate.day)) ||
 				(useDueDate && item.dueDate.repeats && item.dueDate.repeats.type !== type) ||
+				(useDueDate && item.dueDate.repeats && item.dueDate.repeats.every !== every) ||
 				(useDueDate && !item.dueDate.repeats && type !== RepeatType.NONE)
 			) {
 				if (useDueDate) {
-					const every = 1;
 					const due_date = {
 						...item.dueDate,
 						year,
@@ -441,6 +468,13 @@
 								<Option {value}>{value}</Option>
 							{/each}
 						</Select>
+						<Textfield
+							bind:value={repeatEvery}
+							label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
+							type="number"
+							input$step="1"
+							disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+						/>
 					</Paper>
 				</Content>
 				<Actions>
