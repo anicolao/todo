@@ -42,6 +42,7 @@
 	} from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
+	import FilterMenu from '$lib/components/FilterMenu.svelte';
 
 	let count = 0;
 	onDestroy(() => {
@@ -412,6 +413,7 @@
 			<Subtitle>Organize your todos</Subtitle>
 		</Header>
 		<Content>
+			<FilterMenu />
 			<ListMenu />
 			<div class="verticalspacer" />
 			<AcceptShare />
