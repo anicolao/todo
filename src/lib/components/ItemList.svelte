@@ -3,14 +3,15 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
-	import Button from '@smui/button';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
 	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import ItemDisplay from './ItemDisplay.svelte';
 
-	export let listId = '';
-	export let completed = false;
+	export let listIdMatcher: (listId: string) => boolean = (listId) => true;
+	export let filter: (listId: string, itemId: string) => boolean = (listId, itemId) => true;
+	export let hasItems = false;
+	export let show = true;
 	export let send: (
 		node: Element,
 		params: CrossfadeParams & { key: any }
@@ -20,30 +21,45 @@
 		params: CrossfadeParams & { key: any }
 	) => () => TransitionConfig;
 
-	type ExtendedTodoItem = TodoItem & { id: string };
+	$: if (listIdMatcher) {
+		const listIds = $store.lists.visibleLists.filter(listIdMatcher);
+		if (listIds.length === 1) {
+			singleListIdOnly = listIds[0];
+		} //else {
+		//singleListIdOnly = undefined;
+		//}
+	}
+
+	let singleListIdOnly = '';
+	type ExtendedTodoItem = TodoItem & { id: string; listId: string };
 	let items: ExtendedTodoItem[] = [];
-	$: if (listId) {
+	$: if (singleListIdOnly) {
 		items = [];
 		lastListOfItems = undefined;
 	}
 	let dragTo: ExtendedTodoItem | undefined;
 	let lastListOfItems: ListOfItems | undefined = undefined;
-	$: if ($store.items.listIdToListOfItems[listId]) {
-		if (lastListOfItems !== $store.items.listIdToListOfItems[listId]) {
-			lastListOfItems = $store.items.listIdToListOfItems[listId];
+	$: if ($store.items.listIdToListOfItems[singleListIdOnly]) {
+		if (lastListOfItems !== $store.items.listIdToListOfItems[singleListIdOnly]) {
+			lastListOfItems = $store.items.listIdToListOfItems[singleListIdOnly];
 			items = [];
-			$store.items.listIdToListOfItems[listId].itemIds.forEach((itemId: string) => {
-				const item = $store.items.listIdToListOfItems[listId].itemIdToItem[itemId];
-				if (item.completed === completed) {
-					items.push({ ...item, id: itemId, description: item.description });
+			$store.items.listIdToListOfItems[singleListIdOnly].itemIds.forEach((itemId: string) => {
+				const item = $store.items.listIdToListOfItems[singleListIdOnly]?.itemIdToItem[itemId];
+				console.log({
+					listOfItems: $store.items.listIdToListOfItems[singleListIdOnly],
+					itemId,
+					item
+				});
+				if (item && filter(singleListIdOnly, itemId)) {
+					items.push({
+						...item,
+						id: itemId,
+						listId: singleListIdOnly,
+						description: item.description
+					});
 				}
 			});
 		}
-	}
-
-	let show = false;
-	function toggleCompleted() {
-		show = !show;
 	}
 
 	let anchor: Element;
@@ -138,13 +154,13 @@
 		console.log({ dragTo, grabbed });
 		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
 			const payload: { list_id: string; id: string; goes_before?: string } = {
-				list_id: listId,
+				list_id: grabbedItem.listId,
 				id: grabbed.dataset.id
 			};
 			if (dragTo) {
 				payload.goes_before = dragTo.id;
 			}
-			dispatch('lists', listId, $store.auth.uid, reorder_item(payload));
+			dispatch('lists', grabbedItem.listId, $store.auth.uid, reorder_item(payload));
 		}
 		grabbed = null;
 	}
@@ -200,13 +216,18 @@
 			}
 		}
 	};
+
+	$: if (items && items.length > 0) {
+		hasItems = true;
+	}
 </script>
 
 <div bind:this={anchor} />
 
-{#if items.length > 0}{#if completed}<Button on:click={toggleCompleted}
-			>{show ? 'Hide ' : 'Show '}Completed Items</Button
-		>{/if}{#if show || completed === false}<div
+{#if items.length > 0}
+	<slot />
+	{#if show}
+		<div
 			on:pointerdown={containerDragHandlers.onPointerDown}
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
@@ -217,7 +238,7 @@
 					class={grabbed ? 'item haunting' : 'item'}
 					style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
 				>
-					{#if grabbed}<ItemDisplay {listId} item={grabbedItem} />{/if}
+					{#if grabbed}<ItemDisplay listId={grabbedItem.listId} item={grabbedItem} />{/if}
 				</div>
 				{#each items as item, i (item.id)}<div
 						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
@@ -229,7 +250,7 @@
 						out:send={{ key: item.id }}
 					>
 						<ItemDisplay
-							{listId}
+							listId={item.listId}
 							{item}
 							on:blur={() => (dragEnabled = true)}
 							on:focus={itemTextfieldFocused}
