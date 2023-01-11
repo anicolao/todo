@@ -169,7 +169,7 @@ export const items = createReducer(initialState, (r) => {
 			item.completed = false;
 			let today = new Date(action.payload.completed_time);
 			let nextDate = new Date(y, m - 1, d);
-			if(nextDate > today) {
+			if (nextDate > today) {
 				today = new Date(nextDate);
 			}
 			while (nextDate <= today) {
