@@ -105,5 +105,8 @@
 		background-color: #fafaf0;
 		margin: 0em;
 		display: block;
+		position: sticky;
+		top: 0;
+		z-index: 1;
 	}
 </style>
