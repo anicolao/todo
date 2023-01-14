@@ -442,7 +442,7 @@
 
 	<Scrim fixed={false} />
 	<AppContent class="app-content">
-		<div style:background-image={bgStyle} style:background-size="cover" style:width="100%">
+		<div class="backdrop" style:background-image={bgStyle}>
 			<slot />
 			<SgDialog
 				bind:open={itemDetailsOpen}
@@ -556,14 +556,12 @@
 	}
 
 	* :global(.app-content) {
-		flex: auto;
-		overflow: auto;
 		position: relative;
-		flex-grow: 1;
-
 		margin-top: 64px;
-		display: flex;
 		padding: 0;
+
+		display: flex;
+		flex: auto;
 	}
 
 	.mobile-margin {
@@ -583,5 +581,14 @@
 
 	:global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
 		display: initial !important;
+	}
+
+	.backdrop {
+		display: flex;
+		flex: auto;
+		flex-grow: 1;
+		overflow: auto;
+
+		background-size: cover;
 	}
 </style>
