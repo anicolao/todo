@@ -6,7 +6,7 @@
 	import { create_item } from '$lib/components/items';
 	import { set_current_listid, set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
-	import Button from '@smui/button';
+	import Fab, { Label } from '@smui/fab';
 	import { Icon } from '@smui/icon-button';
 	import Textfield from '@smui/textfield';
 	import { quintOut } from 'svelte/easing';
@@ -92,7 +92,11 @@
 		show={showCompleted}
 	>
 		{#if hasItems}
-			<Button on:click={toggleCompleted}>{showCompleted ? 'Hide ' : 'Show '}Completed Items</Button>
+			<div class="toggleCompleted">
+				<Fab on:click={toggleCompleted} extended
+					><Label>{showCompleted ? 'Hide ' : 'Show '}Completed Items</Label></Fab
+				>
+			</div>
 		{/if}
 	</ItemList>
 </div>
@@ -108,5 +112,11 @@
 		position: sticky;
 		top: 0;
 		z-index: 1;
+	}
+
+	.toggleCompleted {
+		text-align: center;
+		margin: 0.75em;
+		opacity: 0.7;
 	}
 </style>
