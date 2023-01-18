@@ -12,54 +12,57 @@
 	export let filter: (listId: string, itemId: string) => boolean = (listId, itemId) => true;
 	export let hasItems = false;
 	export let show = true;
+	/*
 	export let send: (
 		node: Element,
 		params: CrossfadeParams & { key: any }
-	) => () => TransitionConfig;
+	) => () => TransitionConfig = () => () => {
+		return {};
+	};
 	export let receive: (
 		node: Element,
 		params: CrossfadeParams & { key: any }
-	) => () => TransitionConfig;
+	) => () => TransitionConfig = () => () => {
+		return {};
+	};
+	*/
 
+	let listIds: string[] = [];
 	$: if (listIdMatcher) {
-		const listIds = $store.lists.visibleLists.filter(listIdMatcher);
+		listIds = $store.lists.visibleLists.filter(listIdMatcher);
 		if (listIds.length === 1) {
 			singleListIdOnly = listIds[0];
-		} //else {
-		//singleListIdOnly = undefined;
-		//}
+		} else {
+			singleListIdOnly = null;
+		}
 	}
 
-	let singleListIdOnly = '';
-	type ExtendedTodoItem = TodoItem & { id: string; listId: string };
+	let singleListIdOnly: string | null = null;
+	type ExtendedTodoItem = TodoItem & { id: string; listId: string; animationId: string };
 	let items: ExtendedTodoItem[] = [];
-	$: if (singleListIdOnly) {
-		items = [];
-		lastListOfItems = undefined;
+	function filterItems(listId: string) {
+		$store.items.listIdToListOfItems[listId]?.itemIds.forEach((itemId: string) => {
+			const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
+			if (item && filter(listId, itemId)) {
+				items.push({
+					...item,
+					id: itemId,
+					animationId: itemId, // + (listIds?.length),
+					listId,
+					description: item.description
+				});
+			}
+		});
 	}
 	let dragTo: ExtendedTodoItem | undefined;
-	let lastListOfItems: ListOfItems | undefined = undefined;
-	$: if ($store.items.listIdToListOfItems[singleListIdOnly]) {
-		if (lastListOfItems !== $store.items.listIdToListOfItems[singleListIdOnly]) {
-			lastListOfItems = $store.items.listIdToListOfItems[singleListIdOnly];
+	$: if (singleListIdOnly !== null) {
+		if ($store.items.listIdToListOfItems[singleListIdOnly]) {
 			items = [];
-			$store.items.listIdToListOfItems[singleListIdOnly].itemIds.forEach((itemId: string) => {
-				const item = $store.items.listIdToListOfItems[singleListIdOnly]?.itemIdToItem[itemId];
-				console.log({
-					listOfItems: $store.items.listIdToListOfItems[singleListIdOnly],
-					itemId,
-					item
-				});
-				if (item && filter(singleListIdOnly, itemId)) {
-					items.push({
-						...item,
-						id: itemId,
-						listId: singleListIdOnly,
-						description: item.description
-					});
-				}
-			});
+			filterItems(singleListIdOnly);
 		}
+	} else if (singleListIdOnly === null && listIds?.length > 0) {
+		items = [];
+		listIds.forEach((listId) => filterItems(listId));
 	}
 
 	let anchor: Element;
@@ -240,14 +243,12 @@
 				>
 					{#if grabbed}<ItemDisplay listId={grabbedItem.listId} item={grabbedItem} />{/if}
 				</div>
-				{#each items as item, i (item.id)}<div
+				{#each items as item, i (item.animationId)}<div
 						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
 						class="item"
 						data-index={i}
 						data-id={item.id}
 						animate:flip={{ duration: 200 }}
-						in:receive={{ key: item.id }}
-						out:send={{ key: item.id }}
 					>
 						<ItemDisplay
 							listId={item.listId}

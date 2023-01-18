@@ -61,7 +61,6 @@
 	function completedItems(completedFlag: boolean): (listId: string, id: string) => boolean {
 		return (listId: string, id: string) => {
 			const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
-			console.log({ listId, id, item });
 			return item && item.completed === completedFlag;
 		};
 	}
@@ -82,11 +81,9 @@
 			on:keydown={handleEnterKey}
 			><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 		></span
-	><ItemList listIdMatcher={selectedList} {send} {receive} filter={completedItems(false)} />
+	><ItemList listIdMatcher={selectedList} filter={completedItems(false)} />
 	<ItemList
 		listIdMatcher={selectedList}
-		{send}
-		{receive}
 		filter={completedItems(true)}
 		bind:hasItems
 		show={showCompleted}

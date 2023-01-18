@@ -130,7 +130,11 @@
 	let active: string;
 	function setActive(name: string) {
 		active = name;
-		goto('/profile');
+		if (name === 'account_circle') {
+			goto('/profile');
+		} else {
+			goto('/' + name);
+		}
 	}
 
 	function getIconName(name: string) {
@@ -413,7 +417,7 @@
 			<Subtitle>Organize your todos</Subtitle>
 		</Header>
 		<Content>
-			<FilterMenu />
+			<FilterMenu {setActive} />
 			<ListMenu />
 			<div class="verticalspacer" />
 			<AcceptShare />

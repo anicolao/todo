@@ -4,8 +4,8 @@
 	import UiSettings from '$lib/components/UiSettings.svelte';
 	import { store } from '$lib/store';
 
-	store.dispatch(set_icon('settings'));
-	store.dispatch(set_title('Settings'));
+	store.dispatch(set_icon('account_circle'));
+	store.dispatch(set_title('Profile'));
 </script>
 
 <div id="content">

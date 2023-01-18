@@ -12,7 +12,6 @@
 </script>
 
 <div>
-	<h3>Settings</h3>
 	<label for="url">Background image url:</label>
 	<input
 		type="url"
