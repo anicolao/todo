@@ -33,7 +33,7 @@
 	function star(list_id: string, id: string, starred: boolean) {
 		return () => {
 			if ($store.auth.uid) {
-				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred }));
+				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred, star_timestamp: new Date().getTime() }));
 			}
 		};
 	}

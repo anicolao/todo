@@ -1,6 +1,7 @@
 <script lang="ts">
 	console.log('routes/(app)/starred/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
+	import type { TodoItem } from '$lib/components/items';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 
@@ -31,10 +32,13 @@
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
 		return item.starred && !item.completed;
 	}
+	function comparator(a: TodoItem, b: TodoItem) {
+		return b.starTimestamp - a.starTimestamp;
+	}
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={isStarred} />
+	<ItemList listIdMatcher={() => true} filter={isStarred} {comparator} />
 </div>
 
 <style>

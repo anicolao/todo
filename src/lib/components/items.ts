@@ -4,6 +4,7 @@ import { signed_in, signed_out } from './auth';
 export interface TodoItem {
 	completed: boolean;
 	starred: boolean;
+	starTimestamp: number;
 	description: string;
 	dueDate?: DueDate;
 }
@@ -57,7 +58,7 @@ export const complete_item = createAction<{
 	completed: boolean;
 	completed_time: number;
 }>('complete_item');
-export const star_item = createAction<{ list_id: string; id: string; starred: boolean }>(
+export const star_item = createAction<{ list_id: string; id: string; starred: boolean; star_timestamp: number }>(
 	'star_item'
 );
 export const reorder_item = createAction<{ list_id: string; id: string; goes_before?: string }>(
@@ -143,6 +144,7 @@ export const items = createReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = {
 			completed: false,
 			starred: false,
+			starTimestamp: 0,
 			description: action.payload.description
 		};
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
@@ -222,6 +224,7 @@ export const items = createReducer(initialState, (r) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
 		item.starred = action.payload.starred;
+		item.starTimestamp = Math.max(item.starTimestamp, action.payload?.star_timestamp || 0);
 		if (action.payload.starred) {
 			list.itemIds = [action.payload.id, ...list.itemIds.filter((x) => x !== action.payload.id)];
 		}

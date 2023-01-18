@@ -33,6 +33,7 @@ describe('items', () => {
 			abcd1234: {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description
 			}
 		});
@@ -50,6 +51,7 @@ describe('items', () => {
 			abcd1234: {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description
 			}
 		});
@@ -72,6 +74,7 @@ describe('items', () => {
 			abcd1234: {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description
 			}
 		});
@@ -87,6 +90,7 @@ describe('items', () => {
 			abcd1234: {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description: 'newly minted'
 			}
 		});
@@ -107,6 +111,7 @@ describe('items', () => {
 				abcd1234: {
 					completed: false,
 					starred: false,
+					starTimestamp: 0,
 					description: mergeObject.orig
 				}
 			});
@@ -127,6 +132,7 @@ describe('items', () => {
 				abcd1234: {
 					completed: false,
 					starred: false,
+					starTimestamp: 0,
 					description: mergeObject.first
 				}
 			});
@@ -147,6 +153,7 @@ describe('items', () => {
 				abcd1234: {
 					completed: false,
 					starred: false,
+					starTimestamp: 0,
 					description: expected
 				}
 			});
@@ -263,9 +270,11 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].starred).to.equal(false);
 
-		nextState = items(nextState, star_item({ id, list_id, starred: true }));
+		const star_timestamp = 5;
+		nextState = items(nextState, star_item({ id, list_id, starred: true, star_timestamp }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].starred).to.equal(true);
+		expect(list.itemIdToItem[id].starTimestamp).to.equal(5);
 	});
 
 	it('can unstar an item', () => {
@@ -276,13 +285,15 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].starred).to.equal(false);
 
-		nextState = items(nextState, star_item({ list_id, id, starred: true }));
+		const star_timestamp = 5;
+		nextState = items(nextState, star_item({ list_id, id, starred: true, star_timestamp }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].starred).to.equal(true);
 
-		nextState = items(nextState, star_item({ list_id, id, starred: false }));
+		nextState = items(nextState, star_item({ list_id, id, starred: false, star_timestamp }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].starred).to.equal(false);
+		expect(list.itemIdToItem[id].starTimestamp).to.equal(5);
 	});
 
 	it('moves a starred item to the top', () => {
@@ -299,11 +310,13 @@ describe('items', () => {
 		expect(list.itemIds[1]).to.equal(id2);
 		expect(list.itemIdToItem[id2].starred).to.equal(false);
 
-		nextState = items(nextState, star_item({ id: id2, list_id, starred: true }));
+		const star_timestamp = 200;
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: true, star_timestamp }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds[0]).to.equal(id2);
 		expect(list.itemIds[1]).to.equal(id);
 		expect(list.itemIdToItem[id2].starred).to.equal(true);
+		expect(list.itemIdToItem[id].starTimestamp).to.equal(200);
 	});
 
 	it("doesn't move an unstarred item to the top", () => {
@@ -316,20 +329,23 @@ describe('items', () => {
 		let nextState = createItem(initialState, list_id, id2, description2);
 		nextState = createItem(nextState, list_id, id, description);
 		let list = nextState.listIdToListOfItems[list_id];
-		nextState = items(nextState, star_item({ id: id2, list_id, starred: true }));
-		nextState = items(nextState, star_item({ id: id, list_id, starred: true }));
+		const star_timestamp = 300;
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: true, star_timestamp }));
+		nextState = items(nextState, star_item({ id: id, list_id, starred: true, star_timestamp }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIds[1]).to.equal(id2);
 		expect(list.itemIdToItem[id].starred).to.equal(true);
 		expect(list.itemIdToItem[id2].starred).to.equal(true);
+		expect(list.itemIdToItem[id2].starTimestamp).to.equal(star_timestamp);
 
-		nextState = items(nextState, star_item({ id: id2, list_id, starred: false }));
+		nextState = items(nextState, star_item({ id: id2, list_id, starred: false, star_timestamp: 2 }));
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIds[1]).to.equal(id2);
 		expect(list.itemIdToItem[id].starred).to.equal(true);
 		expect(list.itemIdToItem[id2].starred).to.equal(false);
+		expect(list.itemIdToItem[id2].starTimestamp).to.equal(star_timestamp);
 	});
 
 	it('reorders an item', () => {
@@ -414,6 +430,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description
 			}
 		});
@@ -437,6 +454,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: due_date_year,
@@ -478,6 +496,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description
 			}
 		});
@@ -500,6 +519,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -528,6 +548,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -556,6 +577,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -584,6 +606,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -612,6 +635,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -640,6 +664,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
@@ -658,6 +683,7 @@ describe('items', () => {
 			'item id 1': {
 				completed: false,
 				starred: false,
+				starTimestamp: 0,
 				description,
 				dueDate: {
 					year: 2023,
