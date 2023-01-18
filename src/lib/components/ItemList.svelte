@@ -10,6 +10,7 @@
 
 	export let listIdMatcher: (listId: string) => boolean = (listId) => true;
 	export let filter: (listId: string, itemId: string) => boolean = (listId, itemId) => true;
+	export let comparator: null | ((a: TodoItem, b: TodoItem) => number) = null;
 	export let hasItems = false;
 	export let show = true;
 	/*
@@ -63,6 +64,9 @@
 	} else if (singleListIdOnly === null && listIds?.length > 0) {
 		items = [];
 		listIds.forEach((listId) => filterItems(listId));
+		if(comparator !== null) {
+			items.sort(comparator);
+		}
 	}
 
 	let anchor: Element;

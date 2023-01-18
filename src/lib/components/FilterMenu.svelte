@@ -10,7 +10,9 @@
 	<Item href="javascript:void(0)" on:click={() => setActive('starred')}
 		><img src="star.svg" alt="starred" />Starred</Item
 	>
-	<Item><img src="date.svg" alt="by date" />By Date</Item>
+	<Item href="javascript:void(0)" on:click={() => setActive('bydate')}
+		><img src="date.svg" alt="by date" />By Date</Item
+	>
 	<Item><img src="search.svg" alt="search" />Search</Item>
 </List>
 
