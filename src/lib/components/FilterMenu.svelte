@@ -6,7 +6,9 @@
 </script>
 
 <List>
-	<Item><img src="all.svg" alt="all" />All</Item>
+	<Item href="javascript:void(0)" on:click={() => setActive('all')}
+		><img src="all.svg" alt="all" />All</Item
+	>
 	<Item href="javascript:void(0)" on:click={() => setActive('starred')}
 		><img src="star.svg" alt="starred" />Starred</Item
 	>
