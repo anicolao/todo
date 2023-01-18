@@ -15,7 +15,9 @@
 	<Item href="javascript:void(0)" on:click={() => setActive('bydate')}
 		><img src="date.svg" alt="by date" />By Date</Item
 	>
-	<Item><img src="search.svg" alt="search" />Search</Item>
+	<Item href="javascript:void(0)" on:click={() => setActive('search')}
+		><img src="search.svg" alt="search" />Search</Item
+	>
 </List>
 
 <style>
