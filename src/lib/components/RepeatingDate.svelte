@@ -27,6 +27,8 @@
 			// dueDateStr is like: 'Mon, Jan 2, 2023'
 			switch (repeatType) {
 				case RepeatType.DAILY:
+					dueDateStr = dueDateStr.replace(/([0-9]+), ([0-9]+)/, '$1\u27f2, $2');
+					break;
 				case RepeatType.WEEKDAYS:
 					dueDateStr = dueDateStr.replace(',', '\u27f2,');
 					break;
