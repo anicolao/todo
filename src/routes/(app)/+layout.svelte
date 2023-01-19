@@ -458,17 +458,22 @@
 					<Title id="itemdetails-dialog-title">Edit Task</Title>
 				</div>
 				<Content id="itemdetails-dialog-content">
-					<Paper variant="unelevated">
-						<Textfield bind:value={itemDescription} label="Task" />
-					</Paper>
-					<Paper>
+					<Paper style="width=100%;">
+						<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
 						<Checkbox bind:checked={useDueDate} />
-						<Textfield type="date" bind:value={dueDateStr} disabled={!useDueDate} />
+						<Textfield
+							type="date"
+							bind:value={dueDateStr}
+							disabled={!useDueDate}
+							label="Task due date"
+						/>
+						<br />
 						<Select
 							key={(x) => x.substr(0, 3)}
 							bind:value={repeatValue}
 							label="Repeat"
 							disabled={!useDueDate}
+							style="padding-left: 2.75em;"
 						>
 							{#each repeatKind as value}
 								<Option {value}>{value}</Option>
@@ -480,6 +485,7 @@
 							type="number"
 							input$step="1"
 							disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+							style="width: 6em;"
 						/>
 					</Paper>
 				</Content>
@@ -582,8 +588,12 @@
 		padding-top: 0.75em;
 	}
 
-	:global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
+	* :global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
 		display: initial !important;
+	}
+
+	* :global(.mdc-text-field__resizer) {
+		height: 17em;
 	}
 
 	.backdrop {
