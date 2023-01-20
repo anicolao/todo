@@ -6,10 +6,16 @@
 	let dueDateStr = '';
 	let overdue = false;
 	let repeatType = RepeatType.NONE;
+	let repeatEvery = 0;
+	let repeatChar = '\u21b6';
+	// repeatChar = '\u27f2';
+	// repeatChar = '\u21ba';
+
 	$: if (dueDate) {
 		const date = new Date(dueDate.year, dueDate.month - 1, dueDate.day);
 		if (dueDate.repeats?.type) {
 			repeatType = dueDate.repeats.type;
+			repeatEvery = dueDate.repeats.every;
 		}
 		if (isToday(date)) {
 			dueDateStr = 'Today';
@@ -27,19 +33,42 @@
 			// dueDateStr is like: 'Mon, Jan 2, 2023'
 			switch (repeatType) {
 				case RepeatType.DAILY:
-					dueDateStr = dueDateStr.replace(/([0-9]+), ([0-9]+)/, '$1\u27f2, $2');
+					dueDateStr = dueDateStr.replace(/([0-9]+), ([0-9]+)/, '$1' + repeatChar + ', $2');
 					break;
 				case RepeatType.WEEKDAYS:
-					dueDateStr = dueDateStr.replace(',', '\u27f2,');
+					dueDateStr = dueDateStr.replace(',', repeatChar + ',');
 					break;
 				case RepeatType.WEEKLY:
-					dueDateStr = dueDateStr.replace(',', ',\u27f2');
+					dueDateStr = dueDateStr.replace(',', ',' + repeatChar);
 					break;
 				case RepeatType.MONTHLY:
-					dueDateStr = dueDateStr.replace(/ ([1-9])/, '\u27f2 $1');
+					dueDateStr = dueDateStr.replace(/ ([1-9])/, repeatChar + ' $1');
 					break;
 				case RepeatType.YEARLY:
-					dueDateStr = dueDateStr.replace(/ ([0-9]+)$/, ' $1\u27f2');
+					dueDateStr = dueDateStr.replace(/ ([0-9]+)$/, ' $1' + repeatChar);
+					break;
+				default:
+					break;
+			}
+		}
+		if (!dueDateStr.includes(',')) {
+			// dueDateStr is one of the specials like "Today".
+			dueDateStr += repeatChar + repeatEvery;
+			switch (repeatType) {
+				case RepeatType.DAILY:
+					dueDateStr += 'd';
+					break;
+				case RepeatType.WEEKDAYS:
+					dueDateStr += 'wd';
+					break;
+				case RepeatType.WEEKLY:
+					dueDateStr += 'w';
+					break;
+				case RepeatType.MONTHLY:
+					dueDateStr += 'm';
+					break;
+				case RepeatType.YEARLY:
+					dueDateStr += 'y';
 					break;
 				default:
 					break;
