@@ -32,6 +32,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description
@@ -50,6 +51,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description
@@ -73,6 +75,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description
@@ -89,6 +92,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description: 'newly minted'
@@ -110,6 +114,7 @@ describe('items', () => {
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
 					completed: false,
+					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
 					description: mergeObject.orig
@@ -131,6 +136,7 @@ describe('items', () => {
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
 					completed: false,
+					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
 					description: mergeObject.first
@@ -152,6 +158,7 @@ describe('items', () => {
 			expect(list.itemIdToItem).to.deep.include({
 				abcd1234: {
 					completed: false,
+					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
 					description: expected
@@ -432,6 +439,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description
@@ -456,6 +464,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -498,6 +507,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
 				description
@@ -521,6 +531,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -550,6 +561,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -579,6 +591,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -608,6 +621,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -637,6 +651,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -666,6 +681,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -685,6 +701,7 @@ describe('items', () => {
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
+				completedTimestamp: completed_time,
 				starred: false,
 				starTimestamp: 0,
 				description,

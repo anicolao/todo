@@ -3,6 +3,7 @@ import { signed_in, signed_out } from './auth';
 
 export interface TodoItem {
 	completed: boolean;
+	completedTimestamp: number;
 	starred: boolean;
 	starTimestamp: number;
 	description: string;
@@ -146,6 +147,7 @@ export const items = createReducer(initialState, (r) => {
 		}
 		list.itemIdToItem[action.payload.id] = {
 			completed: false,
+			completedTimestamp: 0,
 			starred: false,
 			starTimestamp: 0,
 			description: action.payload.description
@@ -165,6 +167,7 @@ export const items = createReducer(initialState, (r) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
 		item.completed = action.payload.completed;
+		item.completedTimestamp = Math.max(item.completedTimestamp, action.payload?.completed_time || 0);
 
 		if (item.dueDate && item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
 			let y = item.dueDate.year;
