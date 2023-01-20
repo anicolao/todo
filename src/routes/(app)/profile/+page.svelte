@@ -1,8 +1,9 @@
 <script lang="ts">
-	console.log('routes/(app)/profile/+page.svelte');
+	import Login from '$lib/components/Login.svelte';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import UiSettings from '$lib/components/UiSettings.svelte';
 	import { store } from '$lib/store';
+	import Paper from '@smui/paper';
 
 	store.dispatch(set_icon('account_circle'));
 	store.dispatch(set_title('Profile'));
@@ -11,18 +12,13 @@
 <div id="content">
 	<UiSettings />
 
-	<div id="userInfo">
-		<img src={$store.auth.photo} referrerpolicy="no-referrer" alt={$store.auth.name} />
-		<p>{$store.auth.email}</p>
-		<p>{$store.auth.name}</p>
-	</div>
+	<Paper style="margin-top: 2em; opacity: 0.8;">
+		<Login />
+	</Paper>
 </div>
 
 <style>
 	#content {
 		margin: 1em;
-	}
-	#userInfo {
-		margin-top: 2em;
 	}
 </style>
