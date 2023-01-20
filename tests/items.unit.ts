@@ -316,7 +316,7 @@ describe('items', () => {
 		expect(list.itemIds[0]).to.equal(id2);
 		expect(list.itemIds[1]).to.equal(id);
 		expect(list.itemIdToItem[id2].starred).to.equal(true);
-		expect(list.itemIdToItem[id].starTimestamp).to.equal(200);
+		expect(list.itemIdToItem[id2].starTimestamp).to.equal(200);
 	});
 
 	it("doesn't move an unstarred item to the top", () => {
