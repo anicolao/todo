@@ -29,7 +29,7 @@
 	let searchText: string = '';
 	$: if (searchText || !searchText) {
 		listIds = listIds;
-		console.log(searchText)
+		console.log(searchText);
 	}
 </script>
 

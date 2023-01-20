@@ -21,7 +21,7 @@
 	let hasItems = false;
 	let hideCompleted: { [k: string]: boolean } = {};
 	function toggleCompleted(listId: string) {
-		return () => hideCompleted[listId] = !hideCompleted[listId];
+		return () => (hideCompleted[listId] = !hideCompleted[listId]);
 	}
 </script>
 
@@ -37,7 +37,9 @@
 				<div class="toggleCompleted">
 					<Fab on:click={toggleCompleted(listId)} extended
 						><Label
-							>{!hideCompleted[listId] ? 'Hide ' : 'Show '}{$store.lists.listIdToList[listId]}</Label
+							>{!hideCompleted[listId] ? 'Hide ' : 'Show '}{$store.lists.listIdToList[
+								listId
+							]}</Label
 						></Fab
 					>
 				</div>

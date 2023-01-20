@@ -64,7 +64,7 @@
 	} else if (singleListIdOnly === null && listIds?.length > 0) {
 		items = [];
 		listIds.forEach((listId) => filterItems(listId));
-		if(comparator !== null) {
+		if (comparator !== null) {
 			items.sort(comparator);
 		}
 	}

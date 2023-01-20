@@ -339,7 +339,10 @@ describe('items', () => {
 		expect(list.itemIdToItem[id2].starred).to.equal(true);
 		expect(list.itemIdToItem[id2].starTimestamp).to.equal(star_timestamp);
 
-		nextState = items(nextState, star_item({ id: id2, list_id, starred: false, star_timestamp: 2 }));
+		nextState = items(
+			nextState,
+			star_item({ id: id2, list_id, starred: false, star_timestamp: 2 })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds[0]).to.equal(id);
 		expect(list.itemIds[1]).to.equal(id2);

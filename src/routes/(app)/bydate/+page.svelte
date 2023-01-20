@@ -13,7 +13,7 @@
 		return item.dueDate && !item.completed;
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
-		if(a.dueDate && b.dueDate) {
+		if (a.dueDate && b.dueDate) {
 			const aDate = a.dueDate.year * 10000 + a.dueDate.month * 100 + a.dueDate.day;
 			const bDate = b.dueDate.year * 10000 + b.dueDate.month * 100 + b.dueDate.day;
 			return aDate - bDate;

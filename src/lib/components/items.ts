@@ -58,9 +58,12 @@ export const complete_item = createAction<{
 	completed: boolean;
 	completed_time: number;
 }>('complete_item');
-export const star_item = createAction<{ list_id: string; id: string; starred: boolean; star_timestamp: number }>(
-	'star_item'
-);
+export const star_item = createAction<{
+	list_id: string;
+	id: string;
+	starred: boolean;
+	star_timestamp: number;
+}>('star_item');
 export const reorder_item = createAction<{ list_id: string; id: string; goes_before?: string }>(
 	'reorder_item'
 );

@@ -30,7 +30,12 @@
 	function star(list_id: string, id: string, starred: boolean) {
 		return () => {
 			if ($store.auth.uid) {
-				dispatch('lists', list_id, $store.auth.uid, star_item({ list_id, id, starred, star_timestamp: new Date().getTime() }));
+				dispatch(
+					'lists',
+					list_id,
+					$store.auth.uid,
+					star_item({ list_id, id, starred, star_timestamp: new Date().getTime() })
+				);
 			}
 		};
 	}
@@ -100,9 +105,11 @@
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta
 			><span
-				><RepeatingDate on:click={() => console.log("Clicked!")} dueDate={item.dueDate} /><IconButton
-					class="material-icons"
-					on:click={showEditDetailsDialog(listId, item.id)}>edit_note</IconButton
+				><RepeatingDate
+					on:click={() => console.log('Clicked!')}
+					dueDate={item.dueDate}
+				/><IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
+					>edit_note</IconButton
 				>{#if item.starred}<IconButton
 						class="material-icons"
 						on:click={star(listId, item.id, false)}>star</IconButton
