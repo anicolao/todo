@@ -4,6 +4,7 @@
 	import { complete_item, describe_item, star_item, type TodoItem } from '$lib/components/items';
 	import RepeatingDate from '$lib/components/RepeatingDate.svelte';
 	import { store } from '$lib/store';
+	import { Label } from '@smui/common';
 	import IconButton from '@smui/icon-button';
 	import { Graphic, Item, Meta } from '@smui/list';
 	import Textfield from '@smui/textfield';
@@ -14,6 +15,13 @@
 
 	export let item: ExtendedTodoItem;
 	export let listId = '';
+	export let showListName = false;
+
+	let listName = '';
+	$: if (listId !== '') {
+		listName = $store.lists.listIdToList[listId];
+		listName = listName.replaceAll(' ', '\u00a0');
+	}
 
 	const dispatchEvent = createEventDispatcher();
 
@@ -85,7 +93,7 @@
 	}
 </script>
 
-<div>
+<div class="container">
 	<Item
 		><Graphic
 			>{#if item.completed}<IconButton
@@ -105,10 +113,11 @@
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta
 			><span
-				><RepeatingDate
-					on:click={() => console.log('Clicked!')}
-					dueDate={item.dueDate}
-				/><IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
+				><span class="itemInfo"
+					><RepeatingDate on:click={() => console.log('Clicked!')} dueDate={item.dueDate} />
+					{#if showListName}<Label>{listName}</Label>{/if}</span
+				>
+				<IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
 					>edit_note</IconButton
 				>{#if item.starred}<IconButton
 						class="material-icons"
@@ -131,5 +140,9 @@
 	span {
 		display: flex;
 		align-items: center;
+	}
+	.itemInfo {
+		display: block;
+		color: var(--mdc-theme-primary, rgba(0, 0, 0, 0.7));
 	}
 </style>

@@ -55,7 +55,6 @@
 			}
 		});
 	}
-	let dragTo: ExtendedTodoItem | undefined;
 	$: if (singleListIdOnly !== null) {
 		if ($store.items.listIdToListOfItems[singleListIdOnly]) {
 			items = [];
@@ -69,6 +68,9 @@
 		}
 	}
 
+	let showListName = false;
+	$: showListName = $store.ui.title === 'Starred' || $store.ui.title === 'By Date' || $store.ui.title === 'Completed';
+
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem: ExtendedTodoItem;
@@ -80,6 +82,7 @@
 	let layerY = 0; // distance from top of list to top of client
 
 	let dragTimeElapsed = false;
+	let dragTo: ExtendedTodoItem | undefined;
 
 	function grab(clientY: number, element: HTMLElement) {
 		// modify grabbed element
@@ -245,7 +248,7 @@
 					class={grabbed ? 'item haunting' : 'item'}
 					style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
 				>
-					{#if grabbed}<ItemDisplay listId={grabbedItem.listId} item={grabbedItem} />{/if}
+					{#if grabbed}<ItemDisplay listId={grabbedItem.listId} item={grabbedItem} {showListName}/>{/if}
 				</div>
 				{#each items as item, i (item.animationId)}<div
 						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
@@ -257,6 +260,7 @@
 						<ItemDisplay
 							listId={item.listId}
 							{item}
+							{showListName}
 							on:blur={() => (dragEnabled = true)}
 							on:focus={itemTextfieldFocused}
 						/>
