@@ -1,5 +1,5 @@
 <script lang="ts">
-	console.log('routes/(app)/starred/+page.svelte');
+	console.log('routes/(app)/completed/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import type { TodoItem } from '$lib/components/items';
 	import { set_icon, set_title } from '$lib/components/ui';
