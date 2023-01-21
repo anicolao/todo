@@ -1,6 +1,5 @@
 <script lang="ts">
-	import IconButton from '@smui/icon-button';
-	import List, { Item, Graphic } from '@smui/list';
+	import List, { Item } from '@smui/list';
 
 	export let setActive: (name: string) => void;
 </script>
@@ -15,10 +14,16 @@
 	<Item href="javascript:void(0)" on:click={() => setActive('bydate')}
 		><img src="date.svg" alt="by date" />By Date</Item
 	>
+	<Item href="javascript:void(0)" on:click={() => setActive('completed')}
+		><img class="checkmark" src="checkmark.svg" alt="by date" />Completed</Item
+	>
 	<Item href="javascript:void(0)" on:click={() => setActive('search')}
 		><img src="search.svg" alt="search" />Search</Item
 	>
 </List>
 
 <style>
+	.checkmark {
+		margin-right: 10px;
+	}
 </style>
