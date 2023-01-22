@@ -1,9 +1,9 @@
 <script lang="ts">
 	console.log('routes/(app)/starred/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
+	import ListToggleButton from '$lib/components/ListToggleButton.svelte';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
-	import Fab, { Label } from '@smui/fab';
 
 	store.dispatch(set_icon('all_inclusive'));
 	store.dispatch(set_title('All'));
@@ -25,36 +25,24 @@
 	}
 </script>
 
-<div class="container">
+<div>
 	{#each listIds as listId}
 		<ItemList
 			listIdMatcher={(i) => i === listId}
 			filter={completedItems(false)}
 			show={!hideCompleted[listId]}
 			bind:hasItems
-		>
-			{#if hasItems}
-				<div class="toggleCompleted">
-					<Fab on:click={toggleCompleted(listId)} extended
-						><Label
-							>{!hideCompleted[listId] ? 'Hide ' : 'Show '}{$store.lists.listIdToList[
-								listId
-							]}</Label
-						></Fab
-					>
-				</div>
-			{/if}
+			>{#if hasItems}<ListToggleButton
+					name={$store.lists.listIdToList[listId]}
+					showHide={hideCompleted[listId]}
+					buttonAction={toggleCompleted(listId)}
+				/>{/if}
 		</ItemList>
 	{/each}
 </div>
 
 <style>
-	.container {
+	div {
 		width: 100%;
-	}
-	.toggleCompleted {
-		text-align: center;
-		margin: 0.75em;
-		opacity: 0.7;
 	}
 </style>

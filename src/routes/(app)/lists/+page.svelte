@@ -4,9 +4,9 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import ItemList from '$lib/components/ItemList.svelte';
 	import { create_item } from '$lib/components/items';
+	import ListToggleButton from '$lib/components/ListToggleButton.svelte';
 	import { set_current_listid, set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
-	import Fab, { Label } from '@smui/fab';
 	import { Icon } from '@smui/icon-button';
 	import Textfield from '@smui/textfield';
 	import { quintOut } from 'svelte/easing';
@@ -72,7 +72,7 @@
 	}
 </script>
 
-<div class="container">
+<div>
 	<span
 		><Textfield
 			style="width: 100%"
@@ -87,19 +87,16 @@
 		filter={completedItems(true)}
 		bind:hasItems
 		show={showCompleted}
-	>
-		{#if hasItems}
-			<div class="toggleCompleted">
-				<Fab on:click={toggleCompleted} extended
-					><Label>{showCompleted ? 'Hide ' : 'Show '}Completed Items</Label></Fab
-				>
-			</div>
-		{/if}
+		>{#if hasItems}<ListToggleButton
+				name="Completed Items"
+				showHide={!showCompleted}
+				buttonAction={toggleCompleted}
+			/>{/if}
 	</ItemList>
 </div>
 
 <style>
-	.container {
+	div {
 		width: 100%;
 	}
 	span {
@@ -109,11 +106,5 @@
 		position: sticky;
 		top: 0;
 		z-index: 1;
-	}
-
-	.toggleCompleted {
-		text-align: center;
-		margin: 0.75em;
-		opacity: 0.7;
 	}
 </style>
