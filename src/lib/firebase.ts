@@ -75,6 +75,7 @@ const firebase = {
 	request
 };
 
-// TODO: enable local firebase server in env config.
-connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
+if(!import.meta.env.PROD) {
+	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
+}
 export default firebase;

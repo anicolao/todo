@@ -438,7 +438,6 @@
 					<Text>{textLookup('account_circle')}</Text>
 				</Item>
 				<Subheader>{getVersion()}</Subheader>
-				<Subheader>{import.meta.env.PROD}</Subheader>
 			</List>
 		</Content>
 	</Drawer>

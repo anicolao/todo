@@ -1,2 +1,2 @@
 #!/bin/bash
-git checkout deploy && git rebase main && npm run deploy && git checkout main
+npm run deploy
