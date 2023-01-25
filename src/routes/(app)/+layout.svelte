@@ -413,10 +413,6 @@
 		fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
 		bind:open={drawerOpen}
 	>
-		<Header>
-			<Title>Todo menu title</Title>
-			<Subtitle>{getVersion()}</Subtitle>
-		</Header>
 		<Content>
 			<FilterMenu {setActive} />
 			<ListMenu />
@@ -441,6 +437,7 @@
 					>
 					<Text>{textLookup('account_circle')}</Text>
 				</Item>
+				<Subheader>{getVersion()}</Subheader>
 			</List>
 		</Content>
 	</Drawer>
