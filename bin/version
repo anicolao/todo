@@ -1,6 +1,8 @@
 #!/bin/bash
 echo "Rebuilding VERSION"
-cat <<EOF > src/lib/version.ts
+TMPFILE=/tmp/version.$$
+trap "rm $TMPFILE" EXIT
+cat <<EOF > $TMPFILE
 export const version_info = {
   hash: "$(git rev-parse --short HEAD)",
   date: "$(date "+%d %b %Y %H:%M")",
@@ -14,3 +16,10 @@ export function getVersion() {
   return \`v\${version_info.version} (\${date}\${caution}\${version_info.hash})\`;
 }
 EOF
+if cmp $TMPFILE src/lib/version.ts
+then
+	echo No difference
+else
+  cp $TMPFILE src/lib/version.ts
+fi
+

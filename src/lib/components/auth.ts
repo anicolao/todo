@@ -19,7 +19,7 @@ const initialAuthState = {
 	name: undefined,
 	email: undefined,
 	photo: undefined,
-	signedIn: false,
+	signedIn: undefined,
 	authMessage: undefined
 } as AuthState;
 

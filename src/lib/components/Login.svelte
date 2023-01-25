@@ -1,49 +1,13 @@
 <script>
-	import { error, signed_in, signed_out } from '$lib/components/auth';
+	console.log('Login.svelte');
+	import { error } from '$lib/components/auth';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import Button, { Label } from '@smui/button';
-	import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-	import { doc, setDoc } from 'firebase/firestore';
-	import { onDestroy } from 'svelte';
+	import { signInWithPopup, signOut } from 'firebase/auth';
 
 	const auth = firebase.auth;
 	const gAuthProvider = firebase.google_auth_provider;
-	console.log('Login.svelte set up auth state callback');
-	const unsubAuth = onAuthStateChanged(auth, (user) => {
-		if (user) {
-			console.log('Login.svelte auth callback for user ', { user });
-			const uid = user.uid;
-			console.log('Login.svelte: onAuthStateChanged   sign in ');
-			store.dispatch(
-				signed_in({
-					uid: uid,
-					name: user.displayName,
-					email: user.email,
-					photo: user.photoURL,
-					signedIn: true,
-					authMessage: ''
-				})
-			);
-			if (user.email) {
-				// always true
-				setDoc(doc(firebase.firestore, 'users', user.email), {
-					uid: user.uid,
-					name: user.displayName,
-					email: user.email,
-					photo: user.photoURL,
-					activity_timestamp: new Date().getTime()
-				}).catch((message) => {
-					// TODO: Surface this error state in the UI.
-					console.error(message);
-				});
-			}
-		} else {
-			console.log('Login.svelte: onAuthStateChanged   sign out ');
-			store.dispatch(signed_out());
-		}
-	});
-	onDestroy(unsubAuth);
 
 	function signin() {
 		signInWithPopup(auth, gAuthProvider).catch((message) => {
