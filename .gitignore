@@ -9,3 +9,4 @@ node_modules
 !.env.example
 .firebase
 *.log
+src/lib/version.ts

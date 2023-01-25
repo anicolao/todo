@@ -43,6 +43,7 @@
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
+	import { getVersion } from '$lib/version';
 
 	let count = 0;
 	onDestroy(() => {
@@ -414,7 +415,10 @@
 	>
 		<Header>
 			<Title>Todo menu title</Title>
-			<Subtitle>Organize your todos</Subtitle>
+			<Subtitle
+				>Organize your todos
+				{getVersion()}</Subtitle
+			>
 		</Header>
 		<Content>
 			<FilterMenu {setActive} />

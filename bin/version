@@ -1,0 +1,15 @@
+#!/bin/bash
+cat <<EOF > src/lib/version.ts
+export const version_info = {
+  hash: "$(git rev-parse --short HEAD)",
+  date: "$(date "+%d %b %Y %H:%M")",
+  status: \`$(git status -s)\`,
+$(grep version package.json | sed -re 's/^ */  /' -e 's/"//' -e 's/"//')
+};
+
+export function getVersion() {
+  const caution = version_info.status.length > 0 ? "⚠" : "";
+  const date = version_info.status.length > 0 ? \`\${version_info.date} \` : "";
+  return \`v\${version_info.version} (\${date}\${caution}\${version_info.hash})\`;
+}
+EOF
