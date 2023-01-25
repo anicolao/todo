@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "Rebuilding VERSION"
 cat <<EOF > src/lib/version.ts
 export const version_info = {
   hash: "$(git rev-parse --short HEAD)",

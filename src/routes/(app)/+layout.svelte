@@ -415,10 +415,7 @@
 	>
 		<Header>
 			<Title>Todo menu title</Title>
-			<Subtitle
-				>Organize your todos
-				{getVersion()}</Subtitle
-			>
+			<Subtitle>{getVersion()}</Subtitle>
 		</Header>
 		<Content>
 			<FilterMenu {setActive} />
