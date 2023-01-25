@@ -11,6 +11,7 @@
 		"lint": "prettier --check . && eslint .",
 		"package": "svelte-kit package",
 		"prepare": "npm run smui-theme-light && npm run smui-theme-dark",
+		"postversion": "./bin/packagedist",
 		"preview": "vite preview",
 		"smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
 		"smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
