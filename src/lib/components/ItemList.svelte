@@ -32,15 +32,14 @@
 
 	function watchListIdMatcher(listIdMatcher: (listId: string) => boolean, notused: any) {
 		if (listIdMatcher) {
+			items = [];
 			listIds = $store.lists.visibleLists.filter(listIdMatcher);
 			if (listIds.length === 1) {
 				const singleListId = listIds[0];
         if ($store.items.listIdToListOfItems[singleListId]) {
-          items = [];
           filterItems(singleListId);
         }
 			} else {
-        items = [];
         listIds.forEach((listId) => filterItems(listId));
         if (comparator !== null) {
           items.sort(comparator);
@@ -268,7 +267,7 @@
 							on:focus={itemTextfieldFocused}
 						/>
 					</div>{/each}</List
-			>
+					>
 		</div>{/if}{/if}
 
 <style>
