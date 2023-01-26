@@ -47,15 +47,14 @@
 
 	let count = 0;
 	onDestroy(() => {
-		console.log('Destroyed with count ', { count });
+		console.log('routes/(app)/+layout.svelte: Destroyed with count ', { count });
 	});
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined = undefined;
-	console.log('(app)/+layout.svelte init');
-	console.log('(app)/+layout.svelte loaded', { unsubscribeActions, unsubscribeUsers, count });
+	console.log('routes/(app)/+layout.svelte loaded', { unsubscribeActions, unsubscribeUsers, count });
 	$: if ($store.auth.signedIn) {
-		console.log('WE ARE SIGNED IN ', count++);
+		console.log('routes/(app)/+layout.svelte: WE ARE SIGNED IN ', count++);
 		if (unsubscribeUsers === undefined) {
 			const user = $store.auth;
 			if (user.uid) {
@@ -70,10 +69,9 @@
 					});
 				});
 
-				console.log('SUBSCRIBE to actions');
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-				console.log('Subscribing to actions for you', unsubscribeActions);
+				console.log('routes/(app)/+layout.svelte: Subscribing to actions for you', {'prev unsub': unsubscribeActions});
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 					querySnapshot.docChanges().forEach((change) => {
 						if (change.type === 'added') {
@@ -102,21 +100,21 @@
 			}
 		}
 	} else {
-		console.log('WE ARE *not* SIGNED IN');
+		console.log('routes/(app)/+layout.svelte: WE ARE *not* SIGNED IN');
 		if (!$store.auth.signedIn) {
 			cleanupSubscriptions();
 		}
 	}
 	function cleanupSubscriptions() {
-		console.log('CLEANING UP');
+		console.log('routes/(app)/+layout.svelte: CLEANING UP');
 		if (unsubscribeUsers) {
 			unsubscribeUsers();
-			console.log('UN SUBSCRIBED to users');
+			console.log('routes/(app)/+layout.svelte: UN SUBSCRIBED to users');
 			unsubscribeUsers = undefined;
 		}
 		if (unsubscribeActions) {
 			unsubscribeActions();
-			console.log('UN SUBSCRIBED to actions');
+			console.log('routes/(app)/+layout.svelte: UN SUBSCRIBED to actions');
 			unsubscribeActions = undefined;
 		}
 	}
@@ -180,7 +178,6 @@
 		'Every # Weekdays'
 	];
 	function getRepeatEveryDesciption(kind: string, every: number) {
-		console.log({ every, repeatEvery });
 		const idx = repeatKind.indexOf(kind);
 		let desc = '';
 		if (idx > 0) {
@@ -268,11 +265,11 @@
 			let pi = 0;
 			let ci = 0;
 			function revokeShare(dontShareWith: string) {
-				console.log('remove share for ' + dontShareWith);
+				console.log('routes/(app)/+layout.svelte: remove share for ' + dontShareWith);
 				firebase.request(emailToUid($store.users, dontShareWith), revoke_share({ id }));
 			}
 			function grantShare(shareWith: string) {
-				console.log('new share for ' + shareWith);
+				console.log('routes/(app)/+layout.svelte: new share for ' + shareWith);
 				firebase.request(emailToUid($store.users, shareWith), accept_pending_share(id));
 			}
 			while (pi < previousShares.length && ci < currentShares.length) {

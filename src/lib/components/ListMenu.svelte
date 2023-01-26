@@ -98,8 +98,7 @@
 	}
 
 	function release() {
-		console.log('release', grabbed);
-		console.log({ dragTo, grabbed });
+		console.log('ListMenu.release', { grabbed, 'grabbed id': grabbed?.dataset?.id, dragTo });
 		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
 			const payload: { id: string; goes_before?: string } = {
 				id: grabbed.dataset.id
