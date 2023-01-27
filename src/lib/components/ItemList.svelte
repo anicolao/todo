@@ -72,6 +72,7 @@
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem: ExtendedTodoItem;
+	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
 
@@ -87,10 +88,10 @@
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
-		const index = Number(dataMap.index);
-		grabbedItem = items[index];
-		if (index + 1 < items.length) {
-			dragTo = items[index + 1];
+		startIndex = Number(dataMap.index);
+		grabbedItem = items[startIndex];
+		if (startIndex + 1 < items.length) {
+			dragTo = items[startIndex + 1];
 		} else {
 			dragTo = undefined;
 		}
@@ -158,17 +159,17 @@
 			return;
 		}
 		dragTimeElapsed = false;
-		console.log('release', grabbed);
-		console.log({ dragTo, grabbed });
 		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
-			const payload: { list_id: string; id: string; goes_before?: string } = {
-				list_id: grabbedItem.listId,
-				id: grabbed.dataset.id
-			};
-			if (dragTo) {
-				payload.goes_before = dragTo.id;
+			if (Number(grabbed.dataset.index) !== startIndex) {
+				const payload: { list_id: string; id: string; goes_before?: string } = {
+					list_id: grabbedItem.listId,
+					id: grabbed.dataset.id
+				};
+				if (dragTo) {
+					payload.goes_before = dragTo.id;
+				}
+				dispatch('lists', grabbedItem.listId, $store.auth.uid, reorder_item(payload));
 			}
-			dispatch('lists', grabbedItem.listId, $store.auth.uid, reorder_item(payload));
 		}
 		grabbed = null;
 	}
@@ -267,7 +268,7 @@
 							on:focus={itemTextfieldFocused}
 						/>
 					</div>{/each}</List
-					>
+			>
 		</div>{/if}{/if}
 
 <style>
