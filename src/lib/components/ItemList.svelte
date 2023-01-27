@@ -29,16 +29,27 @@
 	*/
 
 	let listIds: string[] = [];
-	$: if (listIdMatcher) {
-		listIds = $store.lists.visibleLists.filter(listIdMatcher);
-		if (listIds.length === 1) {
-			singleListIdOnly = listIds[0];
-		} else {
-			singleListIdOnly = null;
+
+	function watchListIdMatcher(listIdMatcher: (listId: string) => boolean, notused: any) {
+		if (listIdMatcher) {
+			listIds = $store.lists.visibleLists.filter(listIdMatcher);
+			if (listIds.length === 1) {
+				const singleListId = listIds[0];
+        if ($store.items.listIdToListOfItems[singleListId]) {
+          items = [];
+          filterItems(singleListId);
+        }
+			} else {
+        items = [];
+        listIds.forEach((listId) => filterItems(listId));
+        if (comparator !== null) {
+          items.sort(comparator);
+        }
+			}
 		}
 	}
+	$: watchListIdMatcher(listIdMatcher, $store.lists.visibleLists);
 
-	let singleListIdOnly: string | null = null;
 	type ExtendedTodoItem = TodoItem & { id: string; listId: string; animationId: string };
 	let items: ExtendedTodoItem[] = [];
 	function filterItems(listId: string) {
@@ -54,18 +65,6 @@
 				});
 			}
 		});
-	}
-	$: if (singleListIdOnly !== null) {
-		if ($store.items.listIdToListOfItems[singleListIdOnly]) {
-			items = [];
-			filterItems(singleListIdOnly);
-		}
-	} else if (singleListIdOnly === null && listIds?.length > 0) {
-		items = [];
-		listIds.forEach((listId) => filterItems(listId));
-		if (comparator !== null) {
-			items.sort(comparator);
-		}
 	}
 
 	let showListName = false;
@@ -248,7 +247,11 @@
 					class={grabbed ? 'item haunting' : 'item'}
 					style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
 				>
-					{#if grabbed}<ItemDisplay listId={grabbedItem.listId} item={grabbedItem} {showListName}/>{/if}
+					{#if grabbed}<ItemDisplay
+							listId={grabbedItem.listId}
+							item={grabbedItem}
+							{showListName}
+						/>{/if}
 				</div>
 				{#each items as item, i (item.animationId)}<div
 						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
