@@ -72,22 +72,23 @@
 
 	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
 		return (e: CustomEvent) => {
-			console.log('blur event', e);
 			dispatchEvent('blur', { originalEvent: e });
-			console.log('value', e.detail.target.value);
 			if ($store.auth.uid) {
 				const origItem = $store.items.listIdToListOfItems[list_id].itemIdToItem[item.id];
-				dispatch(
-					'lists',
-					list_id,
-					$store.auth.uid,
-					describe_item({
+				const description = e.detail.target.value || '';
+				if (description !== origItem.description) {
+					dispatch(
+						'lists',
 						list_id,
-						id: item.id,
-						orig_description: origItem.description,
-						description: e.detail.target.value || ''
-					})
-				);
+						$store.auth.uid,
+						describe_item({
+							list_id,
+							id: item.id,
+							orig_description: origItem.description,
+							description
+						})
+					);
+				}
 			}
 		};
 	}
