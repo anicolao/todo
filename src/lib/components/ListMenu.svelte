@@ -25,6 +25,7 @@
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem: string;
+	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
 
@@ -37,10 +38,10 @@
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
-		const index = Number(dataMap.index);
-		grabbedItem = items[index];
-		if (index + 1 < items.length) {
-			dragTo = items[index + 1];
+		startIndex = Number(dataMap.index);
+		grabbedItem = items[startIndex];
+		if (startIndex + 1 < items.length) {
+			dragTo = items[startIndex + 1];
 		} else {
 			dragTo = '';
 		}
@@ -98,8 +99,12 @@
 	}
 
 	function release() {
-		console.log('ListMenu.release', { grabbed, 'grabbed id': grabbed?.dataset?.id, dragTo });
-		if ($store.auth.uid && grabbed && grabbed.dataset.id) {
+		if (
+			$store.auth.uid &&
+			grabbed &&
+			grabbed.dataset.id &&
+			Number(grabbed.dataset.index) !== startIndex
+		) {
 			const payload: { id: string; goes_before?: string } = {
 				id: grabbed.dataset.id
 			};
