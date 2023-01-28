@@ -34,6 +34,6 @@
 		height: 1px;
 		border-top: 1px solid darkgray;
 		width: 30%;
-    transform: translateY(1em);
+		transform: translateY(1em);
 	}
 </style>

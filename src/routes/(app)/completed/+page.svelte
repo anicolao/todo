@@ -29,8 +29,8 @@
 	*/
 
 	function wasEverCompleted(listId: string, id: string) {
-			const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
-			return item && item.completedTimestamp !== 0;
+		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
+		return item && item.completedTimestamp !== 0;
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
 		return b.completedTimestamp - a.completedTimestamp;

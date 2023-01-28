@@ -75,7 +75,7 @@ const firebase = {
 	request
 };
 
-if(!import.meta.env.PROD) {
+if (!import.meta.env.PROD) {
 	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
 }
 export default firebase;

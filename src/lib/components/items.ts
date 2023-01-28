@@ -167,7 +167,10 @@ export const items = createReducer(initialState, (r) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
 		item.completed = action.payload.completed;
-		item.completedTimestamp = Math.max(item.completedTimestamp, action.payload?.completed_time || 0);
+		item.completedTimestamp = Math.max(
+			item.completedTimestamp,
+			action.payload?.completed_time || 0
+		);
 
 		if (item.dueDate && item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
 			let y = item.dueDate.year;

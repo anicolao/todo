@@ -1,10 +1,10 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import execute from "rollup-plugin-shell";
+import execute from 'rollup-plugin-shell';
 
 /** @type {import('vite').UserConfig} */
 const config = {
 	plugins: [
-		sveltekit(), 
+		sveltekit()
 		/*
 		execute({ commands: ["./bin/version"], hook: "buildStart" }),
 		execute({ commands: ["./bin/version"], hook: "handleHotUpdate" })

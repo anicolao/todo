@@ -52,7 +52,11 @@
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined = undefined;
-	console.log('routes/(app)/+layout.svelte loaded', { unsubscribeActions, unsubscribeUsers, count });
+	console.log('routes/(app)/+layout.svelte loaded', {
+		unsubscribeActions,
+		unsubscribeUsers,
+		count
+	});
 	$: if ($store.auth.signedIn) {
 		console.log('routes/(app)/+layout.svelte: WE ARE SIGNED IN ', count++);
 		if (unsubscribeUsers === undefined) {
@@ -71,7 +75,9 @@
 
 				const actions = collectionGroup(firebase.firestore, 'requests');
 				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-				console.log('routes/(app)/+layout.svelte: Subscribing to actions for you', {'prev unsub': unsubscribeActions});
+				console.log('routes/(app)/+layout.svelte: Subscribing to actions for you', {
+					'prev unsub': unsubscribeActions
+				});
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 					querySnapshot.docChanges().forEach((change) => {
 						if (change.type === 'added') {
