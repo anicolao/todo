@@ -61,6 +61,7 @@
 		}
 	}
 
+	/*
 	// touchEnter handler emulates the mouseenter event for touch input
 	// (more or less)
 	function touchEnter(ev: Touch) {
@@ -72,6 +73,7 @@
 			dragEnter(target as HTMLElement);
 		}
 	}
+	*/
 
 	function dragEnter(target: HTMLElement) {
 		// swap items in data

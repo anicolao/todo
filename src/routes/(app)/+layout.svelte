@@ -5,6 +5,7 @@
 	import { dispatch } from '$lib/components/ActionLog';
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import { describe_item, remove_due_date, RepeatType, set_due_date } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
@@ -20,15 +21,16 @@
 	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
+	import { getVersion } from '$lib/version';
 	import type { AnyAction } from '@reduxjs/toolkit';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
-	import Select, { Option } from '@smui/select';
 	import { Actions } from '@smui/dialog';
-	import Drawer, { AppContent, Content, Header, Scrim, Subtitle } from '@smui/drawer';
+	import Drawer, { AppContent, Content, Scrim, Subtitle } from '@smui/drawer';
 	import IconButton, { Icon } from '@smui/icon-button';
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Paper from '@smui/paper';
+	import Select, { Option } from '@smui/select';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import {
@@ -42,8 +44,6 @@
 	} from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
-	import FilterMenu from '$lib/components/FilterMenu.svelte';
-	import { getVersion } from '$lib/version';
 
 	let count = 0;
 	onDestroy(() => {
@@ -218,9 +218,9 @@
 			const d = dueDate.getDate();
 			dueDateStr =
 				dueDate.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+			/*
 			const dayName = dueDate.toLocaleDateString('en-us', { weekday: 'long' });
 			const monthDay = dueDate.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
-			/*
 			repeatKind = [
 				"Doesn't repeat",
 				'Daily',

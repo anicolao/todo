@@ -1,15 +1,14 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
-	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
+	import { reorder_item, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
-	import type { CrossfadeParams, TransitionConfig } from 'svelte/transition';
 	import ItemDisplay from './ItemDisplay.svelte';
 
-	export let listIdMatcher: (listId: string) => boolean = (listId) => true;
-	export let filter: (listId: string, itemId: string) => boolean = (listId, itemId) => true;
+	export let listIdMatcher: (listId: string) => boolean = () => true;
+	export let filter: (listId: string, itemId: string) => boolean = () => true;
 	export let comparator: null | ((a: TodoItem, b: TodoItem) => number) = null;
 	export let hasItems = false;
 	export let show = true;
@@ -30,20 +29,20 @@
 
 	let listIds: string[] = [];
 
-	function watchListIdMatcher(listIdMatcher: (listId: string) => boolean, notused: any) {
+	function watchListIdMatcher(listIdMatcher: (listId: string) => boolean, {}: any) {
 		if (listIdMatcher) {
 			items = [];
 			listIds = $store.lists.visibleLists.filter(listIdMatcher);
 			if (listIds.length === 1) {
 				const singleListId = listIds[0];
-        if ($store.items.listIdToListOfItems[singleListId]) {
-          filterItems(singleListId);
-        }
+				if ($store.items.listIdToListOfItems[singleListId]) {
+					filterItems(singleListId);
+				}
 			} else {
-        listIds.forEach((listId) => filterItems(listId));
-        if (comparator !== null) {
-          items.sort(comparator);
-        }
+				listIds.forEach((listId) => filterItems(listId));
+				if (comparator !== null) {
+					items.sort(comparator);
+				}
 			}
 		}
 	}
@@ -67,7 +66,10 @@
 	}
 
 	let showListName = false;
-	$: showListName = $store.ui.title === 'Starred' || $store.ui.title === 'By Date' || $store.ui.title === 'Completed';
+	$: showListName =
+		$store.ui.title === 'Starred' ||
+		$store.ui.title === 'By Date' ||
+		$store.ui.title === 'Completed';
 
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
@@ -114,6 +116,7 @@
 		}
 	}
 
+	/*
 	// touchEnter handler emulates the mouseenter event for touch input
 	// (more or less)
 	function touchEnter(ev: Touch) {
@@ -125,6 +128,7 @@
 			dragEnter(target as HTMLElement);
 		}
 	}
+	*/
 
 	function dragEnter(target: HTMLElement) {
 		// swap items in data

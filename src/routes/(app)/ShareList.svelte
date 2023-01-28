@@ -10,21 +10,6 @@
 	$: otherUsers = $store.users.users.filter((u: AuthState) => u.email !== $store.auth.email);
 	export let selected: string[];
 
-	function selectUser(email: string) {
-		return () => {
-			if (!sharePending($store.users, email)) {
-				console.log('Selected: ' + email);
-				const found = selected.indexOf(email);
-				if (found !== -1) {
-					selected.splice(found, 1);
-				} else {
-					selected.push(email);
-				}
-				selected = selected;
-			}
-		};
-	}
-
 	function updateUserList(e: CustomEvent) {
 		const t = e.target as unknown as { value: string; checked: boolean };
 		console.log(t.value, t.checked);

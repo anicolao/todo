@@ -11,9 +11,8 @@
 	function load() {
 		console.log('/+layout.ts load function', count++);
 		const auth = firebase.auth;
-		const gAuthProvider = firebase.google_auth_provider;
 		console.log('/+layout.ts set up auth state callback');
-		const unsubAuth = onAuthStateChanged(auth, (user) => {
+		/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
 			if (user) {
 				console.log('/+layout.ts auth callback for user ', { user });
 				const uid = user.uid;
