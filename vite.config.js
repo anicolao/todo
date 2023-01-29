@@ -5,8 +5,8 @@ import execute from 'rollup-plugin-shell';
 const config = {
 	plugins: [
 		sveltekit(),
-		execute({ commands: ["./bin/version"], hook: "buildStart" })
-		// execute({ commands: ["./bin/version"], hook: "handleHotUpdate" })
+		execute({ commands: ["./bin/version"], hook: "buildStart" }),
+		execute({ commands: ["./bin/version"], hook: "handleHotUpdate" })
 	],
 	test: { include: ['tests/**/*.unit.ts'] }
 };

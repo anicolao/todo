@@ -1,25 +1,23 @@
 #!/bin/bash
-echo "Rebuilding VERSION"
+echo -n "Rebuilding VERSION... "
 TMPFILE=/tmp/version.$$
 trap "rm $TMPFILE" EXIT
 cat <<EOF > $TMPFILE
 export const version_info = {
   hash: "$(git rev-parse --short HEAD)",
-  date: "$(date "+%d %b %Y %H:%M")",
   status: \`$(git status -s)\`,
 $(grep version package.json | sed -re 's/^ */  /' -e 's/"//' -e 's/"//')
 };
 
 export function getVersion() {
   const caution = version_info.status.length > 0 ? "⚠" : "";
-  const date = version_info.status.length > 0 ? \`\${version_info.date} \` : "";
-  return \`v\${version_info.version} (\${date}\${caution}\${version_info.hash})\`;
+  return \`v\${version_info.version} (\${caution}\${version_info.hash})\`;
 }
 EOF
 if cmp $TMPFILE src/lib/version.ts
 then
-	echo No difference
+	echo no difference.
 else
+  echo regenerated.
   cp $TMPFILE src/lib/version.ts
 fi
-
