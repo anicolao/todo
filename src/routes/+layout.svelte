@@ -55,4 +55,5 @@
 	}
 </script>
 
+<svelte:head><title>Todo</title></svelte:head>
 <slot />
