@@ -51,7 +51,7 @@
 					break;
 			}
 		}
-		if (!dueDateStr.includes(',')) {
+		if (repeatType !== RepeatType.NONE && !dueDateStr.includes(',')) {
 			// dueDateStr is one of the specials like "Today".
 			dueDateStr += repeatChar + repeatEvery;
 			switch (repeatType) {
