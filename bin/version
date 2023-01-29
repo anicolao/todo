@@ -1,13 +1,13 @@
 #!/bin/bash
-set -o nounset
-set -o errexit
-
-content=$(cat <<END
+echo "Rebuilding VERSION"
+TMPFILE=/tmp/version.$$
+trap "rm $TMPFILE" EXIT
+cat <<EOF > $TMPFILE
 export const version_info = {
   hash: "$(git rev-parse --short HEAD)",
   date: "$(date "+%d %b %Y %H:%M")",
   status: \`$(git status -s)\`,
-$(grep "\<version\>" package.json | sed -re 's/^ */  /' -e 's/"//' -e 's/"//')
+$(grep version package.json | sed -re 's/^ */  /' -e 's/"//' -e 's/"//')
 };
 
 export function getVersion() {
@@ -15,13 +15,11 @@ export function getVersion() {
   const date = version_info.status.length > 0 ? \`\${version_info.date} \` : "";
   return \`v\${version_info.version} (\${date}\${caution}\${version_info.hash})\`;
 }
-END
-)
-
-if echo "$content" | diff - src/lib/version.ts
+EOF
+if cmp $TMPFILE src/lib/version.ts
 then
-	echo 'Rebuilding VERSION ...no difference'
+	echo No difference
 else
-	echo 'Rebuilding VERSION'
-  echo "$content" > src/lib/version.ts
+  cp $TMPFILE src/lib/version.ts
 fi
+
