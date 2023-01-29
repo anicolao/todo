@@ -1,7 +1,7 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
-	import { reorder_item, type TodoItem } from '$lib/components/items';
+	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
@@ -29,28 +29,54 @@
 
 	let listIds: string[] = [];
 
-	function watchListIdMatcher(listIdMatcher: (listId: string) => boolean, {}: any) {
-		if (listIdMatcher) {
-			items = [];
-			listIds = $store.lists.visibleLists.filter(listIdMatcher);
-			if (listIds.length === 1) {
-				const singleListId = listIds[0];
-				if ($store.items.listIdToListOfItems[singleListId]) {
-					filterItems(singleListId);
-				}
-			} else {
-				listIds.forEach((listId) => filterItems(listId));
-				if (comparator !== null) {
-					items.sort(comparator);
-				}
-			}
+	function updateListIds(listIdMatcher: (listId: string) => boolean) {
+		listIds = $store.lists.visibleLists.filter(listIdMatcher);
+		updateItemIds(filter, comparator);
+	}
+	$: updateListIds(listIdMatcher);
+
+	$: visibleLists = $store.lists.visibleLists;
+	let lastVisibleLists = $store.lists.visibleLists;
+	$: if (visibleLists !== lastVisibleLists) {
+		lastVisibleLists = visibleLists;
+		updateListIds(listIdMatcher);
+	}
+
+	function updateItemIds(
+		filter: (listId: string, itemId: string) => boolean,
+		comparator: ((a: TodoItem, b: TodoItem) => number) | null
+	) {
+		items = [];
+		listIds = $store.lists.visibleLists.filter(listIdMatcher);
+		listIds.forEach((listId) => filterItems(listId, filter));
+		if (comparator !== null) {
+			items.sort(comparator);
 		}
 	}
-	$: watchListIdMatcher(listIdMatcher, $store.lists.visibleLists);
+	$: updateItemIds(filter, comparator);
+
+	let lastListItems: { [id: string]: ListOfItems } = {};
+	function updateLastListItemsCache() {
+		let itemsChanged = false;
+		listIds.forEach((listId) => {
+			if (lastListItems[listId] !== $store.items.listIdToListOfItems[listId]) {
+				lastListItems[listId] = $store.items.listIdToListOfItems[listId];
+				itemsChanged = true;
+			}
+		});
+		if (itemsChanged) {
+			updateItemIds(filter, comparator);
+		}
+	}
+	let lastItems = $store.items;
+	$: if ($store.items !== lastItems) {
+		lastItems = store.items;
+		updateLastListItemsCache();
+	}
 
 	type ExtendedTodoItem = TodoItem & { id: string; listId: string; animationId: string };
 	let items: ExtendedTodoItem[] = [];
-	function filterItems(listId: string) {
+	function filterItems(listId: string, filter: (listId: string, itemId: string) => boolean) {
 		$store.items.listIdToListOfItems[listId]?.itemIds.forEach((itemId: string) => {
 			const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
 			if (item && filter(listId, itemId)) {

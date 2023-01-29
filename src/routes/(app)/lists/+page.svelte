@@ -54,8 +54,8 @@
 		}
 	});
 
-	function selectedList(id: string) {
-		return id === listId;
+	function selectedList(selectedList: string) {
+		return (id: string) => id === selectedList;
 	}
 
 	function completedItems(completedFlag: boolean): (listId: string, id: string) => boolean {
@@ -81,9 +81,9 @@
 			on:keydown={handleEnterKey}
 			><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 		></span
-	><ItemList listIdMatcher={selectedList} filter={completedItems(false)} />
+	><ItemList listIdMatcher={selectedList(listId)} filter={completedItems(false)} />
 	<ItemList
-		listIdMatcher={selectedList}
+		listIdMatcher={selectedList(listId)}
 		filter={completedItems(true)}
 		bind:hasItems
 		show={showCompleted}
