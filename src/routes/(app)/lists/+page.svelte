@@ -79,6 +79,8 @@
 			style="width: 100%"
 			bind:value={newItemText}
 			label="New task"
+			enterkeyhint="enter"
+			input$enterkeyhint="enter"
 			on:keydown={handleEnterKey}
 			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">add</Icon></Textfield
 		></span

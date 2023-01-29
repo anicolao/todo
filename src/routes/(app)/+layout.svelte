@@ -425,6 +425,8 @@
 				style="width: 100%; min-height: 55px;"
 				bind:value={newListName}
 				label="New list"
+				enterkeyhint="enter"
+				input$enterkeyhint="enter"
 				on:keydown={handleEnterKey}
 				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 			>

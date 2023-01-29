@@ -112,6 +112,8 @@
 			style="width: 100%"
 			value={item.description}
 			on:keydown={handleEnterKey}
+			enterkeyhint="enter"
+			input$enterkeyhint="enter"
 			on:blur={handleBlur(listId, item)}
 			on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
 		/><Meta
