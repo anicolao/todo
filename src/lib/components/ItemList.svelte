@@ -136,9 +136,8 @@
 	function drag(clientY: number) {
 		if (grabbed) {
 			mouseY = clientY;
-			if (anchor.parentElement) {
-				layerY = anchor.parentElement.getBoundingClientRect().y;
-			}
+			layerY = anchor.getBoundingClientRect().y;
+			// console.log( 'mouseY ' + mouseY + ' offsetY ' + offsetY + ' -layerY ' + layerY + ' = ' + (mouseY + offsetY - layerY));
 		}
 	}
 
@@ -261,12 +260,12 @@
 	}
 </script>
 
-<div bind:this={anchor} />
-
 {#if items.length > 0}
 	<slot />
+	<div bind:this={anchor} />
 	{#if show}
 		<div
+			class="listContainer"
 			on:pointerdown={containerDragHandlers.onPointerDown}
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
@@ -304,6 +303,10 @@
 <style>
 	:global(.mdc-deprecated-list) {
 		padding: 0;
+	}
+
+	.listContainer {
+		position: relative;
 	}
 
 	.item {
