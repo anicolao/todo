@@ -203,13 +203,18 @@
 		grabbed = null;
 	}
 
-	let dragEnabled = true;
+	$: canDrag = comparator === null;
+	$: dragEnabled = canDrag;
+	function enableDrag(on: boolean) {
+		dragEnabled = canDrag && on;
+	}
+
 	$: console.log({ dragEnabled });
 	function itemTextfieldFocused() {
 		window.setTimeout(() => {
 			console.log('Timeout for dragEnabled -> false');
 			if (dragTimeElapsed === false) {
-				dragEnabled = false;
+				enableDrag(false);
 			}
 			console.log({ dragEnabled, grabbed, dragTimeElapsed });
 		}, 900);
@@ -293,7 +298,7 @@
 							listId={item.listId}
 							{item}
 							{showListName}
-							on:blur={() => (dragEnabled = true)}
+							on:blur={() => enableDrag(true)}
 							on:focus={itemTextfieldFocused}
 						/>
 					</div>{/each}</List
