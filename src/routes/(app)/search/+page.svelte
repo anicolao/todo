@@ -58,7 +58,6 @@
 		width: 100%;
 	}
 	span {
-		background-color: #fafaf0;
 		margin: 0em;
 		padding-left: 1em;
 		display: block;

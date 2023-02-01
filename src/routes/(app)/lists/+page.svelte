@@ -75,6 +75,7 @@
 <div>
 	<span
 		><Textfield
+			variant="filled"
 			style="width: 100%"
 			bind:value={newItemText}
 			label="New task"
@@ -100,7 +101,6 @@
 		width: 100%;
 	}
 	span {
-		background-color: #fafaf0;
 		margin: 0em;
 		display: block;
 		position: sticky;
