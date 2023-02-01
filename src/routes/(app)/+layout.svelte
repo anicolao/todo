@@ -134,6 +134,7 @@
 
 	let active: string;
 	function setActive(name: string) {
+		console.log('setActive ' + name);
 		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
 		active = name;
 		goto('/' + name);

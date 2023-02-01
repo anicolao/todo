@@ -18,7 +18,7 @@
 	export let listId: string | undefined = undefined;
 	export let requestId = '';
 	export let sharerId = '';
-	export let setActive: (name: string) => void = (name: string) => {goto('/' + name)};
+	export let setActive: (name: string) => void = (name: string) => {console.log('ListMenuItem.setActive DEFAULT goto ' + name); goto('/' + name)};
 
 	let unsub: Unsubscribe | undefined;
 	if (listId) {
