@@ -18,6 +18,7 @@
 	export let listId: string | undefined = undefined;
 	export let requestId = '';
 	export let sharerId = '';
+	export let setActive: (name: string) => void = (name: string) => {goto('/' + name)};
 
 	let unsub: Unsubscribe | undefined;
 	if (listId) {
@@ -58,7 +59,7 @@
 	});
 
 	function gotoList(listId: string) {
-		return () => goto(`/lists/?listId=${listId}`);
+		return () => setActive(`lists/?listId=${listId}`);
 	}
 	$: activated = pageListId === listId;
 

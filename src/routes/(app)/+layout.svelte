@@ -134,12 +134,9 @@
 
 	let active: string;
 	function setActive(name: string) {
+		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
 		active = name;
-		if (name === 'account_circle') {
-			goto('/profile');
-		} else {
-			goto('/' + name);
-		}
+		goto('/' + name);
 	}
 
 	function getIconName(name: string) {
@@ -372,9 +369,9 @@
 		store.dispatch(show_edit_dialog(false));
 		const remainingLists = $store.lists.visibleLists.filter((x: string) => x !== id);
 		if (remainingLists.length == 0) {
-			goto('/profile');
+			setActive('profile');
 		} else {
-			goto('/lists?listId=' + remainingLists[0]);
+			setActive('lists?listId=' + remainingLists[0]);
 		}
 	}
 
@@ -418,7 +415,7 @@
 	>
 		<Content>
 			<FilterMenu {setActive} />
-			<ListMenu />
+			<ListMenu {setActive}/>
 			<div class="verticalspacer" />
 			<AcceptShare />
 			<Textfield
@@ -434,8 +431,8 @@
 				<Subheader>Settings</Subheader>
 				<Item
 					href="javascript:void(0)"
-					on:click={() => setActive('account_circle')}
-					activated={active === 'account_circle'}
+					on:click={() => setActive('profile')}
+					activated={active === 'profile'}
 				>
 					<Graphic class="material-icons" aria-hidden="true"
 						>{getIconName('account_circle')}</Graphic

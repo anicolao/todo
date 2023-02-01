@@ -18,6 +18,8 @@
 	) => () => TransitionConfig;
 	*/
 
+	export let setActive: (name: string) => void;
+
 	let items: string[];
 	$: items = $store.lists.visibleLists;
 	let dragTo: string;
@@ -176,7 +178,7 @@
 				data-id={listId}
 				animate:flip={{ duration: 200 }}
 			>
-				<ListMenuItem {listId} />
+				<ListMenuItem {listId} {setActive} />
 			</div>{/each}</List
 	>
 </div>
