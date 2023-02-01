@@ -82,7 +82,7 @@
 </script>
 
 {#if listId}
-	<Item href="javascript:void(0)" on:click={gotoList(listId)} {activated}>
+	<Item href="javascript:void(0)" on:pointerdown={gotoList(listId)} {activated}>
 		<ListIcon />
 		<Text>{$store.lists.listIdToList[listId]}</Text>
 		{#if activated}

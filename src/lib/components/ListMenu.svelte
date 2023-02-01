@@ -165,6 +165,9 @@
 
 <div
 	class="listContainer"
+	on:pointerdown={containerDragHandlers.onPointerDown}
+	on:pointermove={containerDragHandlers.onPointerMove}
+	on:pointerup={containerDragHandlers.onPointerUp}
 >
 	<div
 		id="ghost"
