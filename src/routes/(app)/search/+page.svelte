@@ -35,8 +35,8 @@
 
 <div>
 	<span
-		><Textfield style="width: 100%" bind:value={searchText} label="Search"
-			><Icon class="material-icons" slot="leadingIcon">search</Icon></Textfield
+		><Textfield variant="filled" style="width: 100%" bind:value={searchText} label="Search"
+			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">search</Icon></Textfield
 		></span
 	>{#each listIds as listId}
 		<ItemList
@@ -58,9 +58,6 @@
 		width: 100%;
 	}
 	span {
-		background-color: #fafaf0;
-		margin: 0em;
-		padding-left: 1em;
 		display: block;
 		position: sticky;
 		top: 0;

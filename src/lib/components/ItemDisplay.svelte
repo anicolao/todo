@@ -1,6 +1,7 @@
 <script lang="ts">
 	console.log('ItemDisplay.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
+	import Card from '@smui/card';
 	import { complete_item, describe_item, star_item, type TodoItem } from '$lib/components/items';
 	import RepeatingDate from '$lib/components/RepeatingDate.svelte';
 	import { store } from '$lib/store';
@@ -95,6 +96,7 @@
 </script>
 
 <div class="container">
+<Card>
 	<Item
 		><Graphic
 			>{#if item.completed}<IconButton
@@ -129,11 +131,11 @@
 			></Meta
 		></Item
 	>
+</Card>
 </div>
 
 <style>
 	div {
-		background-color: #fafaf0;
 		border-radius: 0.3em;
 		margin: 0.25em;
 		opacity: 0.9;

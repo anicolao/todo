@@ -75,11 +75,12 @@
 <div>
 	<span
 		><Textfield
+			variant="filled"
 			style="width: 100%"
 			bind:value={newItemText}
 			label="New task"
 			on:keydown={handleEnterKey}
-			><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
+			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">add</Icon></Textfield
 		></span
 	><ItemList listIdMatcher={selectedList(listId)} filter={completedItems(false)} />
 	<ItemList
@@ -100,8 +101,6 @@
 		width: 100%;
 	}
 	span {
-		background-color: #fafaf0;
-		margin: 0em;
 		display: block;
 		position: sticky;
 		top: 0;
