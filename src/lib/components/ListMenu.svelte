@@ -20,8 +20,14 @@
 
 	export let setActive: (name: string) => void;
 
-	let items: string[];
-	$: items = $store.lists.visibleLists;
+	let items: string[] = [];
+	function updateItems() {
+		console.log('ListMenu.updateItems');
+		items = $store.lists.visibleLists;
+	}
+	$: if (items !== $store.lists.visibleLists) {
+		updateItems();
+	}
 	let dragTo: string;
 
 	let anchor: Element;
@@ -159,9 +165,6 @@
 
 <div
 	class="listContainer"
-	on:pointerdown={containerDragHandlers.onPointerDown}
-	on:pointermove={containerDragHandlers.onPointerMove}
-	on:pointerup={containerDragHandlers.onPointerUp}
 >
 	<div
 		id="ghost"
