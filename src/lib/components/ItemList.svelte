@@ -138,6 +138,8 @@
 			mouseY = clientY;
 			layerY = anchor.getBoundingClientRect().y;
 			// console.log( 'mouseY ' + mouseY + ' offsetY ' + offsetY + ' -layerY ' + layerY + ' = ' + (mouseY + offsetY - layerY));
+		} else {
+			console.log('drag: grabbed is not set');
 		}
 	}
 
@@ -220,14 +222,21 @@
 		}, 900);
 	}
 
+	let target: HTMLElement | null | undefined = null;
+
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
 			if (dragEnabled) {
-				let target: HTMLElement | null | undefined = document
-					.elementFromPoint(e.clientX, e.clientY)
-					?.closest('.item');
+				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 				if (target) {
-					grab(e.clientY, target);
+					window.setTimeout(() => {
+						if (target) {
+							console.log('onPointerDown GRAB');
+							grab(e.clientY, target);
+						} else {
+							console.log('onPointerDown no grab');
+						}
+					}, 350);
 				}
 			}
 		},
@@ -257,6 +266,10 @@
 				e.stopPropagation();
 				release();
 			}
+		},
+		onPointerCancel: (e: PointerEvent) => {
+			console.log('onPointerCancel');
+			target = null;
 		}
 	};
 
@@ -271,9 +284,11 @@
 	{#if show}
 		<div
 			class="listContainer"
+			class:grabbed
 			on:pointerdown={containerDragHandlers.onPointerDown}
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
+			on:pointercancel={containerDragHandlers.onPointerCancel}
 		>
 			<List
 				><div
@@ -332,6 +347,10 @@
 
 	#grabbed {
 		opacity: 0;
+	}
+
+	.grabbed {
+		touch-action: none;
 	}
 
 	#ghost {
