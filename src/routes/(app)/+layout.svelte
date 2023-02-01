@@ -159,9 +159,24 @@
 		}
 	}
 
+	let newlyCreatedListId = '';
+
 	function createList(name: string) {
-		const id = crypto.randomUUID();
-		firebase.dispatch(create_list({ id, name }));
+		newlyCreatedListId = crypto.randomUUID();
+		firebase.dispatch(create_list({ id: newlyCreatedListId, name }));
+	}
+
+	let oldListLength = 0;
+	function checkForNewlyCreatedList() {
+		const lists = $store.lists.visibleLists;
+		oldListLength = lists.legnth;
+		if(lists.length > 0 && lists[lists.length - 1] === newlyCreatedListId) {
+			setActive('lists?listId=' + newlyCreatedListId);
+			newlyCreatedListId = '';
+		}
+	}
+	$: if($store.lists.visibleLists.length !== oldListLength) {
+		checkForNewlyCreatedList();
 	}
 
 	$: itemDetailsOpen = $store.ui.showItemDetailsDialog;
