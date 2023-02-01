@@ -4,15 +4,15 @@
 
 @use '@material/theme/index' as theme with (
 	$primary: #6d4c41,
-	$secondary: #ff0000,
+	$secondary: #757575,
 	$surface: #fafaf0,
-	$background: #ffffff,
+	$background: #dadad0,
 	$error: color-palette.$red-900
 );
 
 html,
 body {
-	background-color: theme.$background;
+	background-color: theme.$surface;
 	color: theme.$on-surface;
 }
 
