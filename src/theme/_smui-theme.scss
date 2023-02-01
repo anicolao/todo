@@ -3,11 +3,11 @@
 @use '@material/theme/color-palette';
 
 @use '@material/theme/index' as theme with (
-	$primary: #ff0000,
-	$secondary: #00ff00,
-	$surface: #0000ff,
-	$background: #000000,
-	$error: #00ff00
+	$primary: #6d4c41,
+	$secondary: #ff0000,
+	$surface: #fafaf0,
+	$background: #ffffff,
+	$error: color-palette.$red-900
 );
 
 html,

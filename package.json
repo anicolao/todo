@@ -10,11 +10,9 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"package": "svelte-kit package",
-		"prepare": "npm run smui-theme-light && npm run smui-theme-dark",
+		"prepare": "smui-theme compile static/smui.css -i src/theme",
 		"postversion": "./bin/packagedist",
 		"preview": "vite preview",
-		"smui-theme-dark": "smui-theme compile static/smui-dark.css -i src/theme/dark",
-		"smui-theme-light": "smui-theme compile static/smui.css -i src/theme",
 		"test": "vitest run --coverage",
 		"playwright": "playwright test",
 		"deploy": "npm run build && firebase deploy"
