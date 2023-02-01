@@ -3,16 +3,16 @@
 @use '@material/theme/color-palette';
 
 @use '@material/theme/index' as theme with (
-	$primary: #6d4c41,
-	$secondary: #757575,
-	$surface: #fafaf0,
-	$background: #dadad0,
-	$error: color-palette.$red-900
+	$primary: #ff0000,
+	$secondary: #00ff00,
+	$surface: #0000ff,
+	$background: #000000,
+	$error: #00ff00
 );
 
 html,
 body {
-	background-color: theme.$surface;
+	background-color: theme.$background;
 	color: theme.$on-surface;
 }
 
@@ -22,3 +22,4 @@ a {
 a:visited {
 	color: color.scale(#40b3ff, $lightness: -35%);
 }
+
