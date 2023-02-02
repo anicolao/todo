@@ -58,7 +58,6 @@
 		count
 	});
 	$: if ($store.auth.signedIn) {
-		console.log('routes/(app)/+layout.svelte: WE ARE SIGNED IN ', count++);
 		if (unsubscribeUsers === undefined) {
 			const user = $store.auth;
 			if (user.uid) {
@@ -106,7 +105,6 @@
 			}
 		}
 	} else {
-		console.log('routes/(app)/+layout.svelte: WE ARE *not* SIGNED IN');
 		if (!$store.auth.signedIn) {
 			cleanupSubscriptions();
 		}
