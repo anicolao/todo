@@ -22,10 +22,12 @@
 
 	let items: string[] = [];
 	function updateItems() {
-		console.log('ListMenu.updateItems');
-		items = $store.lists.visibleLists;
+		if (items !== $store.lists.visibleLists) {
+			console.log('ListMenu.updateItems');
+			items = $store.lists.visibleLists;
+		}
 	}
-	$: if (items !== $store.lists.visibleLists) {
+	$: if ($store.lists.visibleLists) {
 		updateItems();
 	}
 	let dragTo: string;
