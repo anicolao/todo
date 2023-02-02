@@ -237,7 +237,7 @@
 						} else {
 							console.log('onPointerDown no grab');
 						}
-					}, 15);
+					}, 50);
 				}
 			}
 		},
@@ -275,7 +275,7 @@
 			target = null;
 		},
 		onPointerCancel: (e: PointerEvent) => {
-			console.log('onPointerCnacel enabled?' + dragEnabled);
+			console.log({'onPointerCnacel enabled?': dragEnabled, e});
 			target = null;
 		}
 	};
