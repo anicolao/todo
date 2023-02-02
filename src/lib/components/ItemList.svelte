@@ -226,6 +226,7 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
+			console.log('onPointerDown ' + dragEnabled);
 			if (dragEnabled) {
 				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 				if (target) {
@@ -236,16 +237,20 @@
 						} else {
 							console.log('onPointerDown no grab');
 						}
-					}, 350);
+					}, 15);
 				}
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
+			console.log('onPointerMove enabled? ' + dragEnabled + ' grabbed? ' + grabbed);
 			if (dragEnabled) {
+
+				// Prevent text selection while dragging by preventing these defaults.
 				e.stopPropagation();
 				e.preventDefault();
-				drag(e.clientY);
+
 				if (grabbed) {
+					drag(e.clientY);
 					const srcElement = e.currentTarget as HTMLElement;
 					srcElement.setPointerCapture(e.pointerId);
 					const midPoint = e.clientY + offsetY + boxHeight / 2;
@@ -262,13 +267,15 @@
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
+			console.log('onPointerUp enabled? ' + dragEnabled);
 			if (dragEnabled) {
 				e.stopPropagation();
 				release();
 			}
+			target = null;
 		},
 		onPointerCancel: (e: PointerEvent) => {
-			console.log('onPointerCancel');
+			console.log('onPointerCnacel enabled?' + dragEnabled);
 			target = null;
 		}
 	};
