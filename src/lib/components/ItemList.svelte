@@ -223,6 +223,7 @@
 	}
 
 	let target: HTMLElement | null | undefined = null;
+	let touchTimeout = 0;
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
@@ -237,22 +238,21 @@
 						} else {
 							console.log('onPointerDown no grab');
 						}
-					}, 50);
+					}, 50 + touchTimeout);
 				}
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
-			console.log('onPointerMove enabled? ' + dragEnabled + ' grabbed? ' + grabbed);
+			// console.log('onPointerMove enabled? ' + dragEnabled + ' grabbed? ' + grabbed);
 			if (dragEnabled) {
-
 				// Prevent text selection while dragging by preventing these defaults.
-				e.stopPropagation();
-				e.preventDefault();
+				// e.stopPropagation();
+				// e.preventDefault();
 
 				if (grabbed) {
 					drag(e.clientY);
 					const srcElement = e.currentTarget as HTMLElement;
-					srcElement.setPointerCapture(e.pointerId);
+					// srcElement.setPointerCapture(e.pointerId);
 					const midPoint = e.clientY + offsetY + boxHeight / 2;
 					let target: HTMLElement | null | undefined = document
 						.elementFromPoint(e.clientX, midPoint)
@@ -263,6 +263,8 @@
 							dragEnter(target);
 						}
 					}
+				} else {
+					// target = null;
 				}
 			}
 		},
@@ -274,8 +276,40 @@
 			}
 			target = null;
 		},
+		onTouchStart: (e: TouchEvent) => {
+			console.log('onTouchStart');
+			touchTimeout = 400;
+		},
+		onTouchMove: (e: TouchEvent) => {
+			// console.log('onTouchMove');
+			if (grabbed) {
+        e.preventDefault();
+				const x = e.touches[0].clientX;
+				const y = e.touches[0].clientY;
+				drag(y);
+
+				const midPoint = y + offsetY + boxHeight / 2;
+				let target: HTMLElement | null | undefined = document
+					.elementFromPoint(x, midPoint)
+					?.closest('.item');
+				if (target) {
+					if (target != lastTarget) {
+						lastTarget = target;
+						dragEnter(target);
+					}
+				}
+			}
+		},
+		onTouchEnd: (e: TouchEvent) => {
+			console.log('onTouchEnd');
+			if (dragEnabled) {
+				release();
+			}
+			target = null;
+			// touchTimeout = 0;
+		},
 		onPointerCancel: (e: PointerEvent) => {
-			console.log({'onPointerCnacel enabled?': dragEnabled, e});
+			console.log({ 'onPointerCancel enabled?': dragEnabled, e });
 			target = null;
 		}
 	};
@@ -296,6 +330,9 @@
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
 			on:pointercancel={containerDragHandlers.onPointerCancel}
+			on:touchstart={containerDragHandlers.onTouchStart}
+			on:touchmove|nonpassive={containerDragHandlers.onTouchMove}
+			on:touchend={containerDragHandlers.onTouchEnd}
 		>
 			<List
 				><div
@@ -357,7 +394,8 @@
 	}
 
 	.grabbed {
-		touch-action: none;
+		/* touch-action: none; */
+		border: 1px solid red;
 	}
 
 	#ghost {
