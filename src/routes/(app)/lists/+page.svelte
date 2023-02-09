@@ -36,7 +36,9 @@
 	}
 
 	function handleBlur() {
-		addListItem(listId, newItemText);
+		if(newItemText.trim().length > 0) {
+			addListItem(listId, newItemText);
+		}
 		newItemText = '';
 	}
 

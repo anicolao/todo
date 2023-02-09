@@ -153,7 +153,9 @@
 	function handleEnterKey(e: CustomEvent | KeyboardEvent) {
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
-			createList(newListName);
+			if (newListName.trim().length > 0) {
+				createList(newListName);
+			}
 			newListName = '';
 		}
 	}
