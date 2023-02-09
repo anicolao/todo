@@ -282,7 +282,7 @@
 		},
 		onTouchMove: (e: TouchEvent) => {
 			// console.log('onTouchMove');
-			if (grabbed) {
+			if (dragEnabled && grabbed) {
         e.preventDefault();
 				const x = e.touches[0].clientX;
 				const y = e.touches[0].clientY;
