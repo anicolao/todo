@@ -12,6 +12,8 @@
 	export let comparator: null | ((a: TodoItem, b: TodoItem) => number) = null;
 	export let hasItems = false;
 	export let show = true;
+	export let enableUndo = false;
+
 	/*
 	export let send: (
 		node: Element,
@@ -342,6 +344,7 @@
 							listId={item.listId}
 							{item}
 							{showListName}
+							{enableUndo}
 							on:blur={() => enableDrag(true)}
 							on:focus={itemTextfieldFocused}
 						/>

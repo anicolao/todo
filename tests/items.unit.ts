@@ -540,6 +540,12 @@ describe('items', () => {
 					month: 1,
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
+					month: 12,
+					day: 31,
+					repeats: { type: RepeatType.DAILY, every: 1 }
 				}
 			}
 		});
@@ -569,6 +575,12 @@ describe('items', () => {
 					year: 2023,
 					month: 1,
 					day: 7,
+					repeats: { type: RepeatType.WEEKLY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
+					month: 12,
+					day: 31,
 					repeats: { type: RepeatType.WEEKLY, every: 1 }
 				}
 			}
@@ -600,6 +612,12 @@ describe('items', () => {
 					month: 1,
 					day: 30,
 					repeats: { type: RepeatType.MONTHLY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
+					month: 12,
+					day: 30,
+					repeats: { type: RepeatType.MONTHLY, every: 1 }
 				}
 			}
 		});
@@ -627,6 +645,12 @@ describe('items', () => {
 				description,
 				dueDate: {
 					year: 2023,
+					month: 12,
+					day: 30,
+					repeats: { type: RepeatType.YEARLY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
 					month: 12,
 					day: 30,
 					repeats: { type: RepeatType.YEARLY, every: 1 }
@@ -660,6 +684,12 @@ describe('items', () => {
 					month: 1,
 					day: 2,
 					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
+					month: 12,
+					day: 30,
+					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
 				}
 			}
 		});
@@ -690,6 +720,12 @@ describe('items', () => {
 					month: 1,
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2022,
+					month: 12,
+					day: 31,
+					repeats: { type: RepeatType.DAILY, every: 1 }
 				}
 			}
 		});
@@ -709,6 +745,12 @@ describe('items', () => {
 					year: 2023,
 					month: 1,
 					day: 2,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				},
+				prevDueDate: {
+					year: 2023,
+					month: 1,
+					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				}
 			}

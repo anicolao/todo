@@ -8,6 +8,7 @@ export interface TodoItem {
 	starTimestamp: number;
 	description: string;
 	dueDate?: DueDate;
+	prevDueDate?: DueDate;
 }
 
 export interface DueDate {
@@ -176,6 +177,14 @@ export const items = createReducer(initialState, (r) => {
 			let y = item.dueDate.year;
 			let m = item.dueDate.month;
 			let d = item.dueDate.day;
+
+			const prev_due = {
+				year: y,
+				month: m,
+				day: d,
+				repeats: { ...item.dueDate.repeats }
+			};
+			item.prevDueDate = prev_due;
 
 			item.completed = false;
 			let today = new Date(action.payload.completed_time);

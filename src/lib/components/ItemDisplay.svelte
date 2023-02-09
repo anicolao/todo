@@ -17,6 +17,7 @@
 	export let item: ExtendedTodoItem;
 	export let listId = '';
 	export let showListName = false;
+	export let enableUndo = false;
 
 	let listName = '';
 	$: if (listId !== '') {
@@ -98,10 +99,14 @@
 <div class="container">
 	<Card>
 		<Item
-			><Graphic
-				>{#if item.completed}<IconButton
-						class="material-icons"
-						on:click={complete(listId, item.id, false)}>check_box</IconButton
+			><Graphic>
+				{#if enableUndo}
+					<IconButton class="material-icons" on:click={complete(listId, item.id, !item.completed)}
+						>undo</IconButton
+					>
+				{:else if item.completed}
+					<IconButton class="material-icons" on:click={complete(listId, item.id, false)}
+						>check_box</IconButton
 					>
 				{:else}
 					<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
