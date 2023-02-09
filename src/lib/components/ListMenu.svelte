@@ -171,7 +171,7 @@
 		},
 		onTouchMove: (e: TouchEvent) => {
 			if (grabbed) {
-        e.preventDefault();
+				e.preventDefault();
 				const x = e.touches[0].clientX;
 				const y = e.touches[0].clientY;
 				drag(y);
@@ -213,7 +213,7 @@
 	<div
 		id="ghost"
 		class={grabbed ? 'item haunting' : 'item'}
-		style={`transform: translate3d(0, ${(mouseY + offsetY - layerY)}px, 0)`}
+		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
 	>
 		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
 	</div>

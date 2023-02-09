@@ -18,7 +18,10 @@
 	export let listId: string | undefined = undefined;
 	export let requestId = '';
 	export let sharerId = '';
-	export let setActive: (name: string) => void = (name: string) => {console.log('ListMenuItem.setActive DEFAULT goto ' + name); goto('/' + name)};
+	export let setActive: (name: string) => void = (name: string) => {
+		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
+		goto('/' + name);
+	};
 
 	let unsub: Unsubscribe | undefined;
 	if (listId) {
@@ -61,10 +64,10 @@
 	function gotoList(listId: string) {
 		return () => {
 			const duration = new Date().getTime() - navigationTimeout;
-			if(duration < 600) {
+			if (duration < 600) {
 				setActive(`lists/?listId=${listId}`);
 			}
-		}
+		};
 	}
 	$: activated = pageListId === listId;
 

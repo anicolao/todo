@@ -82,7 +82,8 @@
 			enterkeyhint="enter"
 			input$enterkeyhint="enter"
 			on:keydown={handleEnterKey}
-			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">add</Icon></Textfield
+			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">add</Icon
+			></Textfield
 		></span
 	><ItemList listIdMatcher={selectedList(listId)} filter={completedItems(false)} />
 	<ItemList

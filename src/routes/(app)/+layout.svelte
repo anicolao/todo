@@ -169,12 +169,12 @@
 	function checkForNewlyCreatedList() {
 		const lists = $store.lists.visibleLists;
 		oldListLength = lists.legnth;
-		if(lists.length > 0 && lists[lists.length - 1] === newlyCreatedListId) {
+		if (lists.length > 0 && lists[lists.length - 1] === newlyCreatedListId) {
 			setActive('lists?listId=' + newlyCreatedListId);
 			newlyCreatedListId = '';
 		}
 	}
-	$: if($store.lists.visibleLists.length !== oldListLength) {
+	$: if ($store.lists.visibleLists.length !== oldListLength) {
 		checkForNewlyCreatedList();
 	}
 
@@ -429,7 +429,7 @@
 	>
 		<Content>
 			<FilterMenu {setActive} />
-			<ListMenu {setActive}/>
+			<ListMenu {setActive} />
 			<div class="verticalspacer" />
 			<AcceptShare />
 			<Textfield

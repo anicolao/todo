@@ -254,7 +254,7 @@
 		z-index: 10;
 	}
 
-  /*
+	/*
 	#grabbed {
 		opacity: 0;
 	}
