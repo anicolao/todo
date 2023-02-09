@@ -1,7 +1,7 @@
 <script lang="ts">
 	console.log('routes/(app)/completed/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
-	import type { TodoItem } from '$lib/components/items';
+	import { RepeatType, type TodoItem } from '$lib/components/items';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 
@@ -28,9 +28,14 @@
 	});
 	*/
 
-	function wasEverCompleted(listId: string, id: string) {
+	function hasBeenCompleted(listId: string, id: string) {
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
-		return item && item.completedTimestamp !== 0;
+		const repeatType = item.dueDate?.repeats?.type;
+		return (
+			item &&
+			(item.completed ||
+				(repeatType && repeatType !== RepeatType.NONE && item.completedTimestamp !== 0))
+		);
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
 		return b.completedTimestamp - a.completedTimestamp;
@@ -38,7 +43,7 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={wasEverCompleted} {comparator} />
+	<ItemList listIdMatcher={() => true} filter={hasBeenCompleted} {comparator} />
 </div>
 
 <style>
