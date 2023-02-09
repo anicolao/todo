@@ -8,7 +8,8 @@ export interface TodoItem {
 	starTimestamp: number;
 	description: string;
 	dueDate?: DueDate;
-	prevDueDate?: DueDate;
+	prevDueDate: (DueDate | null)[];
+	prevCompletedTimestamp: number[];
 }
 
 export interface DueDate {
@@ -60,6 +61,10 @@ export const complete_item = createAction<{
 	completed: boolean;
 	completed_time: number;
 }>('complete_item');
+export const uncomplete_item = createAction<{
+	list_id: string;
+	id: string;
+}>('uncomplete_item');
 export const star_item = createAction<{
 	list_id: string;
 	id: string;
@@ -151,7 +156,9 @@ export const items = createReducer(initialState, (r) => {
 			completedTimestamp: 0,
 			starred: false,
 			starTimestamp: 0,
-			description: action.payload.description
+			description: action.payload.description,
+			prevDueDate: [],
+			prevCompletedTimestamp: []
 		};
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 	});
@@ -168,6 +175,7 @@ export const items = createReducer(initialState, (r) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
 		item.completed = action.payload.completed;
+		item.prevCompletedTimestamp.push(item.completedTimestamp);
 		item.completedTimestamp = Math.max(
 			item.completedTimestamp,
 			action.payload?.completed_time || 0
@@ -184,7 +192,7 @@ export const items = createReducer(initialState, (r) => {
 				day: d,
 				repeats: { ...item.dueDate.repeats }
 			};
-			item.prevDueDate = prev_due;
+			item.prevDueDate.push(prev_due);
 
 			item.completed = false;
 			let today = new Date(action.payload.completed_time);
@@ -235,7 +243,26 @@ export const items = createReducer(initialState, (r) => {
 				repeats: { ...item.dueDate.repeats }
 			};
 			state = setDueDate(state, set_due_date({ ...action.payload, due_date }));
+		} else {
+			item.prevDueDate.push(null);
 		}
+		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+	});
+	r.addCase(uncomplete_item, (state, action) => {
+		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = list.itemIdToItem[action.payload.id];
+		item.completed = item.prevDueDate.length > 1;
+
+		const oldCompletion = item.prevCompletedTimestamp.splice(-1, 1)[0];
+		item.completedTimestamp = oldCompletion;
+
+		const oldDueDate = item.prevDueDate.splice(-1, 1)[0];
+		if(oldDueDate !== null) {
+			item.dueDate = oldDueDate;	
+		} else {
+			item.dueDate = undefined;
+		}
+
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 	});
 	r.addCase(star_item, (state, action) => {

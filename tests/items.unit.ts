@@ -35,7 +35,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 	});
@@ -54,7 +56,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 
@@ -78,7 +82,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 
@@ -95,7 +101,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description: 'newly minted'
+				description: 'newly minted',
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 	});
@@ -117,7 +125,9 @@ describe('items', () => {
 					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
-					description: mergeObject.orig
+					description: mergeObject.orig,
+					prevDueDate: [],
+					prevCompletedTimestamp: []
 				}
 			});
 
@@ -139,7 +149,9 @@ describe('items', () => {
 					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
-					description: mergeObject.first
+					description: mergeObject.first,
+					prevDueDate: [],
+					prevCompletedTimestamp: []
 				}
 			});
 
@@ -161,7 +173,9 @@ describe('items', () => {
 					completedTimestamp: 0,
 					starred: false,
 					starTimestamp: 0,
-					description: expected
+					description: expected,
+					prevDueDate: [],
+					prevCompletedTimestamp: []
 				}
 			});
 		});
@@ -442,7 +456,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 
@@ -473,7 +489,9 @@ describe('items', () => {
 					month: due_date_month,
 					day: due_date_day,
 					repeats: { type: due_date_repeats, every: due_date_repeats_every }
-				}
+				},
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 		return { state, list_id, id, description };
@@ -510,7 +528,9 @@ describe('items', () => {
 				completedTimestamp: 0,
 				starred: false,
 				starTimestamp: 0,
-				description
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
 			}
 		});
 	});
@@ -541,12 +561,13 @@ describe('items', () => {
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 31,
 					repeats: { type: RepeatType.DAILY, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 	});
@@ -577,12 +598,13 @@ describe('items', () => {
 					day: 7,
 					repeats: { type: RepeatType.WEEKLY, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 31,
 					repeats: { type: RepeatType.WEEKLY, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 	});
@@ -613,12 +635,13 @@ describe('items', () => {
 					day: 30,
 					repeats: { type: RepeatType.MONTHLY, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 30,
 					repeats: { type: RepeatType.MONTHLY, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 	});
@@ -649,12 +672,13 @@ describe('items', () => {
 					day: 30,
 					repeats: { type: RepeatType.YEARLY, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 30,
 					repeats: { type: RepeatType.YEARLY, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 	});
@@ -685,12 +709,13 @@ describe('items', () => {
 					day: 2,
 					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 30,
 					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 	});
@@ -721,23 +746,25 @@ describe('items', () => {
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: {
+				prevDueDate: [{
 					year: 2022,
 					month: 12,
 					day: 31,
 					repeats: { type: RepeatType.DAILY, every: 1 }
-				}
+				}],
+				prevCompletedTimestamp: [0]
 			}
 		});
 
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		const completed_time2 = new Date(2023, 0, 1).getTime();
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time: completed_time2 }));
 		list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
 				completed: false,
-				completedTimestamp: completed_time,
+				completedTimestamp: completed_time2,
 				starred: false,
 				starTimestamp: 0,
 				description,
@@ -747,12 +774,20 @@ describe('items', () => {
 					day: 2,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: {
-					year: 2023,
-					month: 1,
-					day: 1,
-					repeats: { type: RepeatType.DAILY, every: 1 }
-				}
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: RepeatType.DAILY, every: 1 }
+					},
+					{
+						year: 2023,
+						month: 1,
+						day: 1,
+						repeats: { type: RepeatType.DAILY, every: 1 }
+					}],
+				prevCompletedTimestamp: [0, completed_time]
 			}
 		});
 	});
