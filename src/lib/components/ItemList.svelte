@@ -247,7 +247,7 @@
 			if (dragEnabled) {
 				// Prevent text selection while dragging by preventing these defaults.
 				// e.stopPropagation();
-				// e.preventDefault();
+				e.preventDefault();
 
 				if (grabbed) {
 					drag(e.clientY);
