@@ -128,22 +128,28 @@
 		grabbed = null;
 	}
 
+	let target: HTMLElement | null | undefined = null;
+	let touchTimeout = 0;
+
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			let target: HTMLElement | null | undefined = document
-				.elementFromPoint(e.clientX, e.clientY)
-				?.closest('.item');
+			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 			if (target) {
-				grab(e.clientY, target);
+				window.setTimeout(() => {
+					if (target) {
+						// console.log('onPointerDown GRAB');
+						grab(e.clientY, target);
+					} else {
+						// console.log('onPointerDown no grab');
+					}
+				}, 50 + touchTimeout);
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
 			e.stopPropagation();
 			e.preventDefault();
-			drag(e.clientY);
 			if (grabbed) {
-				const srcElement = e.currentTarget as HTMLElement;
-				srcElement.setPointerCapture(e.pointerId);
+				drag(e.clientY);
 				const midPoint = e.clientY + offsetY + boxHeight / 2;
 				let target: HTMLElement | null | undefined = document
 					.elementFromPoint(e.clientX, midPoint)
@@ -157,8 +163,37 @@
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
-			e.stopPropagation();
 			release();
+			target = null;
+		},
+		onTouchStart: (e: TouchEvent) => {
+			touchTimeout = 400;
+		},
+		onTouchMove: (e: TouchEvent) => {
+			if (grabbed) {
+        e.preventDefault();
+				const x = e.touches[0].clientX;
+				const y = e.touches[0].clientY;
+				drag(y);
+
+				const midPoint = y + offsetY + boxHeight / 2;
+				let target: HTMLElement | null | undefined = document
+					.elementFromPoint(x, midPoint)
+					?.closest('.item');
+				if (target) {
+					if (target != lastTarget) {
+						lastTarget = target;
+						dragEnter(target);
+					}
+				}
+			}
+		},
+		onTouchEnd: (e: TouchEvent) => {
+			release();
+			target = null;
+		},
+		onPointerCancel: (e: PointerEvent) => {
+			target = null;
 		}
 	};
 </script>
@@ -170,11 +205,15 @@
 	on:pointerdown={containerDragHandlers.onPointerDown}
 	on:pointermove={containerDragHandlers.onPointerMove}
 	on:pointerup={containerDragHandlers.onPointerUp}
+	on:pointercancel={containerDragHandlers.onPointerCancel}
+	on:touchstart={containerDragHandlers.onTouchStart}
+	on:touchmove|nonpassive={containerDragHandlers.onTouchMove}
+	on:touchend={containerDragHandlers.onTouchEnd}
 >
 	<div
 		id="ghost"
 		class={grabbed ? 'item haunting' : 'item'}
-		style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
+		style={`transform: translate3d(0, ${(mouseY + offsetY - layerY)}px, 0)`}
 	>
 		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
 	</div>

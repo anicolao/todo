@@ -59,7 +59,12 @@
 	});
 
 	function gotoList(listId: string) {
-		return () => setActive(`lists/?listId=${listId}`);
+		return () => {
+			const duration = new Date().getTime() - navigationTimeout;
+			if(duration < 600) {
+				setActive(`lists/?listId=${listId}`);
+			}
+		}
 	}
 	$: activated = pageListId === listId;
 
@@ -79,10 +84,21 @@
 			firebase.dispatch(reject);
 		};
 	}
+
+	let navigationTimeout = 0;
 </script>
 
 {#if listId}
-	<Item href="javascript:void(0)" on:pointerdown={gotoList(listId)} {activated}>
+	<Item
+		href="javascript:void(0)"
+		on:touchstart={(e) => {
+			navigationTimeout = new Date().getTime();
+			e.preventDefault();
+		}}
+		on:pointerup={gotoList(listId)}
+		{activated}
+		draggable="false"
+	>
 		<ListIcon />
 		<Text>{$store.lists.listIdToList[listId]}</Text>
 		{#if activated}
