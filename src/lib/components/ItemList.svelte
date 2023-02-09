@@ -227,32 +227,27 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			console.log('onPointerDown ' + dragEnabled);
 			if (dragEnabled) {
 				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 				if (target) {
 					window.setTimeout(() => {
 						if (target) {
-							console.log('onPointerDown GRAB');
+							// console.log('onPointerDown GRAB');
 							grab(e.clientY, target);
 						} else {
-							console.log('onPointerDown no grab');
+							// console.log('onPointerDown no grab');
 						}
 					}, 50 + touchTimeout);
 				}
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
-			// console.log('onPointerMove enabled? ' + dragEnabled + ' grabbed? ' + grabbed);
 			if (dragEnabled) {
-				// Prevent text selection while dragging by preventing these defaults.
-				// e.stopPropagation();
+				// Prevent text selection while dragging by preventing this default.
 				e.preventDefault();
 
 				if (grabbed) {
 					drag(e.clientY);
-					const srcElement = e.currentTarget as HTMLElement;
-					// srcElement.setPointerCapture(e.pointerId);
 					const midPoint = e.clientY + offsetY + boxHeight / 2;
 					let target: HTMLElement | null | undefined = document
 						.elementFromPoint(e.clientX, midPoint)
@@ -263,25 +258,19 @@
 							dragEnter(target);
 						}
 					}
-				} else {
-					// target = null;
 				}
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
-			console.log('onPointerUp enabled? ' + dragEnabled);
 			if (dragEnabled) {
-				e.stopPropagation();
 				release();
 			}
 			target = null;
 		},
 		onTouchStart: (e: TouchEvent) => {
-			console.log('onTouchStart');
 			touchTimeout = 400;
 		},
 		onTouchMove: (e: TouchEvent) => {
-			// console.log('onTouchMove');
 			if (dragEnabled && grabbed) {
         e.preventDefault();
 				const x = e.touches[0].clientX;
@@ -301,15 +290,12 @@
 			}
 		},
 		onTouchEnd: (e: TouchEvent) => {
-			console.log('onTouchEnd');
 			if (dragEnabled) {
 				release();
 			}
 			target = null;
-			// touchTimeout = 0;
 		},
 		onPointerCancel: (e: PointerEvent) => {
-			console.log({ 'onPointerCancel enabled?': dragEnabled, e });
 			target = null;
 		}
 	};
