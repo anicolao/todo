@@ -325,7 +325,6 @@
 	{#if show}
 		<div
 			class="listContainer"
-			class:grabbed
 			on:pointerdown={containerDragHandlers.onPointerDown}
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
@@ -338,7 +337,7 @@
 				><div
 					id="ghost"
 					class={grabbed ? 'item haunting' : 'item'}
-					style={'top: ' + (mouseY + offsetY - layerY) + 'px'}
+					style={`transform: translate3d(0, ${(mouseY + offsetY - layerY)}px, 0)`}
 				>
 					{#if grabbed}<ItemDisplay
 							listId={grabbedItem.listId}
@@ -391,11 +390,6 @@
 
 	#grabbed {
 		opacity: 0;
-	}
-
-	.grabbed {
-		/* touch-action: none; */
-		border: 1px solid red;
 	}
 
 	#ghost {
