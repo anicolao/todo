@@ -98,6 +98,9 @@
 			navigationTimeout = new Date().getTime();
 			e.preventDefault();
 		}}
+		on:pointerdown={(e) => {
+			navigationTimeout = new Date().getTime();
+		}}
 		on:pointerup={gotoList(listId)}
 		{activated}
 		draggable="false"
