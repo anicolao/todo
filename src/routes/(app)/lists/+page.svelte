@@ -31,9 +31,13 @@
 	function handleEnterKey(e: CustomEvent | KeyboardEvent) {
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
-			addListItem(listId, newItemText);
-			newItemText = '';
+			handleBlur();
 		}
+	}
+
+	function handleBlur() {
+		addListItem(listId, newItemText);
+		newItemText = '';
 	}
 
 	const [send, receive] = crossfade({
@@ -82,6 +86,7 @@
 			enterkeyhint="enter"
 			input$enterkeyhint="enter"
 			on:keydown={handleEnterKey}
+			on:blur={handleBlur}
 			><Icon class="material-icons" style="padding-left: 0.5em" slot="leadingIcon">add</Icon
 			></Textfield
 		></span
