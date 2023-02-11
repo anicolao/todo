@@ -255,7 +255,7 @@ export const items = createReducer(initialState, (r) => {
 	r.addCase(uncomplete_item, (state, action) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
-		item.completed = item.prevDueDate.length > 1;
+		item.completed = false;
 
 		const oldCompletion = item.prevCompletedTimestamp.splice(-1, 1)[0];
 		item.completedTimestamp = oldCompletion;

@@ -12,6 +12,7 @@ import {
 	RepeatType,
 	set_due_date,
 	star_item,
+	uncomplete_item,
 	type ItemsState
 } from '$lib/components/items';
 
@@ -248,39 +249,65 @@ describe('items', () => {
 		const list_id = 'List 9';
 		const id = 'abcd1234';
 		const description = 'My List Item Creation Test';
+		const completed_time = 1234;
 		let nextState = createItem(initialState, list_id, id, description);
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
 		nextState = items(
 			nextState,
-			complete_item({ list_id, id, completed: true, completed_time: 0 })
+			complete_item({ list_id, id, completed: true, completed_time })
 		);
 		list = nextState.listIdToListOfItems[list_id];
-		expect(list.itemIdToItem[id].completed).to.equal(true);
+
+		const item = list.itemIdToItem[id];
+		expect(item.completed).to.equal(true);
+		expect(item.completedTimestamp).to.equal(completed_time);
+		expect(item.prevDueDate.length).to.equal(1);
+		expect(item.prevCompletedTimestamp.length).to.equal(1);
+		expect(item.prevDueDate[0]).to.equal(null);
+		expect(item.prevCompletedTimestamp[0]).to.equal(0);
 	});
 
-	it('can uncomplete an item', () => {
+	it('can set an item to be not completed', () => {
 		const list_id = 'List 9';
 		const id = 'abcd1234';
 		const description = 'My List Item Creation Test';
+		const completed_time = 1234;
 		let nextState = createItem(initialState, list_id, id, description);
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
 		nextState = items(
 			nextState,
-			complete_item({ id, list_id, completed: true, completed_time: 0 })
+			complete_item({ id, list_id, completed: true, completed_time })
 		);
 		list = nextState.listIdToListOfItems[list_id];
-		expect(list.itemIdToItem[id].completed).to.equal(true);
+		const item = list.itemIdToItem[id];
 
+		expect(item.completed).to.equal(true);
+		expect(item.completedTimestamp).to.equal(completed_time);
+		expect(item.prevDueDate.length).to.equal(1);
+		expect(item.prevCompletedTimestamp.length).to.equal(1);
+		expect(item.prevDueDate[0]).to.equal(null);
+		expect(item.prevCompletedTimestamp[0]).to.equal(0);
+
+		const completed_time2 = 1235;
 		nextState = items(
 			nextState,
-			complete_item({ id, list_id, completed: false, completed_time: 0 })
+			complete_item({ id, list_id, completed: false, completed_time: completed_time2 })
 		);
 		list = nextState.listIdToListOfItems[list_id];
-		expect(list.itemIdToItem[id].completed).to.equal(false);
+		const item2 = list.itemIdToItem[id];
+
+		expect(item2.completed).to.equal(false);
+		expect(item2.completedTimestamp).to.equal(completed_time2);
+		expect(item2.prevDueDate.length).to.equal(2);
+		expect(item2.prevCompletedTimestamp.length).to.equal(2);
+		expect(item2.prevDueDate[0]).to.equal(null);
+		expect(item2.prevDueDate[1]).to.equal(null);
+		expect(item2.prevCompletedTimestamp[0]).to.equal(0);
+		expect(item2.prevCompletedTimestamp[1]).to.equal(completed_time);
 	});
 
 	it('can star an item', () => {
@@ -720,7 +747,7 @@ describe('items', () => {
 		});
 	});
 
-	it('completes a repeating DAILY task twice', () => {
+	function completeDailyTaskTwice() {
 		let { state, list_id, id, description } = makeListItemWithDueDate(
 			2022,
 			12,
@@ -790,14 +817,121 @@ describe('items', () => {
 				prevCompletedTimestamp: [0, completed_time]
 			}
 		});
+		return { state, list_id, id, description, completed_time };
+	}
+
+	it('completes a repeating DAILY task twice', () => {
+		completeDailyTaskTwice();
 	});
 
-	it('completes a task with due date', () => {
-		const year = 2022;
-		const month = 12;
-		const day = 31;
-		const repType = RepeatType.NONE;
-		const every = 0;
+	it('undoes a completed repeating DAILY task', () => {
+		let { state, list_id, id, description, completed_time } = completeDailyTaskTwice();
+		state = items(state, uncomplete_item({ list_id, id }));
+
+		let list = state.listIdToListOfItems[list_id];
+		const item = list.itemIdToItem[id];
+		expect(item.completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				completedTimestamp: completed_time,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				dueDate: {
+					year: 2023,
+					month: 1,
+					day: 1,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				},
+				prevDueDate: [{
+					year: 2022,
+					month: 12,
+					day: 31,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				}],
+				prevCompletedTimestamp: [0]
+			}
+		});
+	});
+
+	it('undoes a completed repeating DAILY task, twice', () => {
+		let { state, list_id, id, description } = completeDailyTaskTwice();
+		state = items(state, uncomplete_item({ list_id, id }));
+		state = items(state, uncomplete_item({ list_id, id }));
+
+		let list = state.listIdToListOfItems[list_id];
+		const item = list.itemIdToItem[id];
+		expect(item.completed).to.equal(false);
+
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				dueDate: {
+					year: 2022,
+					month: 12,
+					day: 31,
+					repeats: { type: RepeatType.DAILY, every: 1 }
+				},
+				prevDueDate: [],
+				prevCompletedTimestamp: []
+			}
+		});
+	});
+
+	it('undoes a completed normal task', () => {
+		const list_id = 'Do an uncomplete';
+		const id = '112233';
+		const description = 'You uncomplete me.';
+		const completed_time = 4321;
+		let nextState = createItem(initialState, list_id, id, description);
+		let list = nextState.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem[id].completed).to.equal(false);
+
+		nextState = items(
+			nextState,
+			complete_item({ list_id, id, completed: true, completed_time })
+		);
+		list = nextState.listIdToListOfItems[list_id];
+
+		expect(list.itemIdToItem).to.deep.include({
+			'112233': {
+				completed: true,
+				completedTimestamp: completed_time,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				prevDueDate: [null],
+				prevCompletedTimestamp: [0]
+			}
+		});
+
+		nextState = items(
+			nextState,
+			uncomplete_item({ list_id, id })
+		);
+		list = nextState.listIdToListOfItems[list_id];
+
+		expect(list.itemIdToItem).to.deep.include({
+			'112233': {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				dueDate: undefined,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
+			}
+		});
+	})
+
+	function completeItemWithDueDate(year: number, month: number, day: number, repType: RepeatType, every: number) {
 		let { state, list_id, id, description } = makeListItemWithDueDate(year, month, day, repType, every);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
@@ -843,5 +977,72 @@ describe('items', () => {
 				prevCompletedTimestamp: [0],
 			}
 		});
+
+		return { state, list_id, id, description };
+	}
+
+	it('completes a task with due date', () => {
+		completeItemWithDueDate(2022, 12, 31, RepeatType.NONE, 0);
+	});
+
+	it('undoes a task with due date', () => {
+		const year = 2022;
+		const month = 12;
+		const day = 31;
+		const repType = RepeatType.NONE;
+		const every = 0;
+		let { state, list_id, id, description } = completeItemWithDueDate(year, month, day, repType, every);
+		state = items(state, uncomplete_item({ list_id, id }));
+
+		const list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: [],
+				dueDate: {
+					year,
+					month,
+					day,
+					repeats: { type: repType, every }
+				},
+			}
+		});
+	});
+
+	it('undoes completed repeating tasks', () => {
+		for (const repeatType of [RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKLY, RepeatType.MONTHLY, RepeatType.YEARLY]) {
+			let { state, list_id, id, description } = makeListItemWithDueDate(2022, 12, 31, repeatType, 1);
+			const completed_time = new Date(2022, 11, 31).getTime();
+			state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+			let list = state.listIdToListOfItems[list_id];
+			expect(list.itemIdToItem[id].completed).to.equal(false);
+
+			state = items(state, uncomplete_item({ list_id, id }));
+			list = state.listIdToListOfItems[list_id];
+			expect(list.itemIdToItem[id].completed).to.equal(false);
+
+			expect(list.itemIdToItem).to.deep.include({
+				'item id 1': {
+					completed: false,
+					completedTimestamp: 0,
+					starred: false,
+					starTimestamp: 0,
+					description,
+					dueDate: {
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: repeatType, every: 1 }
+					},
+					prevDueDate: [],
+					prevCompletedTimestamp: []
+				}
+			});
+		}
 	});
 });
