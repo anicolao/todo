@@ -2,7 +2,13 @@
 	console.log('ItemDisplay.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
 	import Card from '@smui/card';
-	import { complete_item, describe_item, star_item, type TodoItem } from '$lib/components/items';
+	import {
+		complete_item,
+		describe_item,
+		star_item,
+		uncomplete_item,
+		type TodoItem
+	} from '$lib/components/items';
 	import RepeatingDate from '$lib/components/RepeatingDate.svelte';
 	import { store } from '$lib/store';
 	import { Label } from '@smui/common';
@@ -64,6 +70,14 @@
 		};
 	}
 
+	function uncomplete(list_id: string, id: string) {
+		return () => {
+			if ($store.auth.uid) {
+				dispatch('lists', list_id, $store.auth.uid, uncomplete_item({ list_id, id }));
+			}
+		};
+	}
+
 	function handleEnterKey(e: KeyboardEvent | CustomEvent) {
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
@@ -99,21 +113,16 @@
 <div class="container">
 	<Card>
 		<Item
-			><Graphic>
-				{#if enableUndo}
-					<IconButton class="material-icons" on:click={complete(listId, item.id, !item.completed)}
+			><Graphic
+				>{#if enableUndo}<IconButton class="material-icons" on:click={uncomplete(listId, item.id)}
 						>undo</IconButton
-					>
-				{:else if item.completed}
-					<IconButton class="material-icons" on:click={complete(listId, item.id, false)}
-						>check_box</IconButton
-					>
-				{:else}
-					<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
+					>{:else if item.completed}<IconButton
+						class="material-icons"
+						on:click={complete(listId, item.id, false)}>check_box</IconButton
+					>{:else}<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
 						>check_box_outline_blank</IconButton
-					>
-				{/if}
-			</Graphic><Textfield
+					>{/if}</Graphic
+			><Textfield
 				style="width: 100%"
 				value={item.description}
 				on:keydown={handleEnterKey}
