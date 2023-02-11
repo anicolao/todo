@@ -181,68 +181,72 @@ export const items = createReducer(initialState, (r) => {
 			action.payload?.completed_time || 0
 		);
 
-		if (item.dueDate && item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
+		if (item.dueDate) {
 			let y = item.dueDate.year;
 			let m = item.dueDate.month;
 			let d = item.dueDate.day;
 
-			const prev_due = {
+			const prev_due: DueDate = {
 				year: y,
 				month: m,
 				day: d,
-				repeats: { ...item.dueDate.repeats }
 			};
+			if (item.dueDate.repeats) {
+				prev_due.repeats = { ...item.dueDate.repeats }
+			}
 			item.prevDueDate.push(prev_due);
 
-			item.completed = false;
-			let today = new Date(action.payload.completed_time);
-			let nextDate = new Date(y, m - 1, d);
-			if (nextDate > today) {
-				today = new Date(nextDate);
-			}
-			while (nextDate <= today) {
-				switch (item.dueDate.repeats.type) {
-					case RepeatType.DAILY:
-						nextDate.setDate(nextDate.getDate() + item.dueDate.repeats.every);
-						break;
-					case RepeatType.WEEKLY:
-						nextDate.setDate(nextDate.getDate() + 7 * item.dueDate.repeats.every);
-						break;
-					case RepeatType.MONTHLY:
-						nextDate = new Date(
-							nextDate.getFullYear(),
-							nextDate.getMonth() + item.dueDate.repeats.every,
-							nextDate.getDate()
-						);
-						break;
-					case RepeatType.YEARLY:
-						nextDate = new Date(
-							nextDate.getFullYear() + item.dueDate.repeats.every,
-							nextDate.getMonth(),
-							nextDate.getDate()
-						);
-						break;
-					case RepeatType.WEEKDAYS:
-						nextDate.setDate(nextDate.getDate() + 1);
-						while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-							nextDate.setDate(nextDate.getDate() + 1);
-						}
-						break;
-					default: // Error.
-						break;
+			if (item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
+				item.completed = false;
+				let today = new Date(action.payload.completed_time);
+				let nextDate = new Date(y, m - 1, d);
+				if (nextDate > today) {
+					today = new Date(nextDate);
 				}
-			}
-			y = nextDate.getFullYear();
-			m = nextDate.getMonth() + 1;
-			d = nextDate.getDate();
+				while (nextDate <= today) {
+					switch (item.dueDate.repeats.type) {
+						case RepeatType.DAILY:
+							nextDate.setDate(nextDate.getDate() + item.dueDate.repeats.every);
+							break;
+						case RepeatType.WEEKLY:
+							nextDate.setDate(nextDate.getDate() + 7 * item.dueDate.repeats.every);
+							break;
+						case RepeatType.MONTHLY:
+							nextDate = new Date(
+								nextDate.getFullYear(),
+								nextDate.getMonth() + item.dueDate.repeats.every,
+								nextDate.getDate()
+							);
+							break;
+						case RepeatType.YEARLY:
+							nextDate = new Date(
+								nextDate.getFullYear() + item.dueDate.repeats.every,
+								nextDate.getMonth(),
+								nextDate.getDate()
+							);
+							break;
+						case RepeatType.WEEKDAYS:
+							nextDate.setDate(nextDate.getDate() + 1);
+							while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
+								nextDate.setDate(nextDate.getDate() + 1);
+							}
+							break;
+						default: // Error.
+							break;
+					}
+				}
+				y = nextDate.getFullYear();
+				m = nextDate.getMonth() + 1;
+				d = nextDate.getDate();
 
-			const due_date = {
-				year: y,
-				month: m,
-				day: d,
-				repeats: { ...item.dueDate.repeats }
-			};
-			state = setDueDate(state, set_due_date({ ...action.payload, due_date }));
+				const due_date = {
+					year: y,
+					month: m,
+					day: d,
+					repeats: { ...item.dueDate.repeats }
+				};
+				state = setDueDate(state, set_due_date({ ...action.payload, due_date }));
+			}
 		} else {
 			item.prevDueDate.push(null);
 		}
@@ -257,8 +261,8 @@ export const items = createReducer(initialState, (r) => {
 		item.completedTimestamp = oldCompletion;
 
 		const oldDueDate = item.prevDueDate.splice(-1, 1)[0];
-		if(oldDueDate !== null) {
-			item.dueDate = oldDueDate;	
+		if (oldDueDate !== null) {
+			item.dueDate = oldDueDate;
 		} else {
 			item.dueDate = undefined;
 		}

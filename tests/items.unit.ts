@@ -791,4 +791,57 @@ describe('items', () => {
 			}
 		});
 	});
+
+	it('completes a task with due date', () => {
+		const year = 2022;
+		const month = 12;
+		const day = 31;
+		const repType = RepeatType.NONE;
+		const every = 0;
+		let { state, list_id, id, description } = makeListItemWithDueDate(year, month, day, repType, every);
+		let list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: [],
+				dueDate: {
+					year,
+					month,
+					day,
+					repeats: { type: repType, every }
+				},
+			}
+		});
+
+		const completed_time = 2468;
+		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		list = state.listIdToListOfItems[list_id];
+		expect(list.itemIdToItem).to.deep.include({
+			'item id 1': {
+				completed: true,
+				completedTimestamp: completed_time,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				dueDate: {
+					year,
+					month,
+					day,
+					repeats: { type: repType, every }
+				},
+				prevDueDate: [{
+					year,
+					month,
+					day,
+					repeats: { type: repType, every }
+				}],
+				prevCompletedTimestamp: [0],
+			}
+		});
+	});
 });
