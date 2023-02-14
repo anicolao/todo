@@ -140,6 +140,7 @@
 						>edit_note</IconButton
 					>{#if item.starred}<IconButton
 							class="material-icons"
+							style="color: #ffb74d;"
 							on:click={star(listId, item.id, false)}>star</IconButton
 						>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
 							>star_outline</IconButton
