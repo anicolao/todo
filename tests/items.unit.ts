@@ -254,10 +254,7 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(
-			nextState,
-			complete_item({ list_id, id, completed: true, completed_time })
-		);
+		nextState = items(nextState, complete_item({ list_id, id, completed: true, completed_time }));
 		list = nextState.listIdToListOfItems[list_id];
 
 		const item = list.itemIdToItem[id];
@@ -278,10 +275,7 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(
-			nextState,
-			complete_item({ id, list_id, completed: true, completed_time })
-		);
+		nextState = items(nextState, complete_item({ id, list_id, completed: true, completed_time }));
 		list = nextState.listIdToListOfItems[list_id];
 		const item = list.itemIdToItem[id];
 
@@ -588,12 +582,14 @@ describe('items', () => {
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 31,
-					repeats: { type: RepeatType.DAILY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: RepeatType.DAILY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -625,12 +621,14 @@ describe('items', () => {
 					day: 7,
 					repeats: { type: RepeatType.WEEKLY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 31,
-					repeats: { type: RepeatType.WEEKLY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: RepeatType.WEEKLY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -662,12 +660,14 @@ describe('items', () => {
 					day: 30,
 					repeats: { type: RepeatType.MONTHLY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 30,
-					repeats: { type: RepeatType.MONTHLY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 30,
+						repeats: { type: RepeatType.MONTHLY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -699,12 +699,14 @@ describe('items', () => {
 					day: 30,
 					repeats: { type: RepeatType.YEARLY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 30,
-					repeats: { type: RepeatType.YEARLY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 30,
+						repeats: { type: RepeatType.YEARLY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -736,12 +738,14 @@ describe('items', () => {
 					day: 2,
 					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 30,
-					repeats: { type: RepeatType.WEEKDAYS, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 30,
+						repeats: { type: RepeatType.WEEKDAYS, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -773,18 +777,23 @@ describe('items', () => {
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 31,
-					repeats: { type: RepeatType.DAILY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: RepeatType.DAILY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
 
 		const completed_time2 = new Date(2023, 0, 1).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time: completed_time2 }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time: completed_time2 })
+		);
 		list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -813,7 +822,8 @@ describe('items', () => {
 						month: 1,
 						day: 1,
 						repeats: { type: RepeatType.DAILY, every: 1 }
-					}],
+					}
+				],
 				prevCompletedTimestamp: [0, completed_time]
 			}
 		});
@@ -845,12 +855,14 @@ describe('items', () => {
 					day: 1,
 					repeats: { type: RepeatType.DAILY, every: 1 }
 				},
-				prevDueDate: [{
-					year: 2022,
-					month: 12,
-					day: 31,
-					repeats: { type: RepeatType.DAILY, every: 1 }
-				}],
+				prevDueDate: [
+					{
+						year: 2022,
+						month: 12,
+						day: 31,
+						repeats: { type: RepeatType.DAILY, every: 1 }
+					}
+				],
 				prevCompletedTimestamp: [0]
 			}
 		});
@@ -893,10 +905,7 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(
-			nextState,
-			complete_item({ list_id, id, completed: true, completed_time })
-		);
+		nextState = items(nextState, complete_item({ list_id, id, completed: true, completed_time }));
 		list = nextState.listIdToListOfItems[list_id];
 
 		expect(list.itemIdToItem).to.deep.include({
@@ -911,10 +920,7 @@ describe('items', () => {
 			}
 		});
 
-		nextState = items(
-			nextState,
-			uncomplete_item({ list_id, id })
-		);
+		nextState = items(nextState, uncomplete_item({ list_id, id }));
 		list = nextState.listIdToListOfItems[list_id];
 
 		expect(list.itemIdToItem).to.deep.include({
@@ -929,10 +935,22 @@ describe('items', () => {
 				prevCompletedTimestamp: []
 			}
 		});
-	})
+	});
 
-	function completeItemWithDueDate(year: number, month: number, day: number, repType: RepeatType, every: number) {
-		let { state, list_id, id, description } = makeListItemWithDueDate(year, month, day, repType, every);
+	function completeItemWithDueDate(
+		year: number,
+		month: number,
+		day: number,
+		repType: RepeatType,
+		every: number
+	) {
+		let { state, list_id, id, description } = makeListItemWithDueDate(
+			year,
+			month,
+			day,
+			repType,
+			every
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
@@ -948,7 +966,7 @@ describe('items', () => {
 					month,
 					day,
 					repeats: { type: repType, every }
-				},
+				}
 			}
 		});
 
@@ -968,13 +986,15 @@ describe('items', () => {
 					day,
 					repeats: { type: repType, every }
 				},
-				prevDueDate: [{
-					year,
-					month,
-					day,
-					repeats: { type: repType, every }
-				}],
-				prevCompletedTimestamp: [0],
+				prevDueDate: [
+					{
+						year,
+						month,
+						day,
+						repeats: { type: repType, every }
+					}
+				],
+				prevCompletedTimestamp: [0]
 			}
 		});
 
@@ -991,7 +1011,13 @@ describe('items', () => {
 		const day = 31;
 		const repType = RepeatType.NONE;
 		const every = 0;
-		let { state, list_id, id, description } = completeItemWithDueDate(year, month, day, repType, every);
+		let { state, list_id, id, description } = completeItemWithDueDate(
+			year,
+			month,
+			day,
+			repType,
+			every
+		);
 		state = items(state, uncomplete_item({ list_id, id }));
 
 		const list = state.listIdToListOfItems[list_id];
@@ -1009,14 +1035,26 @@ describe('items', () => {
 					month,
 					day,
 					repeats: { type: repType, every }
-				},
+				}
 			}
 		});
 	});
 
 	it('undoes completed repeating tasks', () => {
-		for (const repeatType of [RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKLY, RepeatType.MONTHLY, RepeatType.YEARLY]) {
-			let { state, list_id, id, description } = makeListItemWithDueDate(2022, 12, 31, repeatType, 1);
+		for (const repeatType of [
+			RepeatType.DAILY,
+			RepeatType.WEEKDAYS,
+			RepeatType.WEEKLY,
+			RepeatType.MONTHLY,
+			RepeatType.YEARLY
+		]) {
+			let { state, list_id, id, description } = makeListItemWithDueDate(
+				2022,
+				12,
+				31,
+				repeatType,
+				1
+			);
 			const completed_time = new Date(2022, 11, 31).getTime();
 			state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
 			let list = state.listIdToListOfItems[list_id];

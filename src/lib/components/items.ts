@@ -189,10 +189,10 @@ export const items = createReducer(initialState, (r) => {
 			const prev_due: DueDate = {
 				year: y,
 				month: m,
-				day: d,
+				day: d
 			};
 			if (item.dueDate.repeats) {
-				prev_due.repeats = { ...item.dueDate.repeats }
+				prev_due.repeats = { ...item.dueDate.repeats };
 			}
 			item.prevDueDate.push(prev_due);
 
