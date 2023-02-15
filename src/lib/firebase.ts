@@ -1,13 +1,14 @@
 // Import the functions you need from the SDKs you need
+import { store } from '$lib/store';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { store } from '$lib/store';
 import {
 	addDoc,
 	collection,
+	connectFirestoreEmulator,
+	enableIndexedDbPersistence,
 	getFirestore,
-	serverTimestamp,
-	connectFirestoreEmulator
+	serverTimestamp
 } from 'firebase/firestore';
 import { outgoing_request } from './components/requests';
 //import { getAnalytics } from 'firebase/analytics';
@@ -78,4 +79,17 @@ const firebase = {
 if (!import.meta.env.PROD) {
 	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
 }
+
+enableIndexedDbPersistence(firebase.firestore).catch((err) => {
+	console.error('enableindexedDbPersistence: ', err);
+	if (err.code == 'failed-precondition') {
+		// Multiple tabs open, persistence can only be enabled
+		// in one tab at a a time.
+		// ...
+	} else if (err.code == 'unimplemented') {
+		// The current browser does not support all of the
+		// features required to enable persistence
+		// ...
+	}
+});
 export default firebase;

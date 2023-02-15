@@ -175,6 +175,9 @@ export const items = createReducer(initialState, (r) => {
 	r.addCase(complete_item, (state, action) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = list.itemIdToItem[action.payload.id];
+		if (item.completedTimestamp >= action.payload.completed_time) {
+			return state;
+		}
 		item.completed = action.payload.completed;
 		item.prevCompletedTimestamp.push(item.completedTimestamp);
 		item.completedTimestamp = Math.max(

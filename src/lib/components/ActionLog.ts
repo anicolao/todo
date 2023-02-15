@@ -60,16 +60,17 @@ export function watch(type: string, id: string) {
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
 			querySnapshot.docChanges().forEach((change) => {
-				//console.log({ docChanges: change });
+				// console.log('ActionLog', { docChanges: change });
 				if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 					let doc = change.doc;
 					let action = doc.data() as any;
 					if (action.timestamp !== undefined && action.timestamp !== null) {
-						// console.log('server side action: ', action);
+						// console.log('ActionLog: server side action: ', action);
 						delete action.timestamp;
 						store.dispatch(action);
 					} else {
-						// console.log('Ignore local echo for consistency', action);
+						// console.log('ActionLog: local echo for offline', action);
+						store.dispatch(action);
 					}
 				}
 			});
