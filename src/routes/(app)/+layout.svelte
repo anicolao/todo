@@ -15,14 +15,12 @@
 		rename_list,
 		revoke_share
 	} from '$lib/components/lists';
-	import { incoming_request } from '$lib/components/requests';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
-	import { store } from '$lib/store';
+	import { handleDocChanges, store } from '$lib/store';
 	import { getVersion } from '$lib/version';
-	import type { AnyAction } from '@reduxjs/toolkit';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
 	import { Actions } from '@smui/dialog';
@@ -78,29 +76,7 @@
 					'prev unsub': unsubscribeActions
 				});
 				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
-					querySnapshot.docChanges().forEach((change) => {
-						if (change.type === 'added') {
-							let doc = change.doc;
-							let data = { ...doc.data() };
-							if (data.timestamp) {
-								console.log('server side data: ', data);
-								data.timestamp = data.timestamp.seconds;
-							} else {
-								console.log('client side data: ', data);
-							}
-							if (
-								data.creator === user.uid ||
-								data.type === 'accept_request' ||
-								data.type === 'reject_request'
-							) {
-								store.dispatch(data as AnyAction);
-							} else {
-								store.dispatch(
-									incoming_request({ id: doc.id, uid: data.creator, action: data as AnyAction })
-								);
-							}
-						}
-					});
+					handleDocChanges(querySnapshot.docChanges(), user, false);
 				});
 			}
 		}

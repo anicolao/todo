@@ -1,5 +1,5 @@
 import firebase from '$lib/firebase';
-import { store } from '$lib/store';
+import { handleDocChanges, store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
@@ -58,23 +58,7 @@ export function watch(type: string, id: string) {
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
 		{ includeMetadataChanges: true },
-		(querySnapshot) => {
-			querySnapshot.docChanges().forEach((change) => {
-				// console.log('ActionLog', { docChanges: change });
-				if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
-					let doc = change.doc;
-					let action = doc.data() as any;
-					if (action.timestamp !== undefined && action.timestamp !== null) {
-						// console.log('ActionLog: server side action: ', action);
-						delete action.timestamp;
-						store.dispatch(action);
-					} else {
-						// console.log('ActionLog: local echo for offline', action);
-						store.dispatch(action);
-					}
-				}
-			});
-		},
+		(querySnapshot) => { handleDocChanges(querySnapshot.docChanges(), store.getState().auth, true); },
 		(error) => {
 			console.log('actions query failing: ');
 			console.error(error);
