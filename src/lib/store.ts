@@ -9,7 +9,11 @@ import { items } from './components/items';
 import { incoming_request, requests } from './components/requests';
 import { ui } from './components/ui';
 
-export function handleDocChanges(docChanges: DocumentChange<DocumentData>[], user: AuthState, isANormalAction: boolean) {
+export function handleDocChanges(
+	docChanges: DocumentChange<DocumentData>[],
+	user: AuthState,
+	isANormalAction: boolean
+) {
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
@@ -22,9 +26,7 @@ export function handleDocChanges(docChanges: DocumentChange<DocumentData>[], use
 				store.dispatch(data);
 			} else {
 				delete data.timestamp;
-				store.dispatch(
-					incoming_request({ id: doc.id, uid: data.creator, action: data })
-				);
+				store.dispatch(incoming_request({ id: doc.id, uid: data.creator, action: data }));
 			}
 		}
 	});
@@ -68,7 +70,7 @@ let rebasedLocalActions: AnyAction[] = [];
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
 const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
-	console.log("REBASING hook in place!", action)
+	console.log('REBASING hook in place!', action);
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
 			console.log('server side action: ', action);
@@ -95,6 +97,10 @@ const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
 		replayedState = combinedReducers(replayedState, action);
 	});
 	return replayedState;
-}
+};
 
-export let store = createStore(rebasingReducer, serverSideStore.getState(), svelteStoreEnhancer) as ReduxStore & SvelteStore;
+export let store = createStore(
+	rebasingReducer,
+	serverSideStore.getState(),
+	svelteStoreEnhancer
+) as ReduxStore & SvelteStore;

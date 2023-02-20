@@ -58,7 +58,9 @@ export function watch(type: string, id: string) {
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
 		{ includeMetadataChanges: true },
-		(querySnapshot) => { handleDocChanges(querySnapshot.docChanges(), store.getState().auth, true); },
+		(querySnapshot) => {
+			handleDocChanges(querySnapshot.docChanges(), store.getState().auth, true);
+		},
 		(error) => {
 			console.log('actions query failing: ');
 			console.error(error);

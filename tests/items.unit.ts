@@ -248,20 +248,21 @@ describe('items', () => {
 
 	test_merge(
 		{
-			first: "Here is a test item for overrlapping and nonoverrrlappnig editing",
-			second: "Here is a test item for overlapping and nonoverrrlappnig editiing",
-			orig: "Here is a test item for overrlapping and nonoverrrlappnig editiing"
+			first: 'Here is a test item for overrlapping and nonoverrrlappnig editing',
+			second: 'Here is a test item for overlapping and nonoverrrlappnig editiing',
+			orig: 'Here is a test item for overrlapping and nonoverrrlappnig editiing'
 		},
 		'Here is a test item for overlapping and nonoverrrlappnig editing'
 	);
 
 	test_merge(
 		{
-			first:  "Here is a test item for overlapping and nonoverrrlappnig editing",
-			second: "Here is a test item for editing",
-			orig:   "Here is a test item for overrlapping and nonoverrrlappnig editing"
+			first: 'Here is a test item for overlapping and nonoverrrlappnig editing',
+			second: 'Here is a test item for editing',
+			orig: 'Here is a test item for overrlapping and nonoverrrlappnig editing'
 		},
-		strikethrough("Here is a test item for overlapping and nonoverrrlappnig editing") + " Here is a test item for editing",
+		strikethrough('Here is a test item for overlapping and nonoverrrlappnig editing') +
+			' Here is a test item for editing'
 	);
 
 	it('can complete an item', () => {
