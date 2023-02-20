@@ -81,7 +81,7 @@ export const set_due_date = createAction<{
 }>('set_due_date');
 export const remove_due_date = createAction<{ list_id: string; id: string }>('remove_due_date');
 
-function strikethrough(s: string) {
+export function strikethrough(s: string) {
 	const strike = '̶';
 	return s.split('').join(strike) + strike;
 }
@@ -117,8 +117,9 @@ function merge({ orig, first, second }: { orig: string; first: string; second: s
 	let prefixS = matchCharacters(orig, second, 0, 0, 1);
 	let suffixF = matchCharacters(orig, first, orig.length - 1, first.length - 1, -1);
 	let suffixS = matchCharacters(orig, second, orig.length - 1, second.length - 1, -1);
-	suffixF = first.length - suffixF;
-	suffixS = second.length - suffixS;
+	let secondStringOffset = second.length - suffixS;
+	suffixF = Math.max(orig.length - suffixF, prefixF);
+	suffixS = Math.max(orig.length - suffixS, prefixS);
 
 	if (suffixF < prefixS) {
 		//non overlapping and F is before S
@@ -128,7 +129,7 @@ function merge({ orig, first, second }: { orig: string; first: string; second: s
 		//non overlapping and S is before F
 		let fChars: (string | string[])[] = first.split('');
 		let sChars = second.split('');
-		const inserted = sChars.slice(prefixS, suffixS);
+		const inserted = sChars.slice(prefixS, secondStringOffset);
 		// subtract off the parts that are not deleted to figure out
 		// how much was deleted (the length of the suffix and prefix)
 		const delSize = orig.length - (second.length - suffixS) - prefixS;
