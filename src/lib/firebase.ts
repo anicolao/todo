@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { store } from '$lib/store';
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeAuth, indexedDBLocalPersistence, GoogleAuthProvider } from 'firebase/auth';
 import {
 	addDoc,
 	collection,
@@ -67,9 +67,14 @@ function request(to: string, action: any) {
 	}
 }
 
+const app = initializeApp(firebaseConfig);
+function initAuth() {
+	return initializeAuth(app, { persistence: indexedDBLocalPersistence });
+}
+const auth = initAuth();
 const firebase = {
-	app: initializeApp(firebaseConfig),
-	auth: getAuth(),
+	app,
+	auth,
 	google_auth_provider: new GoogleAuthProvider(),
 	firestore: getFirestore(),
 	dispatch,
