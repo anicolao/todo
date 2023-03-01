@@ -66,6 +66,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@capacitor-firebase/authentication": "^1.3.0",
 		"@reduxjs/toolkit": "^1.8.5",
 		"firebase": "^9.9.3"
 	}

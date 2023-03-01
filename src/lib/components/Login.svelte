@@ -4,18 +4,34 @@
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import Button, { Label } from '@smui/button';
-	import { signInWithPopup, signOut } from 'firebase/auth';
 
-	const auth = firebase.auth;
-	const gAuthProvider = firebase.google_auth_provider;
+	import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+	import { getAuth, GoogleAuthProvider, signInWithCredential, signOut } from 'firebase/auth';
+
+	const signInWithGoogle = async () => {
+		// 1. Create credentials on the native layer
+		const result = await FirebaseAuthentication.signInWithGoogle({
+			skipNativeAuth: true
+		});
+		// 2. Sign in on the web layer using the id token
+		const credential = GoogleAuthProvider.credential(result.credential?.idToken);
+		const auth = getAuth();
+		console.log({ auth, credential });
+		await signInWithCredential(auth, credential);
+	};
 
 	function signin() {
-		signInWithPopup(auth, gAuthProvider).catch((message) => {
-			store.dispatch(error(message));
-		});
+		signInWithGoogle()
+			.then(() => {
+				console.log('signed in!');
+			})
+			.catch((message) => {
+				store.dispatch(error(message));
+			});
 	}
 	function signout() {
 		console.log('before sign out: ', $store.lists.visibleLists);
+		const auth = getAuth();
 		signOut(auth).catch((message) => {
 			store.dispatch(error(message));
 		});
