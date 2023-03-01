@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "847898271389",
+    "project_id": "todo-firebase-1a740",
+    "storage_bucket": "todo-firebase-1a740.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:847898271389:android:c52efa7aa8c2108f033e74",
+        "android_client_info": {
+          "package_name": "com.stockgamblers.todo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "847898271389-1ngvp009aq9ur97mhko27dqsr2hd8o5j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB856yjGtWz0iT41rU5UAORvNmCZpiHodc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "847898271389-1ngvp009aq9ur97mhko27dqsr2hd8o5j.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "847898271389-nr5mpltmje843cmntp257nkrisrlramd.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.stockgamblers.todo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
