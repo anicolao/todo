@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { store } from '$lib/store';
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeAuth, indexedDBLocalPersistence, getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getMessaging } from 'firebase/messaging';
 import {
 	addDoc,
@@ -78,9 +78,14 @@ const messaging = Capacitor.isNativePlatform() ? null : getMessaging(app);
 const vapidKey =
 	'BPvVb9BVOUzp1QOhsG4tQJLqvGTcnyHBuLM-TaudfWBoxLGvRiqgC-gWEIL0k7D5O_FD93dbaiCntreOEfNrf5I';
 
+function initAuth() {
+	return initializeAuth(app, { persistence: indexedDBLocalPersistence });
+}
+const auth = initAuth();
+
 const firebase = {
 	app,
-	auth: getAuth(),
+	auth,
 	google_auth_provider: new GoogleAuthProvider(),
 	firestore: getFirestore(),
 	messaging,
