@@ -10,3 +10,4 @@ node_modules
 .firebase
 *.log
 src/lib/version.ts
+android/.idea
