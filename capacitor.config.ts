@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.stockgamblers.todo',
   appName: 'Todo',
-  webDir: 'dist',
+  webDir: 'build',
   bundledWebRuntime: false
 };
 
