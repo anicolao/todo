@@ -371,11 +371,15 @@
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
 	let selectedShareUsers: string[] = [];
+
+	function onOrientationChanged() {
+		width = window.innerWidth;
+	}
 </script>
 
-<svelte:window bind:innerWidth={width} />
+<svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
 
-<div class="drawer-container">
+<div class="drawer-container w{width} ">
 	<TopAppBar bind:this={topAppBar} variant="fixed">
 		<Row>
 			<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
