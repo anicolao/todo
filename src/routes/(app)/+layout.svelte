@@ -566,6 +566,7 @@
 		position: relative;
 		margin-top: 64px;
 		padding: 0;
+		padding-top: env(safe-area-inset-top);
 
 		display: flex;
 		flex: auto;
