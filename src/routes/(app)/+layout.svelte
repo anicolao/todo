@@ -526,9 +526,15 @@
 </div>
 
 <style>
+	:global(.mdc-top-app-bar) {
+		padding-top: env(safe-area-inset-top);
+	}
 	:global(.mdc-drawer__content) {
 		display: flex;
 		flex-direction: column;
+		padding-top: env(safe-area-inset-top);
+		padding-bottom: env(safe-area-inset-bottom);
+		padding-left: env(safe-area-inset-left);
 	}
 	.verticalspacer {
 		display: flex;
