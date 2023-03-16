@@ -6,6 +6,7 @@ import {
 	addDoc,
 	collection,
 	connectFirestoreEmulator,
+	DocumentReference,
 	enableIndexedDbPersistence,
 	getFirestore,
 	serverTimestamp
@@ -32,10 +33,10 @@ const firebaseConfig = {
 //const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
 
-function dispatch(action: any) {
+function dispatch(action: any): Promise<void | DocumentReference> {
 	const user = store.getState().auth;
 	if (user.uid) {
-		addDoc(collection(firebase.firestore, 'from', user.uid, 'to', user.uid, 'requests'), {
+		return addDoc(collection(firebase.firestore, 'from', user.uid, 'to', user.uid, 'requests'), {
 			...action,
 			creator: user.uid,
 			target: user.uid,
@@ -44,6 +45,7 @@ function dispatch(action: any) {
 			console.error(message);
 		});
 	}
+	throw `User not found? ${JSON.stringify(user)}`;
 }
 
 function request(to: string, action: any) {
