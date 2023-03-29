@@ -12,7 +12,7 @@ import { ui } from './components/ui';
 const startTime = new Date().getTime();
 
 export function logTime(message: string) {
-	console.log((new Date().getTime() - startTime) + ' ms ' + message);
+	console.log(new Date().getTime() - startTime + ' ms ' + message);
 }
 
 export function handleDocChanges(
@@ -46,7 +46,7 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 		let callbackCount = 0;
 		let keysCallbackCount: { [k: string]: number } = {};
 		let lastItems: any = null;
-		let lastKey: {[k: string]: any} = {};
+		let lastKey: { [k: string]: any } = {};
 		return {
 			...reduxStore,
 			subscribe(fn: (arg0: any) => void) {
@@ -54,15 +54,15 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 
 				return reduxStore.subscribe(() => {
 					callbackCount++;
-					Object.keys(reduxStore.getState()).forEach(k => {
+					Object.keys(reduxStore.getState()).forEach((k) => {
 						if (reduxStore.getState()[k] !== lastKey[k]) {
 							lastKey[k] = reduxStore.getState()[k];
-							keysCallbackCount[k] = (keysCallbackCount[k] + 1) || 1;
+							keysCallbackCount[k] = keysCallbackCount[k] + 1 || 1;
 						}
-					})
+					});
 					if (callbackCount % 10000 === 0) {
-						Object.keys(reduxStore.getState()).forEach(k => {
-							logTime(`$store callback #${callbackCount} (${k}: ${keysCallbackCount[k]})`)
+						Object.keys(reduxStore.getState()).forEach((k) => {
+							logTime(`$store callback #${callbackCount} (${k}: ${keysCallbackCount[k]})`);
 						});
 					}
 					fn(reduxStore.getState());
