@@ -20,6 +20,7 @@ export function handleDocChanges(
 	user: AuthState,
 	isANormalAction: boolean
 ) {
+	// console.log('handleDocChanges start', docChanges);
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
@@ -36,17 +37,34 @@ export function handleDocChanges(
 			}
 		}
 	});
+	logTime('handleDocChanges done');
 }
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
 		const reduxStore = createStoreApi(reducer, initialState);
+		let callbackCount = 0;
+		let keysCallbackCount: { [k: string]: number } = {};
+		let lastItems: any = null;
+		let lastKey: {[k: string]: any} = {};
 		return {
 			...reduxStore,
 			subscribe(fn: (arg0: any) => void) {
 				fn(reduxStore.getState());
 
 				return reduxStore.subscribe(() => {
+					callbackCount++;
+					Object.keys(reduxStore.getState()).forEach(k => {
+						if (reduxStore.getState()[k] !== lastKey[k]) {
+							lastKey[k] = reduxStore.getState()[k];
+							keysCallbackCount[k] = (keysCallbackCount[k] + 1) || 1;
+						}
+					})
+					if (callbackCount % 10000 === 0) {
+						Object.keys(reduxStore.getState()).forEach(k => {
+							logTime(`$store callback #${callbackCount} (${k}: ${keysCallbackCount[k]})`)
+						});
+					}
 					fn(reduxStore.getState());
 				});
 			}
@@ -76,12 +94,12 @@ let rebasedLocalActions: AnyAction[] = [];
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
 const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
-	console.log('REBASING hook in place!', action);
+	// console.log('REBASING hook in place!', action);
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
-			console.log('server side action: ', action);
+			// console.log('server side action: ', action);
 		} else {
-			console.log('UI action: ', action);
+			// console.log('UI action: ', action);
 		}
 		const timestamp = action.timestamp ? action.timestamp.seconds : 0;
 		delete action.timestamp;
@@ -94,7 +112,7 @@ const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
 		action.timestamp = timestamp;
 		serverSideStore.dispatch(action);
 	} else {
-		console.log('client side action: ', action);
+		// console.log('client side action: ', action);
 		delete action.timestamp;
 		rebasedLocalActions.push(action as AnyAction);
 	}

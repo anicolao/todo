@@ -1,5 +1,5 @@
 import firebase from '$lib/firebase';
-import { handleDocChanges, store } from '$lib/store';
+import { handleDocChanges, logTime, store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
@@ -59,6 +59,7 @@ export function watch(type: string, id: string) {
 		query(actions, orderBy('timestamp')),
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
+			logTime('calling handleDocChanges');
 			handleDocChanges(querySnapshot.docChanges(), store.getState().auth, true);
 		},
 		(error) => {
