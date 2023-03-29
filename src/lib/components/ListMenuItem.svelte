@@ -2,10 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
-	import { store } from '$lib/store';
+	import { logTime, store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
 	import { Item, Meta, Text } from '@smui/list';
-	import { doc, setDoc, type Unsubscribe } from 'firebase/firestore';
+	import { doc, getDoc, setDoc, type Unsubscribe } from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
@@ -34,26 +34,40 @@
 		if (user.uid) {
 			const id = listId;
 			const name = $store.lists.listIdToList[id];
-			console.log('Create new list for ', id);
-			setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), { email: user.email })
-				.then(() => {
-					console.log('Create new actions for ', id);
-					if (name === undefined) {
-						// this one isn't our own list.-
-						console.log(`No need to create actions for ${id}`);
-						return;
+			const watchFirebase = async function () {
+				logTime('Create new list for ' + id);
+				const editorDoc = doc(firebase.firestore, 'editors', id, user.uid, 'editor');
+				const alreadySetup = await getDoc(editorDoc);
+				if (!alreadySetup.exists()) {
+					try {
+						await setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), {
+							email: user.email
+						});
+						logTime('Create new actions for ' + id);
+						if (name === undefined) {
+							// this one isn't our own list.-
+							console.log(`No need to create actions for ${id}`);
+						} else {
+							await setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
+								...rename_list({ id, name }),
+								timestamp: 0
+							});
+						}
+					} catch (message) {
+						console.error(message);
 					}
-					return setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
-						...rename_list({ id, name }),
-						timestamp: 0
-					});
-				})
-				.then(() => {
-					unsub = watch('lists', id);
-				})
-				.catch((message) => {
-					console.error(message);
-				});
+				}
+				unsub = watch('lists', id);
+			};
+			const currentList = $page.url.searchParams.get('listId') || 'hmph';
+			if (id === currentList) {
+				logTime('Currently viewed list');
+				watchFirebase();
+			} else {
+				window.setTimeout(() => {
+					watchFirebase();
+				}, 100);
+			}
 		}
 	}
 

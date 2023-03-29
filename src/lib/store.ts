@@ -9,6 +9,12 @@ import { items } from './components/items';
 import { incoming_request, requests } from './components/requests';
 import { ui } from './components/ui';
 
+const startTime = new Date().getTime();
+
+export function logTime(message: string) {
+	console.log((new Date().getTime() - startTime) + ' ms ' + message);
+}
+
 export function handleDocChanges(
 	docChanges: DocumentChange<DocumentData>[],
 	user: AuthState,
