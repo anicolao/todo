@@ -96,7 +96,6 @@
 		href="javascript:void(0)"
 		on:touchstart={(e) => {
 			navigationTimeout = new Date().getTime();
-			e.preventDefault();
 		}}
 		on:pointerdown={(e) => {
 			navigationTimeout = new Date().getTime();
