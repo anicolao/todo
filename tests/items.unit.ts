@@ -22,6 +22,32 @@ describe('items', () => {
 		return items(state, create_item({ list_id, id, description }));
 	}
 
+	it('can create LOTS of items', () => {
+		const list_id = 'List 9';
+		const maxItems = 3;
+		let nextState = initialState;
+		for (let i = 0; i < maxItems; ++i) {
+			let id = `abcd1234_${i}`;
+			const description = `My List Item Creation Test #${i}`;
+			nextState = createItem(nextState, list_id, id, description);
+
+			const list = nextState.listIdToListOfItems[list_id];
+			expect(list.itemIds.length).to.equal(1 + i);
+			expect(list.itemIds[0]).to.equal(id);
+			const expected: {[k: string]: any} = {};
+			expected[id] = {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
+			};
+			expect(list.itemIdToItem).to.deep.include(expected);
+		}
+	});
+
 	it('can create a new item', () => {
 		const list_id = 'List 9';
 		const id = 'abcd1234';

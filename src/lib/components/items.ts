@@ -152,7 +152,8 @@ export const items = createReducer(initialState, (r) => {
 		if (list.itemIds.indexOf(action.payload.id) === -1) {
 			list.itemIds = [action.payload.id, ...list.itemIds];
 		}
-		list.itemIdToItem[action.payload.id] = {
+		//list.itemIdToItem[action.payload.id] = {};
+		const newItem = {
 			completed: false,
 			completedTimestamp: 0,
 			starred: false,
@@ -161,7 +162,9 @@ export const items = createReducer(initialState, (r) => {
 			prevDueDate: [],
 			prevCompletedTimestamp: []
 		};
-		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		list.itemIdToItem[action.payload.id] = newItem;
+		
+		state.listIdToListOfItems[action.payload.list_id] = list;
 	});
 	r.addCase(describe_item, (state, action) => {
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
