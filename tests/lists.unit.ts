@@ -1,5 +1,4 @@
-import { expect } from 'chai';
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { signed_in, signed_out } from '$lib/components/auth';
 import {

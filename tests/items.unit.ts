@@ -1,5 +1,4 @@
-import { expect } from 'chai';
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import {
 	complete_item,
@@ -56,7 +55,9 @@ describe('items', () => {
 
 		const list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIds.length).to.equal(1);
+		expect(list.itemIds.length).toMatchInlineSnapshot('1');
 		expect(list.itemIds[0]).to.equal(id);
+		expect(list.itemIds[0]).toMatchInlineSnapshot('"abcd1234"');
 		expect(list.itemIdToItem).to.deep.include({
 			abcd1234: {
 				completed: false,
@@ -288,7 +289,7 @@ describe('items', () => {
 			orig: 'Here is a test item for overrlapping and nonoverrrlappnig editing'
 		},
 		strikethrough('Here is a test item for overlapping and nonoverrrlappnig editing') +
-			' Here is a test item for editing'
+		' Here is a test item for editing'
 	);
 
 	it('can complete an item', () => {
