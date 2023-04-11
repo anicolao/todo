@@ -2,7 +2,7 @@ import { auth, type AuthState } from '$lib/components/auth';
 import { lists } from '$lib/components/lists';
 import { uiSettings } from '$lib/components/UiSettings';
 import { users } from '$lib/components/users';
-import { combineReducers, configureStore, createStore, type AnyAction } from '@reduxjs/toolkit';
+import { combineReducers, configureStore, createStore, type AnyAction, type Reducer, type Action } from '@reduxjs/toolkit';
 import type { DocumentChange, DocumentData } from 'firebase/firestore';
 import type { Writable } from 'svelte/store';
 import { items } from './components/items';
@@ -43,7 +43,9 @@ export function handleDocChanges(
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 	return function (reducer: any, initialState: any) {
 		const reduxStore = createStoreApi(reducer, initialState);
+		let subscriberCount = 0;
 		let callbackCount = 0;
+		let prevKeysCallbackCount: { [k: string]: number } = {};
 		let keysCallbackCount: { [k: string]: number } = {};
 		let lastItems: any = null;
 		let lastKey: { [k: string]: any } = {};
@@ -51,8 +53,9 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 			...reduxStore,
 			subscribe(fn: (arg0: any) => void) {
 				fn(reduxStore.getState());
+				subscriberCount++;
 
-				return reduxStore.subscribe(() => {
+				const unsub = reduxStore.subscribe(() => {
 					callbackCount++;
 					Object.keys(reduxStore.getState()).forEach((k) => {
 						if (reduxStore.getState()[k] !== lastKey[k]) {
@@ -62,22 +65,105 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 					});
 					if (callbackCount % 10000 === 0) {
 						Object.keys(reduxStore.getState()).forEach((k) => {
-							logTime(`$store callback #${callbackCount} (${k}: ${keysCallbackCount[k]})`);
+							const newCalls = keysCallbackCount[k] - (prevKeysCallbackCount[k] || 0);
+							if (newCalls > 0) {
+								logTime(`$store callback #${callbackCount} [of ${subscriberCount}] (${k}: ${newCalls}/${keysCallbackCount[k]})`);
+							}
 						});
+						prevKeysCallbackCount = { ...keysCallbackCount };
 					}
 					fn(reduxStore.getState());
 				});
+				return () => { subscriberCount--; unsub(); }
 			}
 		};
 	};
 }
 
+/*
+export const s_items = {
+	subscribe(fn: (arg0: any) => void) {
+		fn(reduxStore.getState().items);
+		const unsub =  reduxStore.subscribe(() => {
+			fn(reduxStore.getState().items);
+		});
+		return unsub;
+	}
+}
+*/
+// $s_items.foo
+
+// const $foo = 5;
+// const $$$ = 10;kkkk
+// if ($store.auth.uid) {
+// }
+
+/*
+const itemWrapperWrapper = {
+	outerReducer: (state: any, action: AnyAction) => {
+		let callback = () => {};
+		let reducer = (state: any, action: AnyAction) => {
+			const ret = items(state, action);
+			//console.log(`Executing ${action.type} on items`)
+			if (ret !== state) {
+				console.log(`CHANGED items while executing ${action.type} on items`)
+				callback();
+			}
+			return ret;
+		};
+		return reducer(state, action);
+	},
+}
+
+const itemWrapper = {
+	callback: undefined,
+	reducer: (state: any, action: AnyAction) => {
+		const ret = items(state, action);
+		//console.log(`Executing ${action.type} on items`)
+		if (ret !== state) {
+			console.log(`CHANGED items while executing ${action.type} on items`)
+		}
+		return ret;
+	},
+}
+*/
+
+export class SvelteReducerWrapper<S = any, A extends Action = AnyAction> {
+	wrappedReducer: Reducer<S, A>;
+	callbacks: any[] = [];
+	reducer(state: any, action: AnyAction) {
+		const ret = this.wrappedReducer(state, action);
+		//console.log(`Executing ${action.type} on items`)
+		if (ret !== state) {
+			console.log(`CHANGED items while executing ${action.type} on items`)
+			this.callbacks.forEach(c => {
+				c(ret);
+			})
+		}
+		return ret;
+	};
+	constructor(reducer: any) {
+		this.wrappedReducer = reducer;
+	}
+	subscribe(fn: (arg0: any) => void) {
+		this.callbacks.push(fn);
+		return () => {}
+	}
+}
+export const itemWrapper = new SvelteReducerWrapper(items);
 const reducer = {
 	auth,
 	uiSettings,
 	ui,
 	lists,
-	items,
+	items: (state: any, action: any) => { 
+		let reduced = state?.reduced || items(state?.reduced, action);
+		if (action.type === 'create_item') {
+			console.log(`items executing ${action.type} on reduced`)
+			reduced = items(state?.reduced, action);
+		}
+		return {...state, timestamp: new Date().getTime(), listIdToListOfItems: {}, reduced} || items(state, action)
+	},
 	requests,
 	users
 };
