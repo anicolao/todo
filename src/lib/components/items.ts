@@ -1,5 +1,6 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
+import { original } from 'immer';
 
 export interface TodoItem {
 	completed: boolean;
@@ -147,13 +148,20 @@ export const items = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		list.itemIdToItem = { ...list.itemIdToItem };
-		if (list.itemIds.indexOf(action.payload.id) === -1) {
+		let list: ListOfItems = {
+			itemIds: [],
+			itemIdToItem: {}
+		};
+		if (state.listIdToListOfItems[action.payload.list_id] !== undefined) {
+			const orig = original(state.listIdToListOfItems[action.payload.list_id]);
+			list = { ...orig } as ListOfItems;
+			list.itemIdToItem = { ...list.itemIdToItem };
+		}
+
+		if(list.itemIdToItem[action.payload.id] === undefined) {
 			list.itemIds = [action.payload.id, ...list.itemIds];
 		}
-		//list.itemIdToItem[action.payload.id] = {};
-		const newItem = {
+		list.itemIdToItem[action.payload.id] = {
 			completed: false,
 			completedTimestamp: 0,
 			starred: false,
@@ -162,8 +170,7 @@ export const items = createReducer(initialState, (r) => {
 			prevDueDate: [],
 			prevCompletedTimestamp: []
 		};
-		list.itemIdToItem[action.payload.id] = newItem;
-		
+
 		state.listIdToListOfItems[action.payload.list_id] = list;
 	});
 	r.addCase(describe_item, (state, action) => {
