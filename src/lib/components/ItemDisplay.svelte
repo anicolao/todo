@@ -1,5 +1,5 @@
 <script lang="ts">
-	console.log('ItemDisplay.svelte');
+	logTime('ItemDisplay.svelte');
 	import { dispatch } from '$lib/components/ActionLog';
 	import Card from '@smui/card';
 	import {
@@ -10,7 +10,7 @@
 		type TodoItem
 	} from '$lib/components/items';
 	import RepeatingDate from '$lib/components/RepeatingDate.svelte';
-	import { store } from '$lib/store';
+	import { logTime, store } from '$lib/store';
 	import { Label } from '@smui/common';
 	import IconButton from '@smui/icon-button';
 	import { Graphic, Item, Meta } from '@smui/list';
@@ -112,42 +112,9 @@
 
 <div class="container">
 	<Card>
-		<Item
-			><Graphic
-				>{#if enableUndo}<IconButton class="material-icons" on:click={uncomplete(listId, item.id)}
-						>undo</IconButton
-					>{:else if item.completed}<IconButton
-						class="material-icons"
-						on:click={complete(listId, item.id, false)}>check_box</IconButton
-					>{:else}<IconButton class="material-icons" on:click={complete(listId, item.id, true)}
-						>check_box_outline_blank</IconButton
-					>{/if}</Graphic
-			><Textfield
-				style="width: 100%"
-				value={item.description}
-				on:keydown={handleEnterKey}
-				enterkeyhint="enter"
-				input$enterkeyhint="enter"
-				on:blur={handleBlur(listId, item)}
-				on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
-			/><Meta
-				><span
-					><span class="itemInfo"
-						><RepeatingDate on:click={() => console.log('Clicked!')} dueDate={item.dueDate} />
-						{#if showListName}<Label>{listName}</Label>{/if}</span
-					>
-					<IconButton class="material-icons" on:click={showEditDetailsDialog(listId, item.id)}
-						>edit_note</IconButton
-					>{#if item.starred}<IconButton
-							class="material-icons"
-							style="color: #ffb74d;"
-							on:click={star(listId, item.id, false)}>star</IconButton
-						>{:else}<IconButton class="material-icons" on:click={star(listId, item.id, true)}
-							>star_outline</IconButton
-						>{/if}</span
-				></Meta
-			></Item
-		>
+		<Item>
+			{item.description}
+			</Item>
 	</Card>
 </div>
 

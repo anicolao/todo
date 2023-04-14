@@ -54,6 +54,7 @@
 		listIds.forEach((listId) => filterItems(listId, filter));
 		if (comparator !== null) {
 			items.sort(comparator);
+			logTime('ItemList sort finished');
 		}
 	}
 	$: updateItemIds(filter, comparator);
@@ -344,23 +345,10 @@
 							{showListName}
 						/>{/if}
 				</div>
-				{#each items as item, i (item.animationId)}<div
-						id={grabbed && item.id == grabbed.dataset.id ? 'grabbed' : ''}
-						class="item"
-						data-index={i}
-						data-id={item.id}
-						animate:flip={{ duration: 200 }}
-					>
-						<ItemDisplay
-							listId={item.listId}
-							{item}
-							{showListName}
-							{enableUndo}
-							on:blur={() => enableDrag(true)}
-							on:focus={itemTextfieldFocused}
-						/>
-					</div>{/each}</List
-			>
+				{#each items as item, i (item.animationId)}
+					<ItemDisplay {item} listId={item.listId} {showListName} />
+				{/each}
+			</List>
 		</div>{/if}{/if}
 
 <style>
