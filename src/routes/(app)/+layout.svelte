@@ -21,7 +21,7 @@
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import { emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
-	import { logTime, store } from '$lib/store';
+	import { handleDocChanges, logTime, store } from '$lib/store';
 	import { getVersion } from '$lib/version';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
@@ -57,6 +57,7 @@
 		console.log('setActive ' + name);
 		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
 		active = name;
+		logTime('switching to list ' + name);
 		goto('/' + name);
 	}
 

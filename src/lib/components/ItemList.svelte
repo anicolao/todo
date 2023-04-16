@@ -54,7 +54,7 @@
 		listIds.forEach((listId) => filterItems(listId, filter));
 		if (comparator !== null) {
 			items.sort(comparator);
-			logTime('ItemList sort finished');
+			// logTime('ItemList sort finished');
 		}
 	}
 	$: updateItemIds(filter, comparator);
