@@ -6,6 +6,7 @@
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
+	import type { TodoItem } from '$lib/components/items';
 	import { describe_item, remove_due_date, RepeatType, set_due_date } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import {
@@ -160,7 +161,6 @@
 	$: itemDescription = '';
 	let dueDate = new Date(0);
 	let dueDateStr = '';
-	let currentItemId = '';
 	let useDueDate = false;
 	let repeatValue = "Doesn't repeat";
 	let repeatKind = ["Doesn't repeat", 'Daily', 'Weekly', 'Monthly', 'Yearly', 'Every Weekday'];
@@ -195,16 +195,18 @@
 	$: if (!repeatEvery || repeatEvery < 1 || repeatEvery > 365) {
 		repeatEvery = 1;
 	}
-	let lastItemId = '';
-	$: if ($store.ui.itemId && $store.ui.itemId !== lastItemId) {
-		lastItemId = $store.ui.itemId;
-		console.log({ currentItemId });
-		if (currentItemId !== $store.ui.itemId) {
-			const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
-			const item = listOfItems.itemIdToItem[$store.ui.itemId];
-			const desc = item.description;
-			currentItemId = $store.ui.itemId;
-			itemDescription = desc;
+
+	let previousDialogItem: TodoItem | undefined = undefined;
+
+	$: if ($store.ui.itemId) {
+		const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
+		const item = listOfItems.itemIdToItem[$store.ui.itemId];
+		// Compare objects with deep equals (using Redux state) to detect a change
+		// in any editable property.
+		if (item !== previousDialogItem) {
+			previousDialogItem = item;
+			// console.log({ 'updating details dialog': $store.ui.itemId });
+			itemDescription = item.description;
 			useDueDate = !!item.dueDate;
 			dueDate = item.dueDate
 				? new Date(item.dueDate.year, item.dueDate.month - 1, item.dueDate.day)
@@ -340,7 +342,7 @@
 				}
 			}
 		}
-		currentItemId = '';
+		previousDialogItem = undefined;
 	}
 
 	function cancelDialog() {
@@ -348,7 +350,7 @@
 	}
 
 	function cancelItemDetailsDialog() {
-		currentItemId = '';
+		previousDialogItem = undefined;
 		store.dispatch(show_item_detail_dialog(false));
 	}
 
