@@ -56,7 +56,10 @@ export function shareAccepted(users: UsersState, email: string) {
 		.requests.completedRequests.filter(filterPendingShares(uid));
 	if (completedRequests.length === 0) return false;
 	const lastRequest = completedRequests[completedRequests.length - 1];
-	return store.getState().requests.requestIdToAccepted[lastRequest];
+	const value = store.getState().requests.requestIdToAccepted[lastRequest];
+	const isAccept =
+		store.getState().requests.requestIdToRequest[lastRequest].type === 'accept_pending_share';
+	return isAccept && value;
 }
 
 export const users = createReducer(initialState, (r) => {

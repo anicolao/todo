@@ -200,7 +200,7 @@
 
 	$: if ($store.ui.itemId) {
 		const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
-		const item = listOfItems.itemIdToItem[$store.ui.itemId];
+		const item = listOfItems?.itemIdToItem[$store.ui.itemId];
 		// Compare objects with deep equals (using Redux state) to detect a change
 		// in any editable property.
 		if (item !== previousDialogItem) {
@@ -257,8 +257,8 @@
 			const previousShares = getSharedUsers()
 				.map((u: AuthState) => u.email)
 				.sort();
-			const currentShares = selectedShareUsers.sort();
-			console.log({ previousShares, currentShares });
+			selectedShareUsers.sort();
+			console.log({ previousShares, currentShares: selectedShareUsers });
 			let pi = 0;
 			let ci = 0;
 			function revokeShare(dontShareWith: string) {
@@ -269,25 +269,25 @@
 				console.log('routes/(app)/+layout.svelte: new share for ' + shareWith);
 				firebase.request(emailToUid($store.users, shareWith), accept_pending_share(id));
 			}
-			while (pi < previousShares.length && ci < currentShares.length) {
-				if (previousShares[pi] === currentShares[ci]) {
+			while (pi < previousShares.length && ci < selectedShareUsers.length) {
+				if (previousShares[pi] === selectedShareUsers[ci]) {
 					pi++;
 					ci++;
-				} else if (previousShares[pi] < currentShares[ci]) {
+				} else if (previousShares[pi] < selectedShareUsers[ci]) {
 					// remove a previously granted share
 					revokeShare(previousShares[pi]);
 					pi++;
 				} else {
 					// grant a new share
-					grantShare(currentShares[ci]);
+					grantShare(selectedShareUsers[ci]);
 					ci++;
 				}
 			}
 			for (; pi < previousShares.length; ++pi) {
 				revokeShare(previousShares[pi]);
 			}
-			for (; ci < currentShares.length; ++ci) {
-				grantShare(currentShares[ci]);
+			for (; ci < selectedShareUsers.length; ++ci) {
+				grantShare(selectedShareUsers[ci]);
 			}
 		}
 		selectedShareUsers = [];
@@ -372,7 +372,14 @@
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
+	function initializeShareUsers() {
+		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email);
+	}
+
 	let selectedShareUsers: string[] = [];
+	$: if (dialogOpen) {
+		initializeShareUsers();
+	}
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
