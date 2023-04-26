@@ -14,9 +14,12 @@
 	$: listIds = $store.lists.visibleLists;
 
 	function searchedItems(query: string): (listId: string, id: string) => boolean {
+		const queryLC = query.toLocaleLowerCase('en-US');
 		return (listId: string, id: string) => {
 			const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
-			return item && !item.completed && item.description.indexOf(query) !== -1;
+			return (
+				item && !item.completed && item.description.toLocaleLowerCase('en-US').includes(queryLC)
+			);
 		};
 	}
 
