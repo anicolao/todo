@@ -56,11 +56,12 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 				fn(reduxStore.getState());
 
 				return reduxStore.subscribe(() => {
-					callbackCount++;
+					let executeKey = true;
 					Object.keys(reduxStore.getState()).forEach((k) => {
 						if (reduxStore.getState()[k] !== lastKey[k]) {
 							lastKey[k] = reduxStore.getState()[k];
 							keysCallbackCount[k] = keysCallbackCount[k] + 1 || 1;
+							// executeKey = (k === 'auth');
 						}
 					});
 					if (callbackCount % 10000 === 0) {
@@ -68,7 +69,10 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 							logTime(`$store callback #${callbackCount} (${k}: ${keysCallbackCount[k]})`);
 						});
 					}
-					fn(reduxStore.getState());
+					if (executeKey) {
+						callbackCount++;
+						fn(reduxStore.getState());
+					}
 				});
 			}
 		};
@@ -80,7 +84,7 @@ const reducer = {
 	uiSettings,
 	ui,
 	lists,
-	items,
+	//items,
 	requests,
 	users
 };
@@ -88,6 +92,11 @@ const reduxStore = configureStore({
 	reducer,
 	enhancers: [svelteStoreEnhancer],
 	middleware: [],
+	devTools: { maxAge: 100000 }
+});
+const itemsReducer = { items };
+const itemsStore = configureStore({ reducer: itemsReducer,
+	enhancers: [svelteStoreEnhancer],
 	devTools: { maxAge: 100000 }
 });
 export type ReduxStore = typeof reduxStore;
@@ -115,6 +124,7 @@ const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
 		}
 		action.timestamp = timestamp;
 		serverSideStore.dispatch(action);
+		itemsStore.dispatch(action);
 	} else {
 		// console.log('client side action: ', action);
 		delete action.timestamp;

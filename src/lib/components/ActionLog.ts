@@ -57,7 +57,7 @@ export async function watchAll(type: string) {
 export function watch(type: string, id: string, callback: (s: DocumentChange<DocumentData>[]) => void) {
 	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
-	logTime('watch: calling onSnapshot');
+	// logTime('watch: calling onSnapshot');
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
 		{ includeMetadataChanges: true },
