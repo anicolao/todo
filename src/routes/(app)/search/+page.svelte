@@ -29,10 +29,25 @@
 		return () => (hideCompleted[listId] = !hideCompleted[listId]);
 	}
 
+	let query: string = '';
 	let searchText: string = '';
+
 	$: if (searchText || !searchText) {
-		listIds = listIds;
-		console.log(searchText);
+		search();
+	}
+
+	let queuedSearchId: NodeJS.Timeout;
+
+	function search() {
+		clearTimeout(queuedSearchId); // does nothing if the id is invalid.
+		// A small delay when typing short words avoids slow responses, and lets
+		// typing happen more naturally.  (Remove if/when that speeds up.)
+		let delay = searchText.length > 3 ? 0 : 1000;
+		queuedSearchId = setTimeout(() => {
+			console.log('Search for <' + searchText + '>');
+			query = searchText;
+			listIds = listIds;
+		}, delay);
 	}
 </script>
 
@@ -45,7 +60,7 @@
 	>{#each listIds as listId}
 		<ItemList
 			listIdMatcher={(i) => i === listId}
-			filter={searchedItems(searchText)}
+			filter={searchedItems(query)}
 			show={!hideCompleted[listId]}
 			bind:hasItems
 			>{#if hasItems}<ListToggleButton
