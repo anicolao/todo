@@ -10,9 +10,12 @@ import { incoming_request, requests } from './components/requests';
 import { ui } from './components/ui';
 
 const startTime = new Date().getTime();
+let lastTime = startTime;
 
 export function logTime(message: string) {
-	console.log(new Date().getTime() - startTime + ' ms ' + message);
+	const now = new Date().getTime();
+	console.log(now - startTime + ' ms Δ' + (now - lastTime) + ' ms ' + message);
+	lastTime = now;
 }
 
 export function handleDocChanges(
@@ -21,14 +24,14 @@ export function handleDocChanges(
 	isANormalAction: boolean
 ) {
 	// console.log('handleDocChanges start', docChanges);
+	const requestShouldBeAutoExecuted = (data: any) =>
+		data.creator === user.uid ||
+		data.type === 'accept_request' ||
+		data.type === 'reject_request';
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
 			let data = { ...doc.data(), firebase_doc_id: doc.id } as unknown as AnyAction;
-			const requestShouldBeAutoExecuted = (data: any) =>
-				data.creator === user.uid ||
-				data.type === 'accept_request' ||
-				data.type === 'reject_request';
 			if (isANormalAction || requestShouldBeAutoExecuted(data)) {
 				store.dispatch(data);
 			} else {
@@ -37,7 +40,7 @@ export function handleDocChanges(
 			}
 		}
 	});
-	logTime('handleDocChanges done');
+	logTime('handleDocChanges did ' + docChanges.length + ' action' + (docChanges.length !== 1 ? 's' : ''));
 }
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
