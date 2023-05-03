@@ -14,13 +14,57 @@ import {
 	star_item,
 	strikethrough,
 	uncomplete_item,
-	type ItemsState
+	type ItemsState,
+	type ListOfItems
 } from '$lib/components/items';
+import testErrandsActions from './items.data';
+import { freeze, original } from 'immer';
 
 describe('items', () => {
 	function createItem(state: ItemsState, list_id: string, id: string, description: string) {
 		return items(state, create_item({ list_id, id, description }));
 	}
+
+	it('can reproduce slowness observed in production', () => {
+		let state = { listIdToListOfItems: {} };
+		let startTimeMillis = new Date().getTime();
+		const fakeCreate = (state: any, action: any) => {
+			state = {...state};
+			let list: ListOfItems = {
+				itemIds: [],
+				itemIdToItem: {}
+			};
+			if (state.listIdToListOfItems[action.payload.list_id] !== undefined) {
+				const orig = (state.listIdToListOfItems[action.payload.list_id]);
+				list = { ...orig } as ListOfItems;
+				list.itemIdToItem = { ...list.itemIdToItem };
+			}
+
+			if (list.itemIdToItem[action.payload.id] === undefined) {
+				list.itemIds = [action.payload.id, ...list.itemIds];
+			}
+			list.itemIdToItem[action.payload.id] = {
+				completed: false,
+				completedTimestamp: 0,
+				starred: false,
+				starTimestamp: 0,
+				description: action.payload.description,
+				prevDueDate: [],
+				prevCompletedTimestamp: []
+			};
+			state.listIdToListOfItems = {...state.listIdToListOfItems};
+			state.listIdToListOfItems[action.payload.list_id] = list;
+			return freeze(state);
+		}
+		testErrandsActions.forEach(action => {
+				(() =>
+					state = items(state, action)
+				)();
+		});
+		let endTimeMillis = new Date().getTime();
+		let duration = endTimeMillis - startTimeMillis;
+		expect(duration).to.be.lessThanOrEqual(100);
+	});
 
 	it('can create a new item', () => {
 		const list_id = 'List 9';
@@ -262,7 +306,7 @@ describe('items', () => {
 			orig: 'Here is a test item for overrlapping and nonoverrrlappnig editing'
 		},
 		strikethrough('Here is a test item for overlapping and nonoverrrlappnig editing') +
-			' Here is a test item for editing'
+		' Here is a test item for editing'
 	);
 
 	it('can complete an item', () => {
