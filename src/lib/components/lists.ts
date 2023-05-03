@@ -1,5 +1,6 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
+import { freeze, original } from 'immer';
 
 export interface ListsState {
 	visibleLists: string[];
@@ -28,9 +29,11 @@ export const lists = createReducer(initialState, (r) => {
 		state.listIdToList[action.payload.id] = action.payload.name;
 		return state;
 	});
-	r.addCase(rename_list, (state, action) => {
+	r.addCase(rename_list, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		state.listIdToList = { ...state.listIdToList };
 		state.listIdToList[action.payload.id] = action.payload.name;
-		return state;
+		return freeze(state);
 	});
 	r.addCase(delete_list, (state, action) => {
 		state.visibleLists = state.visibleLists.filter((x) => x !== action.payload);
