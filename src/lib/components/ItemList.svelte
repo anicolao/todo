@@ -1,8 +1,9 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
+	import { Item } from '@smui/list';
 	import { dispatch } from '$lib/components/ActionLog';
 	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
-	import { store } from '$lib/store';
+	import { logTime, store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
 	import ItemDisplay from './ItemDisplay.svelte';
@@ -304,6 +305,15 @@
 
 	$: if (items && items.length > 0) {
 		hasItems = true;
+		// logTime('ItemList has ' + items.length + ' items.');
+	}
+
+	let container: Element | undefined = undefined;
+	$: if (container) {
+		const ro = new ResizeObserver((x) => {
+			logTime("ResizeObserver called")
+		});
+		ro.observe(container);
 	}
 </script>
 
@@ -313,6 +323,7 @@
 	{#if show}
 		<div
 			class="listContainer"
+			bind:this={container}
 			on:pointerdown={containerDragHandlers.onPointerDown}
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
