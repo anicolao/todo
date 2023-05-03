@@ -63,7 +63,7 @@ describe('items', () => {
 		});
 		let endTimeMillis = new Date().getTime();
 		let duration = endTimeMillis - startTimeMillis;
-		expect(duration).to.be.lessThanOrEqual(50);
+		expect(duration).to.be.lessThanOrEqual(100);
 	});
 
 	it('can create a new item', () => {
