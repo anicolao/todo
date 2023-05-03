@@ -1,5 +1,7 @@
-import { createAction, createReducer } from '@reduxjs/toolkit';
+import { createAction, createReducer, type ActionReducerMapBuilder, type CaseReducer, type Action, type AnyAction } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
+import { freeze as immerFreeze, original as immerOriginal, isDraft } from 'immer';
+import type { TypedActionCreator } from '@reduxjs/toolkit/dist/mapBuilders';
 
 export interface TodoItem {
 	completed: boolean;
@@ -46,6 +48,14 @@ export interface ItemsState {
 	listIdToListOfItems: { [id: string]: ListOfItems };
 }
 
+// const diff = { 'abacdeadasdf': { itemIdToItem: { 'item_id': { completed: true }}}}
+// const diff = {};
+// diff[list_id] = {};
+// diff[list_id].itemIdToItem = {};
+// diff[list_id].itemIdToItem[item_id] = {completed: true};
+// state = patch(state, diff);
+
+// export declare function createAction<P = void, T extends string = string>(type: T): PayloadActionCreator<P, T>;
 export const create_item = createAction<{ list_id: string; id: string; description: string }>(
 	'create_item'
 );
@@ -143,13 +153,69 @@ export const initialState = {
 	listIdToListOfItems: {}
 } as ItemsState;
 
-export const items = createReducer(initialState, (r) => {
+
+export type CaseType<T> = (state: T, action: AnyAction) => T;
+export interface ReducerBuilder<T> {
+	addCase: (actionCreator: TypedActionCreator<string>, reducer: CaseType<T>) => void;
+}
+function ourCreateReducer<StateType>(initialState: StateType, reducers: (builder: ReducerBuilder<StateType>) => void) {
+	const reducerMap: { [k: string]: CaseType<StateType> } = {};
+	reducers({
+		addCase: function (actionCreator, reducer) {
+			reducerMap[actionCreator.type] = reducer;
+		}
+	})
+	function deepFreeze(x: any) {
+		if (typeof x === 'object' && !Object.isFrozen(x)) {
+			for (const k in x) {
+				if (!Object.isFrozen(x[k])) {
+					x[k] = deepFreeze(x[k]);
+				}
+			}
+		}
+		return Object.freeze(x);
+	}
+	return (state: StateType | undefined, action: AnyAction): StateType => {
+		if (state === undefined) {
+			console.log(action.type);
+			return deepFreeze(initialState);
+		}
+		if (reducerMap[action.type]) {
+			return deepFreeze(reducerMap[action.type](state, action));
+		}
+		return state;
+	};
+}
+
+function original(state: any) {
+	if (isDraft(state)) {
+		return immerOriginal(state);
+	}
+	return state;
+}
+
+function freeze(state: any) {
+	return state;
+	// return immerFreeze(state);
+}
+
+export const items = ourCreateReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		list.itemIdToItem = { ...list.itemIdToItem };
-		if (list.itemIds.indexOf(action.payload.id) === -1) {
+		state = { ...state };
+		let list: ListOfItems = {
+			itemIds: [],
+			itemIdToItem: {}
+		};
+
+		if (state.listIdToListOfItems[action.payload.list_id] !== undefined) {
+			const orig = (state.listIdToListOfItems[action.payload.list_id]);
+			list = { ...orig } as ListOfItems;
+			list.itemIdToItem = { ...list.itemIdToItem };
+		}
+
+		if (list.itemIdToItem[action.payload.id] === undefined) {
 			list.itemIds = [action.payload.id, ...list.itemIds];
 		}
 		list.itemIdToItem[action.payload.id] = {
@@ -161,31 +227,42 @@ export const items = createReducer(initialState, (r) => {
 			prevDueDate: [],
 			prevCompletedTimestamp: []
 		};
-		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
+		state.listIdToListOfItems[action.payload.list_id] = list;
+		return freeze(state);
 	});
-	r.addCase(describe_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	r.addCase(describe_item, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
+
 		const orig = action.payload.orig_description;
 		const first = item.description;
 		const second = action.payload.description;
 		item.description = merge({ orig, first, second });
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
-	r.addCase(complete_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	r.addCase(complete_item, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
 		if (item.completedTimestamp >= action.payload.completed_time) {
 			return state;
 		}
 		item.completed = action.payload.completed;
-		item.prevCompletedTimestamp.push(item.completedTimestamp);
+		item.prevCompletedTimestamp = [...item.prevCompletedTimestamp, item.completedTimestamp];
 		item.completedTimestamp = Math.max(
 			item.completedTimestamp,
 			action.payload?.completed_time || 0
 		);
 
 		if (item.dueDate) {
+			item.dueDate = { ...item.dueDate };
 			let y = item.dueDate.year;
 			let m = item.dueDate.month;
 			let d = item.dueDate.day;
@@ -198,7 +275,7 @@ export const items = createReducer(initialState, (r) => {
 			if (item.dueDate.repeats) {
 				prev_due.repeats = { ...item.dueDate.repeats };
 			}
-			item.prevDueDate.push(prev_due);
+			item.prevDueDate = [...item.prevDueDate, prev_due];
 
 			if (item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
 				item.completed = false;
@@ -249,21 +326,29 @@ export const items = createReducer(initialState, (r) => {
 					day: d,
 					repeats: { ...item.dueDate.repeats }
 				};
-				state = setDueDate(state, set_due_date({ ...action.payload, due_date }));
+				item.dueDate = due_date;
 			}
 		} else {
-			item.prevDueDate.push(null);
+			item.prevDueDate = [...item.prevDueDate, null]
 		}
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
-	r.addCase(uncomplete_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	r.addCase(uncomplete_item, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
+
 		item.completed = false;
 
+		item.prevCompletedTimestamp = [...item.prevCompletedTimestamp];
 		const oldCompletion = item.prevCompletedTimestamp.splice(-1, 1)[0];
 		item.completedTimestamp = oldCompletion;
 
+		item.prevDueDate = [...item.prevDueDate];
 		const oldDueDate = item.prevDueDate.splice(-1, 1)[0];
 		if (oldDueDate !== null) {
 			item.dueDate = oldDueDate;
@@ -271,23 +356,35 @@ export const items = createReducer(initialState, (r) => {
 			item.dueDate = undefined;
 		}
 
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
-	r.addCase(star_item, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	r.addCase(star_item, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
 		item.starred = action.payload.starred;
 		item.starTimestamp = Math.max(item.starTimestamp, action.payload?.star_timestamp || 0);
 		if (action.payload.starred) {
-			list.itemIds = [action.payload.id, ...list.itemIds.filter((x) => x !== action.payload.id)];
+			list.itemIds = [action.payload.id, ...list.itemIds.filter((x: string) => x !== action.payload.id)];
 		}
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
 
-	r.addCase(reorder_item, (state, action) => {
+	r.addCase(reorder_item, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		console.log('ITEMS REDUCER: skipping reorder_item');
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		const index = list.itemIds.indexOf(action.payload.id);
 		if (index !== -1) {
+			list.itemIds = [...list.itemIds];
 			const removedItem = list.itemIds.splice(index, 1);
 			const newIndex = action.payload.goes_before
 				? list.itemIds.indexOf(action.payload.goes_before)
@@ -303,26 +400,34 @@ export const items = createReducer(initialState, (r) => {
 		} else {
 			throw `ERROR: itemid ${action.payload.id} not found in items array`;
 		}
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
 
-	function setDueDate(
-		state: ItemsState,
-		action: { payload: { list_id: string; id: string; due_date: DueDate }; type?: string }
-	) {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	function setDueDate(immerState: ItemsState, action: AnyAction) {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
 		item.dueDate = { ...action.payload.due_date };
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return state;
+		return freeze(state);
 	}
 
 	r.addCase(set_due_date, setDueDate);
 
-	r.addCase(remove_due_date, (state, action) => {
-		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
-		let item = list.itemIdToItem[action.payload.id];
+	r.addCase(remove_due_date, (immerState, action) => {
+		const state: any = { ...original(immerState) };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
 		delete item.dueDate;
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return freeze(state);
 	});
 });
