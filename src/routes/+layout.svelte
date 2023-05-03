@@ -9,14 +9,14 @@
 
 	let count = 0;
 	function load() {
-		console.log('/+layout.ts load function', count++);
+		console.log('src/routes/+layout.svelte load function', count++);
 		const auth = firebase.auth;
-		console.log('/+layout.ts set up auth state callback');
+		console.log('src/routes/+layout.svelte set up auth state callback');
 		/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
 			if (user) {
-				console.log('/+layout.ts auth callback for user ', { user });
+				console.log('src/routes/+layout.svelte auth callback for user ', { user });
 				const uid = user.uid;
-				console.log('/+layout.ts onAuthStateChanged   sign in ');
+				console.log('src/routes/+layout.svelte onAuthStateChanged   sign in ');
 				store.dispatch(
 					signed_in({
 						uid: uid,
@@ -41,7 +41,7 @@
 					});
 				}
 			} else {
-				console.log('/+layout.ts onAuthStateChanged   sign out ');
+				console.log('src/routes/+layout.svelte onAuthStateChanged   sign out ');
 				store.dispatch(signed_out());
 			}
 		});
