@@ -1,14 +1,16 @@
 <script lang="ts">
 	console.log('routes/(app)/+layout.svelte');
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
 	import { dispatch } from '$lib/components/ActionLog';
-	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
-	import type { TodoItem } from '$lib/components/items';
-	import { describe_item, remove_due_date, RepeatType, set_due_date } from '$lib/components/items';
 	import ListMenu from '$lib/components/ListMenu.svelte';
+	import SgDialog from '$lib/components/SgDialog.svelte';
+	import type { AuthState } from '$lib/components/auth';
+	import type { TodoItem } from '$lib/components/items';
+	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
 		accept_pending_share,
 		create_list,
@@ -16,11 +18,10 @@
 		rename_list,
 		revoke_share
 	} from '$lib/components/lists';
-	import SgDialog from '$lib/components/SgDialog.svelte';
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
-	import { add_user, emailToUid, getSharedUsers } from '$lib/components/users';
+	import { emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
-	import { handleDocChanges, store } from '$lib/store';
+	import { logTime, store } from '$lib/store';
 	import { getVersion } from '$lib/version';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
@@ -32,15 +33,6 @@
 	import Select, { Option } from '@smui/select';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
-	import {
-		collection,
-		collectionGroup,
-		onSnapshot,
-		orderBy,
-		query,
-		where,
-		type Unsubscribe
-	} from 'firebase/firestore';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
 
@@ -49,57 +41,10 @@
 		console.log('routes/(app)/+layout.svelte: Destroyed with count ', { count });
 	});
 
-	let unsubscribeActions: Unsubscribe | undefined = undefined;
-	let unsubscribeUsers: Unsubscribe | undefined = undefined;
 	console.log('routes/(app)/+layout.svelte loaded', {
-		unsubscribeActions,
-		unsubscribeUsers,
 		count
 	});
-	$: if ($store.auth.signedIn) {
-		if (unsubscribeUsers === undefined) {
-			const user = $store.auth;
-			if (user.uid) {
-				const users = collection(firebase.firestore, 'users');
-				unsubscribeUsers = onSnapshot(query(users), (querySnapshot) => {
-					querySnapshot.docChanges().forEach((change) => {
-						if (change.type === 'added') {
-							let doc = change.doc;
-							console.log(doc.data());
-							store.dispatch(add_user(doc.data()));
-						}
-					});
-				});
-
-				const actions = collectionGroup(firebase.firestore, 'requests');
-				const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-				console.log('routes/(app)/+layout.svelte: Subscribing to actions for you', {
-					'prev unsub': unsubscribeActions
-				});
-				unsubscribeActions = onSnapshot(q, (querySnapshot) => {
-					handleDocChanges(querySnapshot.docChanges(), user, false);
-				});
-			}
-		}
-	} else {
-		if (!$store.auth.signedIn) {
-			cleanupSubscriptions();
-		}
-	}
-	function cleanupSubscriptions() {
-		console.log('routes/(app)/+layout.svelte: CLEANING UP');
-		if (unsubscribeUsers) {
-			unsubscribeUsers();
-			console.log('routes/(app)/+layout.svelte: UN SUBSCRIBED to users');
-			unsubscribeUsers = undefined;
-		}
-		if (unsubscribeActions) {
-			unsubscribeActions();
-			console.log('routes/(app)/+layout.svelte: UN SUBSCRIBED to actions');
-			unsubscribeActions = undefined;
-		}
-	}
-	onDestroy(cleanupSubscriptions);
+	onDestroy($page.data.cleanupSubscriptions);
 
 	let width = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;
@@ -388,155 +333,159 @@
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
 
-<div class="drawer-container w{width} ">
-	<TopAppBar bind:this={topAppBar} variant="fixed">
-		<Row>
-			<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
-				<Section>
-					{#if width <= MOBILE_LAYOUT_WIDTH}
-						<IconButton
-							class="material-icons"
-							on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
-							>menu</IconButton
+{#await $page.data.loaded.loaded}
+	<div><p>Loading...</p></div>
+{:then value}
+	<div class="drawer-container w{width} ">
+		<TopAppBar bind:this={topAppBar} variant="fixed">
+			<Row>
+				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
+					<Section>
+						{#if width <= MOBILE_LAYOUT_WIDTH}
+							<IconButton
+								class="material-icons"
+								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
+								>menu</IconButton
+							>
+						{/if}
+						<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
+							>{$store.ui.title}</Title
 						>
-					{/if}
-					<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
-						>{$store.ui.title}</Title
-					>
+					</Section>
+				</div>
+				<Section align="end" toolbar>
+					<span><Avatar name={$store.auth.name} photo={$store.auth.photo} /></span>
 				</Section>
-			</div>
-			<Section align="end" toolbar>
-				<span><Avatar name={$store.auth.name} photo={$store.auth.photo} /></span>
-			</Section>
-		</Row>
-	</TopAppBar>
+			</Row>
+		</TopAppBar>
 
-	<AutoAdjust {topAppBar} />
+		<AutoAdjust {topAppBar} />
 
-	<Drawer
-		variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
-		fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
-		bind:open={drawerOpen}
-	>
-		<Content>
-			<FilterMenu {setActive} />
-			<ListMenu {setActive} />
-			<div class="verticalspacer" />
-			<AcceptShare />
-			<Textfield
-				style="width: 100%; min-height: 55px;"
-				bind:value={newListName}
-				label="New list"
-				enterkeyhint="enter"
-				input$enterkeyhint="enter"
-				on:keydown={handleEnterKey}
-				><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
-			>
-			<List>
-				<Subheader>Settings</Subheader>
-				<Item
-					href="javascript:void(0)"
-					on:click={() => setActive('profile')}
-					activated={active === 'profile'}
+		<Drawer
+			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
+			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
+			bind:open={drawerOpen}
+		>
+			<Content>
+				<FilterMenu {setActive} />
+				<ListMenu {setActive} />
+				<div class="verticalspacer" />
+				<AcceptShare />
+				<Textfield
+					style="width: 100%; min-height: 55px;"
+					bind:value={newListName}
+					label="New list"
+					enterkeyhint="enter"
+					input$enterkeyhint="enter"
+					on:keydown={handleEnterKey}
+					><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 				>
-					<Graphic class="material-icons" aria-hidden="true"
-						>{getIconName('account_circle')}</Graphic
+				<List>
+					<Subheader>Settings</Subheader>
+					<Item
+						href="javascript:void(0)"
+						on:click={() => setActive('profile')}
+						activated={active === 'profile'}
 					>
-					<Text>{textLookup('account_circle')}</Text>
-				</Item>
-				<Subheader>{getVersion()}</Subheader>
-			</List>
-		</Content>
-	</Drawer>
-
-	<Scrim fixed={false} />
-	<AppContent class="app-content">
-		<div class="backdrop" style:background-image={bgStyle}>
-			<slot />
-			<SgDialog
-				bind:open={itemDetailsOpen}
-				cancelDialog={cancelItemDetailsDialog}
-				labelledby="itemdetails-dialog-title"
-				describedby="itemdetails-dialog-content"
-			>
-				<div class="itemdetails-title-div">
-					<Title id="itemdetails-dialog-title">Edit Task</Title>
-				</div>
-				<Content id="itemdetails-dialog-content">
-					<Paper style="width=100%;">
-						<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
-						<Checkbox bind:checked={useDueDate} />
-						<Textfield
-							type="date"
-							bind:value={dueDateStr}
-							disabled={!useDueDate}
-							label="Task due date"
-						/>
-						<br />
-						<Select
-							key={(x) => x.substr(0, 3)}
-							bind:value={repeatValue}
-							label="Repeat"
-							disabled={!useDueDate}
-							style="padding-left: 2.75em;"
+						<Graphic class="material-icons" aria-hidden="true"
+							>{getIconName('account_circle')}</Graphic
 						>
-							{#each repeatKind as value}
-								<Option {value}>{value}</Option>
-							{/each}
-						</Select>
-						<Textfield
-							bind:value={repeatEvery}
-							label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
-							type="number"
-							input$step="1"
-							disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
-							style="width: 6em;"
-						/>
-					</Paper>
-				</Content>
-				<Actions>
-					<Button on:click={cancelItemDetailsDialog}>
-						<Label>Cancel</Label>
-					</Button>
-					<Button on:click={closeItemDetailsDialog}>
-						<Label>Save</Label>
-					</Button>
-				</Actions>
-			</SgDialog>
-			<SgDialog
-				bind:open={dialogOpen}
-				{cancelDialog}
-				labelledby="editlist-dialog-title"
-				describedby="editlist-dialog-content"
-			>
-				<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-				<div class="editlist-dialog-title-div">
-					<Title id="editlist-dialog-title">Edit List</Title>
-				</div>
-				<Content id="editlist-dialog-content">
-					<div class="editlist-dialog-content-div">
-						<Paper variant="unelevated">
-							<Textfield bind:value={listName} label="Name" />
-						</Paper>
-						<Paper variant="unelevated"
-							><Subtitle>Share with:</Subtitle>
-							<ShareList bind:selected={selectedShareUsers} />
-						</Paper>
+						<Text>{textLookup('account_circle')}</Text>
+					</Item>
+					<Subheader>{getVersion()}</Subheader>
+				</List>
+			</Content>
+		</Drawer>
+
+		<Scrim fixed={false} />
+		<AppContent class="app-content">
+			<div class="backdrop" style:background-image={bgStyle}>
+				<slot />
+				<SgDialog
+					bind:open={itemDetailsOpen}
+					cancelDialog={cancelItemDetailsDialog}
+					labelledby="itemdetails-dialog-title"
+					describedby="itemdetails-dialog-content"
+				>
+					<div class="itemdetails-title-div">
+						<Title id="itemdetails-dialog-title">Edit Task</Title>
 					</div>
-				</Content>
-				<Actions>
-					<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
-					<Button on:click={cancelDialog}>
-						<Label>Cancel</Label>
-					</Button>
-					<Button on:click={closeDialog}>
-						<Label>Done</Label>
-					</Button>
-				</Actions>
-			</SgDialog>
-		</div>
-	</AppContent>
-</div>
+					<Content id="itemdetails-dialog-content">
+						<Paper style="width=100%;">
+							<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
+							<Checkbox bind:checked={useDueDate} />
+							<Textfield
+								type="date"
+								bind:value={dueDateStr}
+								disabled={!useDueDate}
+								label="Task due date"
+							/>
+							<br />
+							<Select
+								key={(x) => x.substr(0, 3)}
+								bind:value={repeatValue}
+								label="Repeat"
+								disabled={!useDueDate}
+								style="padding-left: 2.75em;"
+							>
+								{#each repeatKind as value}
+									<Option {value}>{value}</Option>
+								{/each}
+							</Select>
+							<Textfield
+								bind:value={repeatEvery}
+								label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
+								type="number"
+								input$step="1"
+								disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+								style="width: 6em;"
+							/>
+						</Paper>
+					</Content>
+					<Actions>
+						<Button on:click={cancelItemDetailsDialog}>
+							<Label>Cancel</Label>
+						</Button>
+						<Button on:click={closeItemDetailsDialog}>
+							<Label>Save</Label>
+						</Button>
+					</Actions>
+				</SgDialog>
+				<SgDialog
+					bind:open={dialogOpen}
+					{cancelDialog}
+					labelledby="editlist-dialog-title"
+					describedby="editlist-dialog-content"
+				>
+					<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
+					<div class="editlist-dialog-title-div">
+						<Title id="editlist-dialog-title">Edit List</Title>
+					</div>
+					<Content id="editlist-dialog-content">
+						<div class="editlist-dialog-content-div">
+							<Paper variant="unelevated">
+								<Textfield bind:value={listName} label="Name" />
+							</Paper>
+							<Paper variant="unelevated"
+								><Subtitle>Share with:</Subtitle>
+								<ShareList bind:selected={selectedShareUsers} />
+							</Paper>
+						</div>
+					</Content>
+					<Actions>
+						<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
+						<Button on:click={cancelDialog}>
+							<Label>Cancel</Label>
+						</Button>
+						<Button on:click={closeDialog}>
+							<Label>Done</Label>
+						</Button>
+					</Actions>
+				</SgDialog>
+			</div>
+		</AppContent>
+	</div>
+{/await}
 
 <style>
 	:global(.mdc-top-app-bar) {

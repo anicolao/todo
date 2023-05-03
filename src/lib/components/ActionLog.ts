@@ -7,7 +7,9 @@ import {
 	onSnapshot,
 	orderBy,
 	query,
-	serverTimestamp
+	serverTimestamp,
+	type DocumentChange,
+	type DocumentData
 } from 'firebase/firestore';
 
 /*
@@ -52,15 +54,14 @@ export async function watchAll(type: string) {
 }
 
 */
-export function watch(type: string, id: string) {
+export function watch(type: string, id: string, callback: (s: DocumentChange<DocumentData>[]) => void) {
 	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	return onSnapshot(
 		query(actions, orderBy('timestamp')),
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
-			logTime('calling handleDocChanges');
-			handleDocChanges(querySnapshot.docChanges(), store.getState().auth, true);
+			callback(querySnapshot.docChanges());
 		},
 		(error) => {
 			console.log('actions query failing: ');

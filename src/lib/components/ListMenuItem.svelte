@@ -23,58 +23,6 @@
 		goto('/' + name);
 	};
 
-	let unsub: Unsubscribe | undefined;
-	if (listId) {
-		if (unsub) {
-			unsub();
-			unsub = undefined;
-		}
-
-		const user = $store.auth;
-		if (user.uid) {
-			const id = listId;
-			const name = $store.lists.listIdToList[id];
-			const watchFirebase = async function () {
-				logTime('Create new list for ' + id);
-				const editorDoc = doc(firebase.firestore, 'editors', id, user.uid, 'editor');
-				const alreadySetup = await getDoc(editorDoc);
-				if (!alreadySetup.exists()) {
-					try {
-						await setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), {
-							email: user.email
-						});
-						logTime('Create new actions for ' + id);
-						if (name === undefined) {
-							// this one isn't our own list.-
-							console.log(`No need to create actions for ${id}`);
-						} else {
-							await setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
-								...rename_list({ id, name }),
-								timestamp: 0
-							});
-						}
-					} catch (message) {
-						console.error(message);
-					}
-				}
-				unsub = watch('lists', id);
-			};
-			const currentList = $page.url.searchParams.get('listId') || 'hmph';
-			if (id === currentList) {
-				logTime('Currently viewed list');
-				watchFirebase();
-			} else {
-				window.setTimeout(() => {
-					watchFirebase();
-				}, 100);
-			}
-		}
-	}
-
-	onDestroy(() => {
-		if (unsub) unsub();
-	});
-
 	function gotoList(listId: string) {
 		return () => {
 			const duration = new Date().getTime() - navigationTimeout;
