@@ -169,7 +169,7 @@ export async function load() {
 										if (idIndex >= 0) {
 											initialListsLoading.splice(idIndex, 1);
 										}
-										// logTime('loading initial list data ' + initialListsLoading.length);
+										logTime('loading initial list data ' + initialListsLoading.length);
 										if (initialListsLoading.length === 0) {
 											// initial load complete
 											logTime('initialDatabaseLoadComplete');
