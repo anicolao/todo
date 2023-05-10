@@ -59,14 +59,14 @@ const createFirebaseListActions = async function (id: string, user: AuthState, n
 let authCount = 0;
 
 function loadAuth() {
-	console.log('src/routes/(app)/+layout.ts: loadAuth', authCount++);
+	console.log('src/lib/database.ts: loadAuth', authCount++);
 	const auth = firebase.auth;
-	console.log('src/routes/(app)/+layout.ts: loadAuth set up auth state callback');
+	console.log('src/lib/database.ts: loadAuth set up auth state callback');
 	/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
 		if (user) {
-			console.log('src/routes/(app)/+layout.ts auth callback for user ', { user });
+			console.log('src/lib/database.ts: auth callback for user ', { user });
 			const uid = user.uid;
-			console.log('src/routes/(app)/+layout.ts onAuthStateChanged   sign in ');
+			console.log('src/lib/database.ts: onAuthStateChanged   sign in ');
 			store.dispatch(
 				signed_in({
 					uid: uid,
@@ -91,7 +91,7 @@ function loadAuth() {
 				});
 			}
 		} else {
-			console.log('src/routes/(app)/+layout.ts onAuthStateChanged   sign out ');
+			console.log('src/lib/database.ts: onAuthStateChanged   sign out ');
 			store.dispatch(signed_out());
 		}
 	});
@@ -100,8 +100,8 @@ function loadAuth() {
 
 let loadCount = 0;
 
-export async function load() {
-	console.log('src/routes/(app)/+layout.ts load', loadCount++);
+export function load() {
+	console.log('src/lib/database.ts: load', loadCount++);
 	logTime('Beginning of time');
 	loadAuth();
 	logTime('done loadAuth');
@@ -109,15 +109,15 @@ export async function load() {
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined = undefined;
 	function cleanupSubscriptions() {
-		console.log('src/routes/(app)/+layout.ts CLEANING UP');
+		console.log('src/lib/database.ts: CLEANING UP');
 		if (unsubscribeUsers) {
 			unsubscribeUsers();
-			console.log('src/routes/(app)/+layout.ts UN SUBSCRIBED to users');
+			console.log('src/lib/database.ts: UN SUBSCRIBED to users');
 			unsubscribeUsers = undefined;
 		}
 		if (unsubscribeActions) {
 			unsubscribeActions();
-			console.log('src/routes/(app)/+layout.ts UN SUBSCRIBED to actions');
+			console.log('src/lib/database.ts: UN SUBSCRIBED to actions');
 			unsubscribeActions = undefined;
 		}
 	}
@@ -145,7 +145,7 @@ export async function load() {
 		 * @param user  the authenticated user
 		 */
 		function loadListActionsAtStartup(user: AuthState) {
-			console.log('src/routes/(app)/+layout.t First "requests" snaphot being resolved now.');
+			console.log('src/lib/database.ts: First "requests" snaphot being resolved now.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
 			const listListeners: { [id: string]: Unsubscribe } = {};
@@ -221,7 +221,7 @@ export async function load() {
 		store.subscribe((state: any) => {
 			if (state.auth.signedIn !== lastSignInState) {
 				if (state.auth.signedIn) {
-					console.log('src/routes/(app)/+layout.ts signed in changed to TRUE!');
+					console.log('src/lib/database.ts: signed in changed to TRUE!');
 					if (unsubscribeUsers === undefined) {
 						const user = state.auth;
 						if (user.uid) {
@@ -230,7 +230,7 @@ export async function load() {
 							logTime('Start of "requests"...');
 							const actions = collectionGroup(firebase.firestore, 'requests');
 							const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-							console.log('src/routes/(app)/+layout.ts: Subscribing to actions for you', {
+							console.log('src/lib/database.ts: Subscribing to actions for you', {
 								'prev unsub': unsubscribeActions
 							});
 							let isFirstRequestsSnapshot = true;

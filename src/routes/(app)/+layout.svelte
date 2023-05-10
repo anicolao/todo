@@ -35,6 +35,7 @@
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
+	import { load } from '$lib/database';
 
 	let count = 0;
 	onDestroy(() => {
@@ -44,7 +45,9 @@
 	console.log('routes/(app)/+layout.svelte loaded', {
 		count
 	});
-	onDestroy($page.data.cleanupSubscriptions);
+
+	let pageData: any = load();
+	onDestroy(pageData.cleanupSubscriptions);
 
 	let width = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;
@@ -333,7 +336,7 @@
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
 
-{#await $page.data.loaded.loaded}
+{#await pageData.loaded.loaded}
 	<div><p>Loading...</p></div>
 {:then value}
 	<div class="drawer-container w{width} ">
