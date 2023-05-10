@@ -311,7 +311,7 @@
 	let container: Element | undefined = undefined;
 	$: if (container) {
 		const ro = new ResizeObserver((x) => {
-			logTime("ResizeObserver called")
+			logTime('ResizeObserver called');
 		});
 		ro.observe(container);
 	}

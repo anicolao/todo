@@ -5,12 +5,26 @@ import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
 import { handleDocChanges, logTime, store } from '$lib/store';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, collectionGroup, doc, getDoc, onSnapshot, orderBy, query, setDoc, where, type Unsubscribe } from 'firebase/firestore';
+import {
+	collection,
+	collectionGroup,
+	doc,
+	getDoc,
+	onSnapshot,
+	orderBy,
+	query,
+	setDoc,
+	where,
+	type Unsubscribe
+} from 'firebase/firestore';
 
 const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 	new Promise((resolve) => {
 		console.log('starting promise');
-		setTimeout(() => { console.log('promise finished'); resolve(resolveValue) }, delay);
+		setTimeout(() => {
+			console.log('promise finished');
+			resolve(resolveValue);
+		}, delay);
 	});
 
 const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
@@ -40,7 +54,7 @@ const createFirebaseListActions = async function (id: string, user: AuthState, n
 		}
 		// unsub = watch('lists', id);
 	}
-}
+};
 
 let authCount = 0;
 
@@ -48,7 +62,7 @@ function loadAuth() {
 	console.log('src/routes/(app)/+layout.ts: loadAuth', authCount++);
 	const auth = firebase.auth;
 	console.log('src/routes/(app)/+layout.ts: loadAuth set up auth state callback');
-		/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
+	/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
 		if (user) {
 			console.log('src/routes/(app)/+layout.ts auth callback for user ', { user });
 			const uid = user.uid;
@@ -83,7 +97,6 @@ function loadAuth() {
 	});
 	// onDestroy(unsubAuth);
 }
-
 
 let loadCount = 0;
 
@@ -123,13 +136,12 @@ export async function load() {
 	}
 
 	let actionsPromise = new Promise((resolve) => {
-
 		/**
 		 * Load and replay the actions for all lists, at startup.
-		 * 
+		 *
 		 * When the application starts, get the inital list of lists.
 		 * For each list, load and replay all of its actions.
-		 * 
+		 *
 		 * @param user  the authenticated user
 		 */
 		function loadListActionsAtStartup(user: AuthState) {
@@ -145,7 +157,7 @@ export async function load() {
 					lastVisibleLists = state.lists.visibleLists;
 
 					if (lastVisibleLists) {
-						console.log("newly visible lists length: " + lastVisibleLists.length);
+						console.log('newly visible lists length: ' + lastVisibleLists.length);
 						if (initialListsLoading === undefined) {
 							// our first time; note that we need to load these lists
 							initialListsLoading = lastVisibleLists.slice();
@@ -184,11 +196,13 @@ export async function load() {
 
 					// TODO: state.requests.incomingRequests (below) is processed when we
 					//       notice that state.lists.visibleLists changes.
-					
+
 					// Get actions for lists that are pending shares (to show the list name).
 					state.requests.incomingRequests.forEach((requestId: string) => {
-						if (state.requests.completedRequests.indexOf(requestId) === -1 &&
-							state.requests.requestIdToRequest[requestId].type === 'accept_pending_share') {
+						if (
+							state.requests.completedRequests.indexOf(requestId) === -1 &&
+							state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
+						) {
 							const shareAction = state.requests.requestIdToRequest[requestId];
 							const id = shareAction.payload;
 							if (listListeners[id] === undefined) {
@@ -244,6 +258,6 @@ export async function load() {
 
 	return {
 		loaded: { loaded },
-		cleanupSubscriptions,
-	}
+		cleanupSubscriptions
+	};
 }

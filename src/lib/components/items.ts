@@ -162,7 +162,7 @@ export const items = createReducer(initialState, (r) => {
 		};
 
 		if (state.listIdToListOfItems[action.payload.list_id] !== undefined) {
-			const orig = (state.listIdToListOfItems[action.payload.list_id]);
+			const orig = state.listIdToListOfItems[action.payload.list_id];
 			list = { ...orig } as ListOfItems;
 			list.itemIdToItem = { ...list.itemIdToItem };
 		}
@@ -207,7 +207,7 @@ export const items = createReducer(initialState, (r) => {
 			return state;
 		}
 		item.completed = action.payload.completed;
-		if(item.prevCompletedTimestamp) {
+		if (item.prevCompletedTimestamp) {
 			item.prevCompletedTimestamp = [...item.prevCompletedTimestamp, item.completedTimestamp];
 		} else {
 			item.prevCompletedTimestamp = [item.completedTimestamp];
@@ -285,10 +285,10 @@ export const items = createReducer(initialState, (r) => {
 				item.dueDate = due_date;
 			}
 		} else {
-			if(item.prevDueDate) {
-				item.prevDueDate = [...item.prevDueDate, null]
+			if (item.prevDueDate) {
+				item.prevDueDate = [...item.prevDueDate, null];
 			} else {
-				item.prevDueDate = [null]
+				item.prevDueDate = [null];
 			}
 		}
 		list.itemIdToItem = { ...list.itemIdToItem };
@@ -329,7 +329,10 @@ export const items = createReducer(initialState, (r) => {
 		item.starred = action.payload.starred;
 		item.starTimestamp = Math.max(item.starTimestamp, action.payload?.star_timestamp || 0);
 		if (action.payload.starred) {
-			list.itemIds = [action.payload.id, ...list.itemIds.filter((x: string) => x !== action.payload.id)];
+			list.itemIds = [
+				action.payload.id,
+				...list.itemIds.filter((x: string) => x !== action.payload.id)
+			];
 		}
 		list.itemIdToItem = { ...list.itemIdToItem };
 		list.itemIdToItem[action.payload.id] = item;
@@ -367,7 +370,7 @@ export const items = createReducer(initialState, (r) => {
 	function setDueDate(state: ItemsState, action: AnyAction) {
 		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
-		if(!list || ! list.itemIdToItem) {
+		if (!list || !list.itemIdToItem) {
 			return state;
 		}
 		let item = { ...list.itemIdToItem[action.payload.id] };

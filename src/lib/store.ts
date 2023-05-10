@@ -25,9 +25,7 @@ export function handleDocChanges(
 ) {
 	// console.log('handleDocChanges start', docChanges);
 	const requestShouldBeAutoExecuted = (data: any) =>
-		data.creator === user.uid ||
-		data.type === 'accept_request' ||
-		data.type === 'reject_request';
+		data.creator === user.uid || data.type === 'accept_request' || data.type === 'reject_request';
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
@@ -40,7 +38,9 @@ export function handleDocChanges(
 			}
 		}
 	});
-	logTime('handleDocChanges did ' + docChanges.length + ' action' + (docChanges.length !== 1 ? 's' : ''));
+	logTime(
+		'handleDocChanges did ' + docChanges.length + ' action' + (docChanges.length !== 1 ? 's' : '')
+	);
 }
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {

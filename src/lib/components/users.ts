@@ -30,7 +30,7 @@ function filterPendingShares(uid: string) {
 		(store.getState().requests.requestIdToRequest[requestId].payload ===
 			store.getState().ui.listId ||
 			store.getState().requests.requestIdToRequest[requestId].payload.id ===
-			store.getState().ui.listId);
+				store.getState().ui.listId);
 }
 
 export function sharePending(users: UsersState, email: string) {

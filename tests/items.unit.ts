@@ -29,13 +29,13 @@ describe('items', () => {
 		let state = { listIdToListOfItems: {} };
 		let startTimeMillis = new Date().getTime();
 		const fakeCreate = (state: any, action: any) => {
-			state = {...state};
+			state = { ...state };
 			let list: ListOfItems = {
 				itemIds: [],
 				itemIdToItem: {}
 			};
 			if (state.listIdToListOfItems[action.payload.list_id] !== undefined) {
-				const orig = (state.listIdToListOfItems[action.payload.list_id]);
+				const orig = state.listIdToListOfItems[action.payload.list_id];
 				list = { ...orig } as ListOfItems;
 				list.itemIdToItem = { ...list.itemIdToItem };
 			}
@@ -52,14 +52,12 @@ describe('items', () => {
 				prevDueDate: [],
 				prevCompletedTimestamp: []
 			};
-			state.listIdToListOfItems = {...state.listIdToListOfItems};
+			state.listIdToListOfItems = { ...state.listIdToListOfItems };
 			state.listIdToListOfItems[action.payload.list_id] = list;
 			return freeze(state);
-		}
-		testErrandsActions.forEach(action => {
-				(() =>
-					state = items(state, action)
-				)();
+		};
+		testErrandsActions.forEach((action) => {
+			(() => (state = items(state, action)))();
 		});
 		let endTimeMillis = new Date().getTime();
 		let duration = endTimeMillis - startTimeMillis;
@@ -306,7 +304,7 @@ describe('items', () => {
 			orig: 'Here is a test item for overrlapping and nonoverrrlappnig editing'
 		},
 		strikethrough('Here is a test item for overlapping and nonoverrrlappnig editing') +
-		' Here is a test item for editing'
+			' Here is a test item for editing'
 	);
 
 	it('can complete an item', () => {

@@ -28,32 +28,32 @@ const initialUiState = {
 
 export const ui = createReducer(initialUiState, (r) => {
 	r.addCase(set_current_listid, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.listId = action.payload;
 		return state;
 	});
 	r.addCase(set_current_item, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.itemId = action.payload;
 		return state;
 	});
 	r.addCase(set_title, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.title = action.payload;
 		return state;
 	});
 	r.addCase(set_icon, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.icon = action.payload;
 		return state;
 	});
 	r.addCase(show_edit_dialog, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.showEditDialog = action.payload;
 		return state;
 	});
 	r.addCase(show_item_detail_dialog, (state, action) => {
-		state = {...state};
+		state = { ...state };
 		state.showItemDetailsDialog = action.payload;
 		return state;
 	});
