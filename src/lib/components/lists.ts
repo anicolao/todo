@@ -1,6 +1,6 @@
-import { createAction, createReducer } from '@reduxjs/toolkit';
+import { createReducer } from '$lib/redux';
+import { createAction } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
-import { freeze, original } from 'immer';
 
 export interface ListsState {
 	visibleLists: string[];
@@ -23,32 +23,41 @@ export const lists = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_list, (state, action) => {
+		state = { ...state };
 		if (state.visibleLists.indexOf(action.payload.id) === -1) {
 			state.visibleLists = [...state.visibleLists, action.payload.id];
 		}
+		state.listIdToList = { ...state.listIdToList };
 		state.listIdToList[action.payload.id] = action.payload.name;
 		return state;
 	});
-	r.addCase(rename_list, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(rename_list, (state, action) => {
+		state = { ...state };
 		state.listIdToList = { ...state.listIdToList };
 		state.listIdToList[action.payload.id] = action.payload.name;
-		return freeze(state);
+		return state;
 	});
 	r.addCase(delete_list, (state, action) => {
+		state = { ...state };
 		state.visibleLists = state.visibleLists.filter((x) => x !== action.payload);
+		state.listIdToList = { ...state.listIdToList };
 		delete state.listIdToList[action.payload];
 		return state;
 	});
 	r.addCase(revoke_share, (state, action) => {
+		state = { ...state };
 		state.visibleLists = state.visibleLists.filter((x) => x !== action.payload.id);
+		state.listIdToList = { ...state.listIdToList };
 		delete state.listIdToList[action.payload.id];
 		return state;
 	});
 	r.addCase(accept_pending_share, (state, action) => {
+		state = { ...state };
 		state.visibleLists = [action.payload, ...state.visibleLists];
+		return state;
 	});
 	r.addCase(reorder_list, (state, action) => {
+		state = { ...state };
 		const lists = [...state.visibleLists];
 		const index = lists.indexOf(action.payload.id);
 		if (index !== -1) {
@@ -63,5 +72,6 @@ export const lists = createReducer(initialState, (r) => {
 		} else {
 			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
 		}
+		return state;
 	});
 });

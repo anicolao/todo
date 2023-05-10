@@ -1,6 +1,7 @@
-import { createAction, createReducer } from '@reduxjs/toolkit';
 import { signed_in, signed_out, type AuthState } from '$lib/components/auth';
+import { createReducer } from '$lib/redux';
 import { store } from '$lib/store';
+import { createAction } from '@reduxjs/toolkit';
 
 export interface UsersState {
 	users: AuthState[];
@@ -29,7 +30,7 @@ function filterPendingShares(uid: string) {
 		(store.getState().requests.requestIdToRequest[requestId].payload ===
 			store.getState().ui.listId ||
 			store.getState().requests.requestIdToRequest[requestId].payload.id ===
-				store.getState().ui.listId);
+			store.getState().ui.listId);
 }
 
 export function sharePending(users: UsersState, email: string) {
@@ -66,7 +67,8 @@ export const users = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(add_user, (state, action) => {
-		state.users.push(action.payload);
+		state = { ...state };
+		state.users = [...state.users, action.payload];
 		return state;
 	});
 });

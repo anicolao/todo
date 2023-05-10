@@ -87,6 +87,7 @@ const reducer = {
 const reduxStore = configureStore({
 	reducer,
 	enhancers: [svelteStoreEnhancer],
+	middleware: [],
 	devTools: { maxAge: 100000 }
 });
 export type ReduxStore = typeof reduxStore;

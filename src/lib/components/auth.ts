@@ -1,4 +1,6 @@
-import { createAction, createReducer } from '@reduxjs/toolkit';
+import { createReducer } from '$lib/redux';
+import { createAction } from '@reduxjs/toolkit';
+
 export interface AuthState {
 	uid?: string | null;
 	name?: string | null;
@@ -26,17 +28,17 @@ const initialAuthState = {
 export const auth = createReducer(initialAuthState, (r) => {
 	r.addCase(waiting, (state, action) => {
 		return { authMessage: 'Waiting...', signedIn: false };
-	})
-		.addCase(unknown, (state, action) => {
-			return { authMessage: 'Unknown sign in state', signedIn: false };
-		})
-		.addCase(error, (state, action) => {
-			return { authMessage: action.payload, signedIn: false };
-		})
-		.addCase(signed_in, (state, action) => {
-			return { ...state, ...action.payload, signedIn: true };
-		})
-		.addCase(signed_out, (state, action) => {
-			return { authMessage: 'Signed out.', signedIn: false };
-		});
+	});
+	r.addCase(unknown, (state, action) => {
+		return { authMessage: 'Unknown sign in state', signedIn: false };
+	});
+	r.addCase(error, (state, action) => {
+		return { authMessage: action.payload, signedIn: false };
+	});
+	r.addCase(signed_in, (state, action) => {
+		return { ...state, ...action.payload, signedIn: true };
+	});
+	r.addCase(signed_out, (state, action) => {
+		return { authMessage: 'Signed out.', signedIn: false };
+	});
 });
