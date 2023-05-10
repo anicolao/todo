@@ -207,7 +207,11 @@ export const items = createReducer(initialState, (r) => {
 			return state;
 		}
 		item.completed = action.payload.completed;
-		item.prevCompletedTimestamp = [...item.prevCompletedTimestamp, item.completedTimestamp];
+		if(item.prevCompletedTimestamp) {
+			item.prevCompletedTimestamp = [...item.prevCompletedTimestamp, item.completedTimestamp];
+		} else {
+			item.prevCompletedTimestamp = [item.completedTimestamp];
+		}
 		item.completedTimestamp = Math.max(
 			item.completedTimestamp,
 			action.payload?.completed_time || 0
@@ -281,7 +285,11 @@ export const items = createReducer(initialState, (r) => {
 				item.dueDate = due_date;
 			}
 		} else {
-			item.prevDueDate = [...item.prevDueDate, null]
+			if(item.prevDueDate) {
+				item.prevDueDate = [...item.prevDueDate, null]
+			} else {
+				item.prevDueDate = [null]
+			}
 		}
 		list.itemIdToItem = { ...list.itemIdToItem };
 		list.itemIdToItem[action.payload.id] = item;
@@ -359,6 +367,9 @@ export const items = createReducer(initialState, (r) => {
 	function setDueDate(state: ItemsState, action: AnyAction) {
 		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		if(!list || ! list.itemIdToItem) {
+			return state;
+		}
 		let item = { ...list.itemIdToItem[action.payload.id] };
 		item.dueDate = { ...action.payload.due_date };
 		list.itemIdToItem = { ...list.itemIdToItem };
