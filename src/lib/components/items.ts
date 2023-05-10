@@ -1,7 +1,6 @@
-import { createAction, createReducer, type ActionReducerMapBuilder, type CaseReducer, type Action, type AnyAction } from '@reduxjs/toolkit';
+import { createReducer } from '$lib/redux';
+import { createAction, type AnyAction } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
-import { freeze as immerFreeze, original as immerOriginal, isDraft } from 'immer';
-import { createReducer as ourCreateReducer } from '$lib/redux';
 
 export interface TodoItem {
 	completed: boolean;
@@ -133,7 +132,6 @@ function merge({ orig, first, second }: { orig: string; first: string; second: s
 
 	if (suffixF < prefixS) {
 		//non overlapping and F is before S
-		console.log('calling ourselves with', orig, '1:', first, '2:', second);
 		return merge({ first: second, second: first, orig });
 	} else if (suffixS < prefixF) {
 		//non overlapping and S is before F
@@ -153,19 +151,7 @@ export const initialState = {
 	listIdToListOfItems: {}
 } as ItemsState;
 
-function original(state: any) {
-	if (isDraft(state)) {
-		return immerOriginal(state);
-	}
-	return state;
-}
-
-function freeze(state: any) {
-	return state;
-	// return immerFreeze(state);
-}
-
-export const items = ourCreateReducer(initialState, (r) => {
+export const items = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_item, (state, action) => {
@@ -195,10 +181,10 @@ export const items = ourCreateReducer(initialState, (r) => {
 		};
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = list;
-		return freeze(state);
+		return state;
 	});
-	r.addCase(describe_item, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(describe_item, (state, action) => {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 
@@ -211,10 +197,10 @@ export const items = ourCreateReducer(initialState, (r) => {
 
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
-	r.addCase(complete_item, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(complete_item, (state, action) => {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 		if (item.completedTimestamp >= action.payload.completed_time) {
@@ -301,10 +287,10 @@ export const items = ourCreateReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
-	r.addCase(uncomplete_item, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(uncomplete_item, (state, action) => {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 
@@ -326,10 +312,10 @@ export const items = ourCreateReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
-	r.addCase(star_item, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(star_item, (state, action) => {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 		item.starred = action.payload.starred;
@@ -341,12 +327,11 @@ export const items = ourCreateReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
 
-	r.addCase(reorder_item, (immerState, action) => {
-		const state: any = { ...original(immerState) };
-		console.log('ITEMS REDUCER: skipping reorder_item');
+	r.addCase(reorder_item, (state, action) => {
+		state = { ...state };
 		const list = { ...emptyList, ...state.listIdToListOfItems[action.payload.list_id] };
 		const index = list.itemIds.indexOf(action.payload.id);
 		if (index !== -1) {
@@ -368,11 +353,11 @@ export const items = ourCreateReducer(initialState, (r) => {
 		}
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
 
-	function setDueDate(immerState: ItemsState, action: AnyAction) {
-		const state: any = { ...original(immerState) };
+	function setDueDate(state: ItemsState, action: AnyAction) {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 		item.dueDate = { ...action.payload.due_date };
@@ -380,13 +365,13 @@ export const items = ourCreateReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	}
 
 	r.addCase(set_due_date, setDueDate);
 
-	r.addCase(remove_due_date, (immerState, action) => {
-		const state: any = { ...original(immerState) };
+	r.addCase(remove_due_date, (state, action) => {
+		state = { ...state };
 		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
 		let item = { ...list.itemIdToItem[action.payload.id] };
 		delete item.dueDate;
@@ -394,6 +379,6 @@ export const items = ourCreateReducer(initialState, (r) => {
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
-		return freeze(state);
+		return state;
 	});
 });
