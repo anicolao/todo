@@ -146,14 +146,14 @@
 
 	let previousDialogItem: TodoItem | undefined = undefined;
 
-	$: if ($store.ui.itemId) {
-		const listOfItems = $store.items.listIdToListOfItems[$store.ui.listId];
-		const item = listOfItems?.itemIdToItem[$store.ui.itemId];
+	function updateDetailsDialog(listId: string, itemId: string) {
+		const listOfItems = $store.items.listIdToListOfItems[listId];
+		const item = listOfItems?.itemIdToItem[itemId];
 		// Compare objects with deep equals (using Redux state) to detect a change
 		// in any editable property.
-		if (item !== previousDialogItem) {
+		if (item && item !== previousDialogItem) {
 			previousDialogItem = item;
-			// console.log({ 'updating details dialog': $store.ui.itemId });
+			// console.log('updating details dialog list ' + listId + ' item ' + itemId);
 			itemDescription = item.description;
 			useDueDate = !!item.dueDate;
 			dueDate = item.dueDate
@@ -186,6 +186,8 @@
 			// console.log({ repeatValue, repeatKind, kinds: repeatKind.toString() });
 		}
 	}
+
+	$: updateDetailsDialog($store.ui.listId, $store.ui.itemId);
 
 	$: dialogOpen = $store.ui.showEditDialog;
 	$: listName = '';
