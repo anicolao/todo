@@ -72,6 +72,7 @@
 		"@capacitor/core": "^4.7.0",
 		"@capacitor/ios": "^4.7.0",
 		"@reduxjs/toolkit": "^1.8.5",
-		"firebase": "^9.9.3"
+		"firebase": "^9.9.3",
+		"idb": "^7.1.1"
 	}
 }

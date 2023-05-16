@@ -395,4 +395,10 @@ export const items = createReducer(initialState, (r) => {
 		state.listIdToListOfItems[action.payload.list_id] = { ...list };
 		return state;
 	});
+	r.addDefault((state, action) => {
+		if (action.type === "CACHE_LOADED@INIT") {
+			return action.payload.items;
+		}
+		return state;
+	});
 });

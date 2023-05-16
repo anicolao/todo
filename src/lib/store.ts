@@ -8,6 +8,8 @@ import type { Writable } from 'svelte/store';
 import { items } from './components/items';
 import { incoming_request, requests } from './components/requests';
 import { ui } from './components/ui';
+import { cache } from './components/cache';
+import { openDB } from 'idb';
 
 const startTime = new Date().getTime();
 let lastTime = startTime;
@@ -82,6 +84,7 @@ const reducer = {
 	lists,
 	items,
 	requests,
+	cache,
 	users
 };
 const reduxStore = configureStore({
@@ -95,6 +98,29 @@ export type GlobalState = ReturnType<typeof reduxStore.getState>;
 export type SvelteStore = Writable<GlobalState>;
 
 let rebasedLocalActions: AnyAction[] = [];
+const CACHE_INTERVAL = 5000;
+let cachePending = false;
+function cacheState(stateToCache: ReduxStore, timestamp: number) {
+	cachePending = true;
+	return async () => {
+		const currentTime = stateToCache.getState().cache.timestamp;
+		if (currentTime !== timestamp) {
+			window.setTimeout(cacheState(stateToCache, currentTime), CACHE_INTERVAL);
+			return;
+		}
+		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`)
+		const db = await openDB("TODOS", 1, {
+			upgrade(db) {
+				const store = db.createObjectStore("state");
+			}
+		});
+		const me = stateToCache.getState().user.email;
+		if (me) {
+			await db.put("state", stateToCache.getState(), me);
+		}
+		cachePending = false;
+	}
+}
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
 const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
@@ -102,8 +128,15 @@ const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
 			// console.log('server side action: ', action);
+			if (action.timestamp.seconds > state.cache.timestamp && !cachePending) {
+				// persist this state. Now we know there is an action after it, there is
+				// no chance of overlap.
+				// assert serverSideStore.getState().cache.timestamp === state.cache.timestamp
+				window.setTimeout(cacheState(serverSideStore, state.cache.timestamp),
+					CACHE_INTERVAL);
+			}
 		} else {
-			// console.log('UI action: ', action);
+			// console.log('UI or Cache action: ', action);
 		}
 		const timestamp = action.timestamp ? action.timestamp.seconds : 0;
 		delete action.timestamp;

@@ -17,6 +17,7 @@ import {
 	where,
 	type Unsubscribe
 } from 'firebase/firestore';
+import { openDB } from 'idb';
 
 const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 	new Promise((resolve) => {
@@ -98,6 +99,23 @@ function loadAuth() {
 	// onDestroy(unsubAuth);
 }
 
+async function loadCachedState(user: AuthState) {
+	const db = await openDB("TODOS", 1, {
+		upgrade(db) {
+			const store = db.createObjectStore("state");
+		}
+	});
+	if (user.email) {
+		const cachedState = await db.get("state", user.email);
+		if (cachedState) {
+			console.log("Read cached state for " + cachedState.cache.timestamp);
+			const newState = { ...cachedState };
+			newState.users = store.getState().users;
+			store.dispatch({ type: "CACHE_LOADED@INIT", payload: newState });
+		}
+	}
+}
+
 let loadCount = 0;
 
 export function load() {
@@ -136,6 +154,7 @@ export function load() {
 	}
 
 	let actionsPromise = new Promise((resolve) => {
+		let isResolved = false;
 		/**
 		 * Load and replay the actions for all lists, at startup.
 		 *
@@ -163,7 +182,10 @@ export function load() {
 							initialListsLoading = lastVisibleLists.slice();
 							if (initialListsLoading.length === 0) {
 								// We have loaded the lists of lists, and there are 0 lists.
-								resolve(true);
+								if (!isResolved) {
+									isResolved = true;
+									resolve(true);
+								}
 								initialListsLoading = null;
 							}
 						}
@@ -186,7 +208,10 @@ export function load() {
 											// initial load complete
 											logTime('initialDatabaseLoadComplete');
 											initialListsLoading = null;
-											resolve(true);
+											if (!isResolved) {
+												isResolved = true;
+												resolve(true);
+											}
 										}
 									}
 								});
@@ -218,7 +243,7 @@ export function load() {
 
 		let lastSignInState: any = undefined;
 
-		store.subscribe((state: any) => {
+		store.subscribe(async (state: any) => {
 			if (state.auth.signedIn !== lastSignInState) {
 				if (state.auth.signedIn) {
 					console.log('src/lib/database.ts: signed in changed to TRUE!');
@@ -226,6 +251,15 @@ export function load() {
 						const user = state.auth;
 						if (user.uid) {
 							subscribeToUsersCollection();
+							logTime(`uid ready ${store.getState().auth.uid} for ${store.getState().auth.email}`);
+							await loadCachedState(store.getState().auth);
+							logTime(`timestamp after ${store.getState()?.cache?.timestamp || 0}`)
+							const startTime = store.getState()?.cache?.timestamp || 0;
+							if (!isResolved && startTime > 0) {
+								isResolved = true;
+								resolve(true);
+							}
+
 
 							logTime('Start of "requests"...');
 							const actions = collectionGroup(firebase.firestore, 'requests');
@@ -235,10 +269,14 @@ export function load() {
 							});
 							let isFirstRequestsSnapshot = true;
 							unsubscribeActions = onSnapshot(q, (querySnapshot) => {
+								let changes = querySnapshot.docChanges();
 								if (isFirstRequestsSnapshot) {
 									logTime('First "requests" snaphot.');
+									changes = changes.filter((x: any) => {
+										return x.doc.data().timestamp.seconds > startTime
+									});
 								}
-								handleDocChanges(querySnapshot.docChanges(), user, false);
+								handleDocChanges(changes, user, false);
 								if (isFirstRequestsSnapshot) {
 									loadListActionsAtStartup(user);
 								}

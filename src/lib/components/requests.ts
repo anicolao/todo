@@ -69,4 +69,10 @@ export const requests = createReducer(initialState, (r) => {
 	r.addCase(reject_request, (state, { payload }) => {
 		return ack(state, payload, false);
 	});
+	r.addDefault((state, action) => {
+		if (action.type === "CACHE_LOADED@INIT") {
+			return action.payload.requests;
+		}
+		return state;
+	});
 });
