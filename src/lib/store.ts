@@ -114,7 +114,7 @@ function cacheState(stateToCache: ReduxStore, timestamp: number) {
 				const store = db.createObjectStore('state');
 			}
 		});
-		const me = stateToCache.getState().user.email;
+		const me = stateToCache.getState().auth.email;
 		if (me) {
 			await db.put('state', stateToCache.getState(), me);
 		}
