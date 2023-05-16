@@ -4,6 +4,7 @@ import type { TypedActionCreator } from '@reduxjs/toolkit/dist/mapBuilders';
 export type CaseType<T> = (state: T, action: AnyAction) => T;
 
 export interface ReducerBuilder<T> {
+	addDefault: (reducer: CaseType<T>) => void;
 	addCase: (actionCreator: TypedActionCreator<string>, reducer: CaseType<T>) => void;
 }
 
@@ -11,8 +12,12 @@ export function createReducer<StateType>(
 	initialState: StateType,
 	reducers: (builder: ReducerBuilder<StateType>) => void
 ) {
+	const defaultReducers: CaseType<StateType>[] = [];
 	const reducerMap: { [k: string]: CaseType<StateType> } = {};
 	reducers({
+		addDefault: function (reducer) {
+			defaultReducers.push(reducer);
+		},
 		addCase: function (actionCreator, reducer) {
 			reducerMap[actionCreator.type] = reducer;
 		}
@@ -27,14 +32,16 @@ export function createReducer<StateType>(
 		}
 		return Object.freeze(x);
 	}
-	return (state: StateType | undefined, action: AnyAction): StateType => {
-		if (state === undefined) {
+	return (incomingState: StateType | undefined, action: AnyAction): StateType => {
+		if (incomingState === undefined) {
 			console.log(action.type);
 			return deepFreeze(initialState);
 		}
+		let state: StateType = incomingState;
+		defaultReducers.forEach(r => state = r(state, action));
 		if (reducerMap[action.type]) {
-			return deepFreeze(reducerMap[action.type](state, action));
+			state = reducerMap[action.type](state, action);
 		}
-		return state;
+		return deepFreeze(state);
 	};
 }
