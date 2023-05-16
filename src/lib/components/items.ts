@@ -396,7 +396,7 @@ export const items = createReducer(initialState, (r) => {
 		return state;
 	});
 	r.addDefault((state, action) => {
-		if (action.type === "CACHE_LOADED@INIT") {
+		if (action.type === 'CACHE_LOADED@INIT') {
 			return action.payload.items;
 		}
 		return state;

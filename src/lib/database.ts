@@ -100,18 +100,18 @@ function loadAuth() {
 }
 
 async function loadCachedState(user: AuthState) {
-	const db = await openDB("TODOS", 1, {
+	const db = await openDB('TODOS', 1, {
 		upgrade(db) {
-			const store = db.createObjectStore("state");
+			const store = db.createObjectStore('state');
 		}
 	});
 	if (user.email) {
-		const cachedState = await db.get("state", user.email);
+		const cachedState = await db.get('state', user.email);
 		if (cachedState) {
-			console.log("Read cached state for " + cachedState.cache.timestamp);
+			console.log('Read cached state for ' + cachedState.cache.timestamp);
 			const newState = { ...cachedState };
 			newState.users = store.getState().users;
-			store.dispatch({ type: "CACHE_LOADED@INIT", payload: newState });
+			store.dispatch({ type: 'CACHE_LOADED@INIT', payload: newState });
 		}
 	}
 }
@@ -253,13 +253,12 @@ export function load() {
 							subscribeToUsersCollection();
 							logTime(`uid ready ${store.getState().auth.uid} for ${store.getState().auth.email}`);
 							await loadCachedState(store.getState().auth);
-							logTime(`timestamp after ${store.getState()?.cache?.timestamp || 0}`)
+							logTime(`timestamp after ${store.getState()?.cache?.timestamp || 0}`);
 							const startTime = store.getState()?.cache?.timestamp || 0;
 							if (!isResolved && startTime > 0) {
 								isResolved = true;
 								resolve(true);
 							}
-
 
 							logTime('Start of "requests"...');
 							const actions = collectionGroup(firebase.firestore, 'requests');
@@ -273,7 +272,7 @@ export function load() {
 								if (isFirstRequestsSnapshot) {
 									logTime('First "requests" snaphot.');
 									changes = changes.filter((x: any) => {
-										return x.doc.data().timestamp.seconds > startTime
+										return x.doc.data().timestamp.seconds > startTime;
 									});
 								}
 								handleDocChanges(changes, user, false);

@@ -108,18 +108,18 @@ function cacheState(stateToCache: ReduxStore, timestamp: number) {
 			window.setTimeout(cacheState(stateToCache, currentTime), CACHE_INTERVAL);
 			return;
 		}
-		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`)
-		const db = await openDB("TODOS", 1, {
+		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
+		const db = await openDB('TODOS', 1, {
 			upgrade(db) {
-				const store = db.createObjectStore("state");
+				const store = db.createObjectStore('state');
 			}
 		});
 		const me = stateToCache.getState().user.email;
 		if (me) {
-			await db.put("state", stateToCache.getState(), me);
+			await db.put('state', stateToCache.getState(), me);
 		}
 		cachePending = false;
-	}
+	};
 }
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
@@ -132,8 +132,7 @@ const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
 				// persist this state. Now we know there is an action after it, there is
 				// no chance of overlap.
 				// assert serverSideStore.getState().cache.timestamp === state.cache.timestamp
-				window.setTimeout(cacheState(serverSideStore, state.cache.timestamp),
-					CACHE_INTERVAL);
+				window.setTimeout(cacheState(serverSideStore, state.cache.timestamp), CACHE_INTERVAL);
 			}
 		} else {
 			// console.log('UI or Cache action: ', action);

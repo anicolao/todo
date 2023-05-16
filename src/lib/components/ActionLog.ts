@@ -74,7 +74,7 @@ export function watch(
 		(querySnapshot) => {
 			let changes = querySnapshot.docChanges().filter((x) => {
 				return !x.doc.data().timestamp || x.doc.data().timestamp.seconds > currentTime;
-			})
+			});
 			callback(changes);
 		},
 		(error) => {

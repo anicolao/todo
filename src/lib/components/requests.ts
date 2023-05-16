@@ -70,7 +70,7 @@ export const requests = createReducer(initialState, (r) => {
 		return ack(state, payload, false);
 	});
 	r.addDefault((state, action) => {
-		if (action.type === "CACHE_LOADED@INIT") {
+		if (action.type === 'CACHE_LOADED@INIT') {
 			return action.payload.requests;
 		}
 		return state;

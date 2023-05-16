@@ -38,7 +38,7 @@ export function createReducer<StateType>(
 			return deepFreeze(initialState);
 		}
 		let state: StateType = incomingState;
-		defaultReducers.forEach(r => state = r(state, action));
+		defaultReducers.forEach((r) => (state = r(state, action)));
 		if (reducerMap[action.type]) {
 			state = reducerMap[action.type](state, action);
 		}
