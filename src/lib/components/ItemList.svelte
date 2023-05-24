@@ -1,6 +1,5 @@
 <script lang="ts">
 	console.log('ItemList.svelte');
-	import { Item } from '@smui/list';
 	import { dispatch } from '$lib/components/ActionLog';
 	import { reorder_item, type ListOfItems, type TodoItem } from '$lib/components/items';
 	import { logTime, store } from '$lib/store';
@@ -33,6 +32,7 @@
 	let listIds: string[] = [];
 
 	function updateListIds(listIdMatcher: (listId: string) => boolean) {
+		logTime('Itemlist: updating listIds.');
 		listIds = $store.lists.visibleLists.filter(listIdMatcher);
 		updateItemIds(filter, comparator);
 	}
@@ -375,7 +375,6 @@
 	.item {
 		box-sizing: border-box;
 		width: 100%;
-		min-height: 3em;
 		margin-bottom: 0;
 		user-select: none;
 	}
