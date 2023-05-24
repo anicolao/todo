@@ -123,8 +123,9 @@
 		><span class="repeatInfo"
 			><RepeatingDate on:click={() => console.log('Clicked!')} dueDate={item.dueDate} /></span
 		>{#if showListName}<span class="listName">{listName}</span>{/if}</span
-	><!-- svelte-ignore a11y-click-events-have-key-events --><span on:click={showEditDetailsDialog(listId, item.id)} class="details material-icons"
-		>edit_note</span
+	><!-- svelte-ignore a11y-click-events-have-key-events --><span
+		on:click={showEditDetailsDialog(listId, item.id)}
+		class="details material-icons">edit_note</span
 	><!-- svelte-ignore a11y-click-events-have-key-events -->
 	{#if item.starred}<span
 			class="star material-icons"
