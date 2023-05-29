@@ -218,26 +218,25 @@ export function load() {
 							}
 						});
 					}
-
-					// TODO: state.requests.incomingRequests (below) is processed when we
-					//       notice that state.lists.visibleLists changes.
-
-					// Get actions for lists that are pending shares (to show the list name).
-					state.requests.incomingRequests.forEach((requestId: string) => {
-						if (
-							state.requests.completedRequests.indexOf(requestId) === -1 &&
-							state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
-						) {
-							const shareAction = state.requests.requestIdToRequest[requestId];
-							const id = shareAction.payload;
-							if (listListeners[id] === undefined) {
-								listListeners[id] = watch('lists', id, (snapshot) => {
-									handleDocChanges(snapshot, store.getState().auth, true);
-								});
-							}
-						}
-					});
 				}
+
+				// Get actions for lists that are pending shares (to show the list name).
+				state.requests.incomingRequests.forEach(async (requestId: string) => {
+					if (
+						state.requests.completedRequests.indexOf(requestId) === -1 &&
+						state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
+					) {
+						const shareAction = state.requests.requestIdToRequest[requestId];
+						const id = shareAction.payload;
+						if (listListeners[id] === undefined) {
+							await createFirebaseListActions(id, user);
+							listListeners[id] = watch('lists', id, (snapshot) => {
+								handleDocChanges(snapshot, store.getState().auth, true);
+							});
+						}
+					}
+				});
+
 			});
 		}
 
