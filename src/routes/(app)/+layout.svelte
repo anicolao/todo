@@ -561,7 +561,7 @@
 	}
 
 	* :global(.mdc-text-field__resizer) {
-		height: 17em;
+		height: 10em;
 	}
 
 	.backdrop {
