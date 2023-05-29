@@ -98,7 +98,7 @@ export type GlobalState = ReturnType<typeof reduxStore.getState>;
 export type SvelteStore = Writable<GlobalState>;
 
 let rebasedLocalActions: AnyAction[] = [];
-const CACHE_INTERVAL = 5000;
+const CACHE_INTERVAL = 1000;
 let cachePending = false;
 function cacheState(stateToCache: ReduxStore, timestamp: number) {
 	cachePending = true;

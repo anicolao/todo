@@ -36,6 +36,7 @@
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
 	import { load } from '$lib/database';
+	import { set_current_url } from '$lib/components/UiSettings';
 
 	let count = 0;
 	onDestroy(() => {
@@ -60,6 +61,7 @@
 		console.log('setActive ' + name);
 		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
 		active = name;
+		firebase.dispatch(set_current_url('/' + name));
 		goto('/' + name);
 	}
 
