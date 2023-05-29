@@ -508,6 +508,7 @@
 	.verticalspacer {
 		display: flex;
 		flex: 1;
+		border-bottom: 1px solid #888e;
 	}
 	/* Hide everything above this component. */
 	:global(app),
