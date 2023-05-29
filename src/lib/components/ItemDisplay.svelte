@@ -53,6 +53,11 @@
 
 	function complete(list_id: string, id: string, completed: boolean) {
 		return () => {
+			if (completed) {
+				// play completion sound
+				const sound = new Audio("/completed.mp3");
+				sound.play();
+			}
 			if ($store.auth.uid) {
 				const completed_time = new Date().getTime();
 				dispatch(
