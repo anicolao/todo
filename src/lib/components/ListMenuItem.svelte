@@ -2,16 +2,14 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
-	import { logTime, store } from '$lib/store';
+	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
 	import { Item, Meta, Text } from '@smui/list';
-	import { doc, getDoc, setDoc, type Unsubscribe } from 'firebase/firestore';
-	import { onDestroy } from 'svelte';
-	import { watch } from './ActionLog';
 	import ListIcon from './ListIcon.svelte';
-	import { rename_list } from './lists';
+	import SharedListIcon from './SharedListIcon.svelte';
 	import { accept_request, reject_request } from './requests';
 	import { show_edit_dialog } from './ui';
+	import { getSharedUsers } from './users';
 
 	$: pageListId = $page.url.searchParams.get('listId') || 'hmph';
 
@@ -22,6 +20,17 @@
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
 	};
+
+	let isShared = false;
+	let lastCompletedRequests: any = undefined;
+	function setIsShared(completedRequests: any) {
+		if (completedRequests !== lastCompletedRequests) {
+			isShared = getSharedUsers(listId).length > 0;
+			lastCompletedRequests = completedRequests;
+		}
+	}
+
+	$: setIsShared($store.requests.completedRequests);
 
 	function gotoList(listId: string) {
 		return () => {
@@ -66,7 +75,11 @@
 		{activated}
 		draggable="false"
 	>
-		<ListIcon />
+		{#if isShared}
+			<SharedListIcon />
+		{:else}
+			<ListIcon />
+		{/if}
 		<Text>{$store.lists.listIdToList[listId]}</Text>
 		{#if activated}
 			<Meta

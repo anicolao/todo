@@ -23,14 +23,13 @@ export function emailToUid(state: UsersState, email: string): string {
 function shareType(type: string) {
 	return type === 'accept_pending_share' || type === 'revoke_share';
 }
-function filterPendingShares(uid: string) {
+function filterPendingShares(uid: string, listid?: string) {
+	const listId = listid || store.getState().ui.listId;
 	return (requestId: string) =>
 		store.getState().requests.requestIdToUid[requestId] === uid &&
 		shareType(store.getState().requests.requestIdToRequest[requestId].type) &&
-		(store.getState().requests.requestIdToRequest[requestId].payload ===
-			store.getState().ui.listId ||
-			store.getState().requests.requestIdToRequest[requestId].payload.id ===
-				store.getState().ui.listId);
+		(store.getState().requests.requestIdToRequest[requestId].payload === listId ||
+			store.getState().requests.requestIdToRequest[requestId].payload.id === listId);
 }
 
 export function sharePending(users: UsersState, email: string) {
@@ -41,20 +40,20 @@ export function sharePending(users: UsersState, email: string) {
 	return outgoingRequests.length > 0;
 }
 
-export function getSharedUsers() {
+export function getSharedUsers(listId?: string) {
 	let otherUsers = store
 		.getState()
 		.users.users.filter((u: AuthState) => u.email !== store.getState().auth.email);
 	return otherUsers.filter(
-		(u: AuthState) => u.email && shareAccepted(store.getState().users, u.email)
+		(u: AuthState) => u.email && shareAccepted(store.getState().users, u.email, listId)
 	);
 }
 
-export function shareAccepted(users: UsersState, email: string) {
+export function shareAccepted(users: UsersState, email: string, listId?: string) {
 	const uid = emailToUid(users, email);
 	const completedRequests = store
 		.getState()
-		.requests.completedRequests.filter(filterPendingShares(uid));
+		.requests.completedRequests.filter(filterPendingShares(uid, listId));
 	if (completedRequests.length === 0) return false;
 	const lastRequest = completedRequests[completedRequests.length - 1];
 	const value = store.getState().requests.requestIdToAccepted[lastRequest];
