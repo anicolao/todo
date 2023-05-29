@@ -55,7 +55,7 @@
 		return () => {
 			if (completed) {
 				// play completion sound
-				const sound = new Audio("/completed.mp3");
+				const sound = new Audio('/completed.mp3');
 				sound.play();
 			}
 			if ($store.auth.uid) {

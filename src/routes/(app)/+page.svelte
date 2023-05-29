@@ -4,7 +4,7 @@
 
 	console.log('routes/(app)/+page.svelte');
 	if ($store?.uiSettings?.currentUrl) {
-		goto($store.uiSettings.currentUrl)
+		goto($store.uiSettings.currentUrl);
 	} else {
 		goto('/profile');
 	}
