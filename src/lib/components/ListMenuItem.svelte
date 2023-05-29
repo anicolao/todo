@@ -22,14 +22,18 @@
 	};
 
 	let isShared = false;
+
 	let lastCompletedRequests: any = undefined;
+	let lastUserList: any = undefined;
 	function setIsShared(completedRequests: any) {
-		if (completedRequests !== lastCompletedRequests) {
+		if (completedRequests !== lastCompletedRequests || lastUserList !== $store.users.users) {
 			isShared = getSharedUsers(listId).length > 0;
 			lastCompletedRequests = completedRequests;
+			lastUserList = $store.users.users;
 		}
 	}
 
+	setIsShared($store.requests.completedRequests);
 	$: setIsShared($store.requests.completedRequests);
 
 	function gotoList(listId: string) {
