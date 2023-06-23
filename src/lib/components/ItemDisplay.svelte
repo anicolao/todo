@@ -110,7 +110,7 @@
 	}
 </script>
 
-<div class="container">
+<div class="container {$store.uiSettings.density}">
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	{#if enableUndo}<span class="material-icons" on:click={uncomplete(listId, item.id)}>undo</span
 		>{:else if item.completed}<span
@@ -204,5 +204,24 @@
 		margin: 0;
 		padding: 0;
 		color: #000a;
+	}
+
+	.low > .description {
+		font-size: 100%;
+	}
+	.low > .star {
+		font-size: 150%;
+	}
+	.low > .check {
+		font-size: 150%;
+		margin-right: 0.3em;
+	}
+	.low > .details {
+		font-size: 150%;
+		margin-right: 0.3em;
+	}
+	.low {
+		padding: 0.3em;
+		margin: 0.2em;
 	}
 </style>
