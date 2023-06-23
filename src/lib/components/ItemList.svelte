@@ -6,6 +6,7 @@
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
 	import ItemDisplay from './ItemDisplay.svelte';
+	import { Capacitor } from '@capacitor/core';
 
 	export let listIdMatcher: (listId: string) => boolean = () => true;
 	export let filter: (listId: string, itemId: string) => boolean = () => true;
@@ -226,7 +227,8 @@
 	}
 
 	let target: HTMLElement | null | undefined = null;
-	let touchTimeout = 0;
+	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
+	console.log(`Capicitor isNative: ${Capacitor.isNativePlatform()} on ${Capacitor.getPlatform()}`);
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
