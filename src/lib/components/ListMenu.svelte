@@ -6,6 +6,7 @@
 	import { flip } from 'svelte/animate';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { reorder_list } from './lists';
+	import { Capacitor } from '@capacitor/core';
 
 	/*
 	export let send: (
@@ -129,7 +130,7 @@
 	}
 
 	let target: HTMLElement | null | undefined = null;
-	let touchTimeout = 0;
+	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {

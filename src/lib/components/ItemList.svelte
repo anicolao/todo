@@ -228,7 +228,6 @@
 
 	let target: HTMLElement | null | undefined = null;
 	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
-	console.log(`Capicitor isNative: ${Capacitor.isNativePlatform()} on ${Capacitor.getPlatform()}`);
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
