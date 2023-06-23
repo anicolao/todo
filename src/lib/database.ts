@@ -18,6 +18,7 @@ import {
 	type Unsubscribe
 } from 'firebase/firestore';
 import { openDB } from 'idb';
+import { set_loading_status } from './components/ui';
 
 const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 	new Promise((resolve) => {
@@ -121,6 +122,7 @@ let loadCount = 0;
 export function load() {
 	console.log('src/lib/database.ts: load', loadCount++);
 	logTime('Beginning of time');
+	store.dispatch(set_loading_status({ loadingPercentage: 0, loadingStatus: 'Initializing' }));
 	loadAuth();
 	logTime('done loadAuth');
 
@@ -191,6 +193,10 @@ export function load() {
 						}
 
 						// Get actions for each list.
+						const numberOfLists = initialListsLoading?.length || 1;
+						store.dispatch(
+							set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
+						);
 						lastVisibleLists.forEach(async (id: string) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];
@@ -204,9 +210,24 @@ export function load() {
 											initialListsLoading.splice(idIndex, 1);
 										}
 										logTime('loading initial list data ' + initialListsLoading.length);
+										store.dispatch(
+											set_loading_status({
+												loadingPercentage: Math.floor(
+													((numberOfLists - initialListsLoading.length) / numberOfLists) * 100
+												),
+												loadingStatus: name
+											})
+										);
 										if (initialListsLoading.length === 0) {
 											// initial load complete
 											logTime('initialDatabaseLoadComplete');
+											store.dispatch(
+												set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' })
+											);
+											window.setTimeout(
+												() => store.dispatch(set_loading_status({ loadingStatus: '' })),
+												2000
+											);
 											initialListsLoading = null;
 											if (!isResolved) {
 												isResolved = true;

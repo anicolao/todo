@@ -8,6 +8,8 @@ export interface UiState {
 	icon: string;
 	showEditDialog: boolean;
 	showItemDetailsDialog: boolean;
+	loadingPercentage: number;
+	loadingStatus: string;
 }
 
 export const set_current_listid = createAction<string>('set_current_listid');
@@ -16,6 +18,10 @@ export const set_title = createAction<string>('set_title');
 export const set_icon = createAction<string>('set_icon');
 export const show_edit_dialog = createAction<boolean>('show_edit_dialog');
 export const show_item_detail_dialog = createAction<boolean>('show_item_detail_dialog');
+export const set_loading_status = createAction<{
+	loadingPercentage?: number;
+	loadingStatus?: string;
+}>('set_loading_status');
 
 const initialUiState = {
 	listId: '',
@@ -56,5 +62,8 @@ export const ui = createReducer(initialUiState, (r) => {
 		state = { ...state };
 		state.showItemDetailsDialog = action.payload;
 		return state;
+	});
+	r.addCase(set_loading_status, (state, action) => {
+		return { ...state, ...action.payload };
 	});
 });
