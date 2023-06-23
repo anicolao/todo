@@ -362,7 +362,7 @@
 				</div>
 				<Section align="end" toolbar>
 					{#if $store.ui.loadingStatus}<span
-							style="display: inline-block; margin-right: 1em; text-align: right"
+							style="display: inline-block; margin-right: 1em; text-align: right; font-size: 75%"
 							>{$store.ui.loadingStatus}<br />{$store.ui.loadingPercentage}%</span
 						>{/if}
 					<span><Avatar name={$store.auth.name} photo={$store.auth.photo} /></span>
