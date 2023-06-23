@@ -7,7 +7,8 @@
 		describe_item,
 		star_item,
 		uncomplete_item,
-		type TodoItem
+		type TodoItem,
+		complete_forever
 	} from '$lib/components/items';
 	import { store } from '$lib/store';
 	import { createEventDispatcher } from 'svelte';
@@ -70,6 +71,23 @@
 		};
 	}
 
+	function completeForever(list_id: string, id: string) {
+		return () => {
+			if ($store.auth.uid) {
+				const sound = new Audio('/completed.mp3');
+				sound.play();
+				const completed_time = new Date().getTime();
+				dispatch(
+					'lists',
+					list_id,
+					$store.auth.uid,
+					complete_item({ list_id, id, completed: true, completed_time })
+				);
+				dispatch('lists', list_id, $store.auth.uid, complete_forever({ list_id, id }));
+			}
+		};
+	}
+
 	function uncomplete(list_id: string, id: string) {
 		return () => {
 			if ($store.auth.uid) {
@@ -124,7 +142,10 @@
 		on:keydown={handleEnterKey}
 		on:blur={handleBlur(listId, item)}
 		on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
-	/><span class="itemInfo"
+	/>{#if !item.completed && item.dueDate && item.dueDate.repeats?.type !== 'none'}<!-- svelte-ignore a11y-click-events-have-key-events --><span
+			class="star material-icons"
+			on:click={completeForever(listId, item.id)}>highlight_off</span
+		>{/if}<span class="itemInfo"
 		><span class="repeatInfo"
 			><RepeatingDate on:click={() => console.log('Clicked!')} dueDate={item.dueDate} /></span
 		>{#if showListName}<span class="listName">{listName}</span>{/if}</span

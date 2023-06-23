@@ -74,6 +74,10 @@ export const uncomplete_item = createAction<{
 	list_id: string;
 	id: string;
 }>('uncomplete_item');
+export const complete_forever = createAction<{
+	list_id: string;
+	id: string;
+}>('complete_forever');
 export const star_item = createAction<{
 	list_id: string;
 	id: string;
@@ -233,7 +237,7 @@ export const items = createReducer(initialState, (r) => {
 			}
 			item.prevDueDate = [...item.prevDueDate, prev_due];
 
-			if (item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE) {
+			if (item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE && item.completed) {
 				item.completed = false;
 				let today = new Date(action.payload.completed_time);
 				let nextDate = new Date(y, m - 1, d);
@@ -291,6 +295,18 @@ export const items = createReducer(initialState, (r) => {
 				item.prevDueDate = [null];
 			}
 		}
+		list.itemIdToItem = { ...list.itemIdToItem };
+		list.itemIdToItem[action.payload.id] = item;
+		state.listIdToListOfItems = { ...state.listIdToListOfItems };
+		state.listIdToListOfItems[action.payload.list_id] = { ...list };
+		return state;
+	});
+	r.addCase(complete_forever, (state, action) => {
+		state = { ...state };
+		const list = { ...state.listIdToListOfItems[action.payload.list_id] };
+		let item = { ...list.itemIdToItem[action.payload.id] };
+		item.completed = true;
+
 		list.itemIdToItem = { ...list.itemIdToItem };
 		list.itemIdToItem[action.payload.id] = item;
 		state.listIdToListOfItems = { ...state.listIdToListOfItems };
