@@ -569,6 +569,10 @@
 		height: 10em;
 	}
 
+	* :global(#itemdetails-dialog-content .mdc-deprecated-list-item) {
+		height: 2.25em;
+	}
+
 	.backdrop {
 		display: flex;
 		flex: auto;
