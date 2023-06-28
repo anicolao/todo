@@ -1,5 +1,7 @@
-import * as functions from 'firebase-functions';
-// import * as admin from 'firebase-admin';
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
+
+admin.initializeApp();
 
 // post utility function
 async function post(url: string, data: any): Promise<any> {
@@ -26,9 +28,22 @@ const pushover = async function (user: string, message: string) {
   return post("https://api.pushover.net/1/messages.json", params);
 };
 
-const pushoverAndrew = 'u5f5ze6p5hvv3k6tprm7s5qnuh4csi';
+exports.users = functions.https.onRequest(async (req, res) => {
+  const db = admin.firestore();
+  const users = db.collection("users");
+  const query = await users.get();
+  res.json({ users: query.docChanges() });
+})
+
+exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions/{action}").onCreate(async (change, _context) => {
+  const currentAction = change.data();
+  console.log(JSON.stringify(currentAction));
+  return pushover(pushoverAndrew, currentAction.type);
+})
+
+const pushoverAndrew = "u5f5ze6p5hvv3k6tprm7s5qnuh4csi";
 
 exports.helloWorld = functions.https.onRequest(async (req, res) => {
-  res.json({ hello: 'Hello World!' });
-  return pushover(pushoverAndrew, 'First notification from code');
+  res.json({ hello: "Hello World!" });
+  return pushover(pushoverAndrew, "First notification from code");
 })
