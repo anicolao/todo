@@ -51,11 +51,8 @@ exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions
         console.log(id);
         if (id !== currentAction.creator) {
           console.log("try to notify", id);
-          const emailData = (await db.doc(`editors/${listId}/${id}/editor`).get()).data();
-          const email = emailData?.email;
-          const user = (await db.doc(`users/${email}`).get()).data();
-          console.log("user", user);
-          const pushKey = user?.pushoverKey;
+          const pushKeyDoc = (await db.doc(`notifications/${id}`).get()).data();
+          const pushKey = pushKeyDoc?.pushoverKey;
           if (pushKey) {
             console.log("key", pushKey);
             promises.push(pushover(pushKey, currentAction.type));
@@ -67,9 +64,31 @@ exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions
   return Promise.all(promises);
 })
 
+exports.onTodoListShared = functions.firestore.document("from/{sharingUser}/to/{targetUser}/requests/{action}").onCreate(async (change, _context) => {
+  const promises = [];
+  const currentAction = change.data();
+  console.log(JSON.stringify(currentAction));
+  if (currentAction.type === "accept_pending_share") {
+    const targetUserId = currentAction.target;
+    const sharingUserId = currentAction.creator;
+    const listId = currentAction.payload;
+
+    const db = admin.firestore();
+    const pushKeyDoc = (await db.doc(`notifications/${targetUserId}`).get()).data();
+    const pushKey = pushKeyDoc?.pushoverKey;
+    if (pushKey) {
+      console.log("key", pushKey);
+      promises.push(pushover(pushKey, currentAction.type));
+    }
+  }
+  return Promise.all(promises);
+})
+
+/*
 const pushoverAndrew = "u5f5ze6p5hvv3k6tprm7s5qnuh4csi";
 
 exports.helloWorld = functions.https.onRequest(async (req, res) => {
   res.json({ hello: "Hello World!" });
   return pushover(pushoverAndrew, "Subsuquent notifications from code");
 })
+*/
