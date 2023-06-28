@@ -36,14 +36,40 @@ exports.users = functions.https.onRequest(async (req, res) => {
 })
 
 exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions/{action}").onCreate(async (change, _context) => {
+  const promises = [];
   const currentAction = change.data();
   console.log(JSON.stringify(currentAction));
-  return pushover(pushoverAndrew, currentAction.type);
+  if (currentAction.type === "create_item" || currentAction.type === "complete_item") {
+    // change.ref.parent.parent => "lists/{listId}/actions/{action}"/../.. = listId
+    const listId = change.ref.parent.parent?.id;
+    if (listId) {
+      const db = admin.firestore();
+      const editorsQuery = db.doc(`editors/${listId}`);
+      const editors = await editorsQuery.listCollections();
+      for (const editor of editors) {
+        const id = editor.id;
+        console.log(id);
+        if (id !== currentAction.creator) {
+          console.log("try to notify", id);
+          const emailData = (await db.doc(`editors/${listId}/${id}/editor`).get()).data();
+          const email = emailData?.email;
+          const user = (await db.doc(`users/${email}`).get()).data();
+          console.log("user", user);
+          const pushKey = user?.pushoverKey;
+          if (pushKey) {
+            console.log("key", pushKey);
+            promises.push(pushover(pushKey, currentAction.type));
+          }
+        }
+      }
+    }
+  }
+  return Promise.all(promises);
 })
 
 const pushoverAndrew = "u5f5ze6p5hvv3k6tprm7s5qnuh4csi";
 
 exports.helloWorld = functions.https.onRequest(async (req, res) => {
   res.json({ hello: "Hello World!" });
-  return pushover(pushoverAndrew, "First notification from code");
+  return pushover(pushoverAndrew, "Subsuquent notifications from code");
 })
