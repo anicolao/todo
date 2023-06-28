@@ -191,6 +191,7 @@
 		background: transparent;
 		margin: 0.2em;
 		color: #000b;
+		width: 1em;
 	}
 	.details {
 		font-size: 100%;
