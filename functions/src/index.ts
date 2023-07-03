@@ -39,10 +39,14 @@ exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions
   const promises = [];
   const currentAction = change.data();
   console.log(JSON.stringify(currentAction));
-  if (currentAction.type === "create_item" || currentAction.type === "complete_item") {
-    // change.ref.parent.parent => "lists/{listId}/actions/{action}"/../.. = listId
-    const listId = change.ref.parent.parent?.id;
-    if (listId) {
+  // change.ref.parent.parent => "lists/{listId}/actions/{action}"/../.. = listId
+  const listId = change.ref.parent.parent?.id;
+  if (listId) {
+    const timestamp = currentAction.timestamp._seconds;
+    if(timestamp) {
+      promises.push(updateActivity(listId, timestamp));
+    }
+    if (currentAction.type === "create_item" || currentAction.type === "complete_item") {
       const db = admin.firestore();
       const editorsQuery = db.doc(`editors/${listId}`);
       const editors = await editorsQuery.listCollections();
@@ -63,6 +67,12 @@ exports.onTodoItemChanged = functions.firestore.document("lists/{listId}/actions
   }
   return Promise.all(promises);
 })
+
+
+function updateActivity(listId: string, seconds: number) {
+  const db = admin.firestore();
+  return db.doc(`activity/${listId}`).set({ seconds }).catch((e) => console.log(e));
+}
 
 exports.onTodoListShared = functions.firestore.document("from/{sharingUser}/to/{targetUser}/requests/{action}").onCreate(async (change, _context) => {
   const promises = [];

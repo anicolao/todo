@@ -15,7 +15,8 @@ import {
 	query,
 	setDoc,
 	where,
-	type Unsubscribe
+	type Unsubscribe,
+	getDocs
 } from 'firebase/firestore';
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
@@ -182,6 +183,18 @@ export function load() {
 						if (initialListsLoading === undefined) {
 							// our first time; note that we need to load these lists
 							initialListsLoading = lastVisibleLists.slice();
+
+							/*
+							// Filter initialListsLoading for the lists that have changed since we last loaded.
+							const lastCacheTime = state.cache.timestamp;
+							const activity = collection(firebase.firestore, 'activity');
+							const q = query(activity, where('seconds', '>=', lastCacheTime));
+							const updatedListIds = (await getDocs(q)).docChanges().map(d => d.doc.id);
+
+							initialListsLoading = initialListsLoading.filter(id => updatedListIds.indexOf(id) !== -1);
+							console.log("filtered initialListsLoading", initialListsLoading);
+							*/
+
 							if (initialListsLoading.length === 0) {
 								// We have loaded the lists of lists, and there are 0 lists.
 								if (!isResolved) {
@@ -197,6 +210,14 @@ export function load() {
 						store.dispatch(
 							set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
 						);
+						/*
+						let listsToLoad: string[] = [];
+						if (initialListsLoading?.length) {
+							listsToLoad = listsToLoad.concat(initialListsLoading);
+						}
+						listsToLoad = listsToLoad.concat(lastVisibleLists);
+						listsToLoad.forEach(async (id: string) => {
+						*/
 						lastVisibleLists.forEach(async (id: string) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];
@@ -291,7 +312,7 @@ export function load() {
 								if (isFirstRequestsSnapshot) {
 									logTime('First "requests" snaphot.');
 									changes = changes.filter((x: any) => {
-										return x.doc.data().timestamp.seconds > startTime;
+										return x.doc.data().timestamp?.seconds > startTime;
 									});
 								}
 								handleDocChanges(changes, user, false);
