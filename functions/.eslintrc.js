@@ -19,7 +19,6 @@ module.exports = {
 	ignorePatterns: ['/lib/**/*', '/coverage/**/*', '/tests/**/*'],
 	plugins: ['@typescript-eslint', 'import'],
 	rules: {
-		quotes: ['error', 'double'],
 		'require-jsdoc': 0,
 		'import/no-unresolved': 0,
 		'@typescript-eslint/no-explicit-any': 0,

@@ -86,8 +86,6 @@ exports.onTodoListShared = functions.firestore
 		console.log(JSON.stringify(currentAction));
 		if (currentAction.type === 'accept_pending_share') {
 			const targetUserId = currentAction.target;
-			const sharingUserId = currentAction.creator;
-			const listId = currentAction.payload;
 
 			const db = admin.firestore();
 			const pushKeyDoc = (await db.doc(`notifications/${targetUserId}`).get()).data();
