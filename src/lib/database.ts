@@ -166,12 +166,19 @@ export function load() {
 		 *
 		 * @param user  the authenticated user
 		 */
-		function loadListActionsAtStartup(user: AuthState) {
+		async function loadListActionsAtStartup(user: AuthState) {
 			console.log('src/lib/database.ts: First "requests" snaphot being resolved now.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
 			const listListeners: { [id: string]: Unsubscribe } = {};
 			// TODO: unsubscribe to all listListeners
+
+			const lastCacheTime = store.getState().cache.timestamp;
+			const activity = collection(firebase.firestore, 'activity');
+			const q = query(activity, where('seconds', '>=', lastCacheTime));
+			const docs = await getDocs(q);
+			console.log("query came from local cache?", docs.metadata.fromCache);
+			const updatedListIds = docs.docChanges().map(d => d.doc.id);
 
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: any) => {
@@ -185,16 +192,9 @@ export function load() {
 							// our first time; note that we need to load these lists
 							initialListsLoading = lastVisibleLists.slice();
 
-							/*
 							// Filter initialListsLoading for the lists that have changed since we last loaded.
-							const lastCacheTime = state.cache.timestamp;
-							const activity = collection(firebase.firestore, 'activity');
-							const q = query(activity, where('seconds', '>=', lastCacheTime));
-							const updatedListIds = (await getDocs(q)).docChanges().map(d => d.doc.id);
-
 							initialListsLoading = initialListsLoading.filter(id => updatedListIds.indexOf(id) !== -1);
 							console.log("filtered initialListsLoading", initialListsLoading);
-							*/
 
 							if (initialListsLoading.length === 0) {
 								// We have loaded the lists of lists, and there are 0 lists.
@@ -208,18 +208,15 @@ export function load() {
 
 						// Get actions for each list.
 						const numberOfLists = initialListsLoading?.length || 1;
-						store.dispatch(
-							set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
-						);
-						/*
 						let listsToLoad: string[] = [];
 						if (initialListsLoading?.length) {
+							store.dispatch(
+								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
+							);
 							listsToLoad = listsToLoad.concat(initialListsLoading);
 						}
-						listsToLoad = listsToLoad.concat(lastVisibleLists);
+						listsToLoad = listsToLoad.concat(newlyVisibleLists.filter(id => listsToLoad.indexOf(id) === -1));
 						listsToLoad.forEach(async (id: string) => {
-						*/
-						newlyVisibleLists.forEach(async (id: string) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];
 								await createFirebaseListActions(id, user, name);
