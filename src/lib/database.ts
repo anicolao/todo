@@ -177,24 +177,28 @@ export function load() {
 			const activity = collection(firebase.firestore, 'activity');
 			const q = query(activity, where('seconds', '>=', lastCacheTime));
 			const docs = await getDocs(q);
-			console.log("query came from local cache?", docs.metadata.fromCache);
-			const updatedListIds = docs.docChanges().map(d => d.doc.id);
+			console.log('query came from local cache?', docs.metadata.fromCache);
+			const updatedListIds = docs.docChanges().map((d) => d.doc.id);
 
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: any) => {
 				if (state.lists.visibleLists !== lastVisibleLists) {
-					const newlyVisibleLists = state.lists.visibleLists.filter(id => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1);
+					const newlyVisibleLists = state.lists.visibleLists.filter(
+						(id) => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1
+					);
 					lastVisibleLists = state.lists.visibleLists;
 
 					if (newlyVisibleLists.length > 0) {
-						console.log("newly visible lists length: " + newlyVisibleLists.length);
+						console.log('newly visible lists length: ' + newlyVisibleLists.length);
 						if (initialListsLoading === undefined) {
 							// our first time; note that we need to load these lists
 							initialListsLoading = lastVisibleLists.slice();
 
 							// Filter initialListsLoading for the lists that have changed since we last loaded.
-							initialListsLoading = initialListsLoading.filter(id => updatedListIds.indexOf(id) !== -1);
-							console.log("filtered initialListsLoading", initialListsLoading);
+							initialListsLoading = initialListsLoading.filter(
+								(id) => updatedListIds.indexOf(id) !== -1
+							);
+							console.log('filtered initialListsLoading', initialListsLoading);
 
 							if (initialListsLoading.length === 0) {
 								// We have loaded the lists of lists, and there are 0 lists.
@@ -215,7 +219,9 @@ export function load() {
 							);
 							listsToLoad = listsToLoad.concat(initialListsLoading);
 						}
-						listsToLoad = listsToLoad.concat(newlyVisibleLists.filter(id => listsToLoad.indexOf(id) === -1));
+						listsToLoad = listsToLoad.concat(
+							newlyVisibleLists.filter((id) => listsToLoad.indexOf(id) === -1)
+						);
 						listsToLoad.forEach(async (id: string) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];

@@ -26,7 +26,7 @@
 		} else {
 			let yearFormat: '2-digit' | undefined = '2-digit';
 			const now = new Date();
-			if(date.getFullYear() === now.getFullYear() && repeatType !== RepeatType.YEARLY) {
+			if (date.getFullYear() === now.getFullYear() && repeatType !== RepeatType.YEARLY) {
 				yearFormat = undefined;
 			}
 			dueDateStr = date.toLocaleDateString('en-us', {
@@ -36,8 +36,8 @@
 				day: 'numeric'
 			});
 			// dueDateStr is like: 'Mon, Jan 2, 2023'
-			if(yearFormat) {
-				dueDateStr = dueDateStr.replace(/ ([0-9]+)$/, ' \'$1');
+			if (yearFormat) {
+				dueDateStr = dueDateStr.replace(/ ([0-9]+)$/, " '$1");
 			}
 			switch (repeatType) {
 				case RepeatType.DAILY:
