@@ -176,10 +176,11 @@ export function load() {
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: any) => {
 				if (state.lists.visibleLists !== lastVisibleLists) {
+					const newlyVisibleLists = state.lists.visibleLists.filter(id => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1);
 					lastVisibleLists = state.lists.visibleLists;
 
-					if (lastVisibleLists) {
-						console.log('newly visible lists length: ' + lastVisibleLists.length);
+					if (newlyVisibleLists.length > 0) {
+						console.log("newly visible lists length: " + newlyVisibleLists.length);
 						if (initialListsLoading === undefined) {
 							// our first time; note that we need to load these lists
 							initialListsLoading = lastVisibleLists.slice();
@@ -218,7 +219,7 @@ export function load() {
 						listsToLoad = listsToLoad.concat(lastVisibleLists);
 						listsToLoad.forEach(async (id: string) => {
 						*/
-						lastVisibleLists.forEach(async (id: string) => {
+						newlyVisibleLists.forEach(async (id: string) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];
 								await createFirebaseListActions(id, user, name);
