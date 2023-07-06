@@ -28,20 +28,24 @@ export function handleDocChanges(
 	// console.log('handleDocChanges start', docChanges);
 	const requestShouldBeAutoExecuted = (data: any) =>
 		data.creator === user.uid || data.type === 'accept_request' || data.type === 'reject_request';
+	let count = 0;
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
 			let data = { ...doc.data(), firebase_doc_id: doc.id } as unknown as AnyAction;
 			if (isANormalAction || requestShouldBeAutoExecuted(data)) {
 				store.dispatch(data);
+				++count;
 			} else {
 				delete data.timestamp;
 				store.dispatch(incoming_request({ id: doc.id, uid: data.creator, action: data }));
+				++count;
 			}
 		}
 	});
+	const skipped = count >= docChanges.length ? '' : ' skipped ' + (docChanges.length - count) + ' actions';
 	logTime(
-		'handleDocChanges did ' + docChanges.length + ' action' + (docChanges.length !== 1 ? 's' : '')
+		'...handleDocChanges did ' + count + ' action' + (count !== 1 ? 's' : '') + skipped
 	);
 }
 

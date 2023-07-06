@@ -32,30 +32,35 @@ const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 
 const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
 	if (user.uid) {
-		logTime('Create new list for ' + id);
+		const listDesc = id + (name ? ' ' + name : '');
+		logTime('Firebase: Setting up list ' + listDesc);
 		const editorDoc = doc(firebase.firestore, 'editors', id, user.uid, 'editor');
 		const alreadySetup = await getDoc(editorDoc);
-		logTime('checking alreadySetup');
+		logTime('Firebase: ...done checking alreadySetup ' + listDesc);
 		if (!alreadySetup.exists()) {
 			try {
+				logTime('Firebase: adding user to "editors" ' + listDesc);
 				await setDoc(doc(firebase.firestore, 'editors', id, user.uid, 'editor'), {
 					email: user.email
 				});
-				logTime('Create new actions for ' + id);
+				logTime('Firebase: ...done adding user to "editors" ' + listDesc);
+				logTime('Firebase: Create inital action for ' + listDesc);
 				if (name === undefined) {
 					// this one isn't our own list.-
-					console.log(`No need to create actions for ${id}`);
+					console.log(`Firebase: No need to create initial action for ${id}`);
 				} else {
 					await setDoc(doc(firebase.firestore, 'lists', id, 'actions', 'name'), {
 						...rename_list({ id, name }),
 						timestamp: 0
 					});
+					logTime('Firebase: ...done create initial action for ' + listDesc);
 				}
 			} catch (message) {
 				console.error(message);
 			}
 		}
 		// unsub = watch('lists', id);
+		logTime('Firebase: ...done setting up list ' + listDesc);
 	}
 };
 
@@ -227,14 +232,14 @@ export function load() {
 								const name = state.lists.listIdToList[id];
 								await createFirebaseListActions(id, user, name);
 								listListeners[id] = watch('lists', id, (snapshot) => {
-									logTime('watch: calling handleDocChanges for ' + name);
+									logTime('Calling handleDocChanges for ' + id + ' ' + name);
 									handleDocChanges(snapshot, store.getState().auth, true);
 									if (initialListsLoading) {
 										let idIndex = initialListsLoading.indexOf(id);
 										if (idIndex >= 0) {
 											initialListsLoading.splice(idIndex, 1);
 										}
-										logTime('loading initial list data ' + initialListsLoading.length);
+										logTime('loading initial list data --> ' + initialListsLoading.length);
 										store.dispatch(
 											set_loading_status({
 												loadingPercentage: Math.floor(

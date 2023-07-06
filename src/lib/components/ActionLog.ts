@@ -63,7 +63,7 @@ export function watch(
 	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	const currentTime = store.getState()?.cache?.cacheLoadTime || 0;
-	console.log(`watch ${currentTime}`);
+	console.log(`watch from time ${currentTime} on ${id}`);
 	// TODO: Look at the tradeoff between using where(timestamp) to speed up startup time,
 	// TODO: which also slows down regular usage (especially on older phones).
 	// TODO: and which might even break off-line usage.
