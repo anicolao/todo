@@ -43,10 +43,9 @@ export function handleDocChanges(
 			}
 		}
 	});
-	const skipped = count >= docChanges.length ? '' : ' skipped ' + (docChanges.length - count) + ' actions';
-	logTime(
-		'...handleDocChanges did ' + count + ' action' + (count !== 1 ? 's' : '') + skipped
-	);
+	const skipped =
+		count >= docChanges.length ? '' : ' skipped ' + (docChanges.length - count) + ' actions';
+	logTime('...handleDocChanges did ' + count + ' action' + (count !== 1 ? 's' : '') + skipped);
 }
 
 function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {

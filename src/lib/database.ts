@@ -227,13 +227,13 @@ export function load() {
 						const throttleLoading = async (id: string) => {
 							const searchParams = new URLSearchParams(window.location.search);
 							const currentListId = searchParams.get('listId');
-							if(currentListId !== null && id !== currentListId) {
+							if (currentListId !== null && id !== currentListId) {
 								// Delay loading unfocused lists to improve startup responsiveness.
 								console.log('Delay loading for ' + id);
 								await sleep(50, 0);
 								console.log('Done delay for ' + id);
 							}
-						}
+						};
 
 						// Get actions for each list.
 						const numberOfLists = initialListsLoading?.length || 1;
@@ -247,7 +247,9 @@ export function load() {
 							store.dispatch(
 								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
 							);
-							listsToLoad = listsToLoad.concat(initialListsLoading.filter((id) => id !== currentListId));
+							listsToLoad = listsToLoad.concat(
+								initialListsLoading.filter((id) => id !== currentListId)
+							);
 						}
 						listsToLoad = listsToLoad.concat(
 							newlyVisibleLists.filter((id) => listsToLoad.indexOf(id) === -1)
@@ -300,9 +302,9 @@ export function load() {
 							if (index < lists.length) {
 								// do the work
 								await loadList(lists[index]);
-								loadListsRecursively(lists, index+1);
+								loadListsRecursively(lists, index + 1);
 							}
-						}
+						};
 						loadListsRecursively(listsToLoad, 0);
 					}
 				}
