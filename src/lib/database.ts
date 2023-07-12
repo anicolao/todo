@@ -3,7 +3,7 @@ import { signed_in, signed_out, type AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
-import { handleDocChanges, logTime, store } from '$lib/store';
+import { handleDocChanges, logTime, store, type GlobalState } from '$lib/store';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
 	collection,
@@ -186,12 +186,12 @@ export function load() {
 			const updatedListIds = docs.docChanges().map((d) => d.doc.id);
 
 			// Get notified when state.lists.visibleLists changes.
-			store.subscribe((state: any) => {
+			store.subscribe((state: GlobalState) => {
 				if (state.lists.visibleLists !== lastVisibleLists) {
-					const newlyVisibleLists = state.lists.visibleLists.filter(
-						(id) => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1
+					const newlyVisibleLists: string[] = state.lists.visibleLists.filter(
+						(id: string) => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1
 					);
-					lastVisibleLists = state.lists.visibleLists;
+					lastVisibleLists = state.lists.visibleLists as string[];
 
 					if (newlyVisibleLists.length > 0) {
 						console.log('newly visible lists length: ' + newlyVisibleLists.length);

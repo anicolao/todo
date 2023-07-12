@@ -127,7 +127,7 @@ function cacheState(stateToCache: ReduxStore, timestamp: number) {
 }
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
-const rebasingReducer = (state: ReduxStore, action: AnyAction) => {
+const rebasingReducer = (state: GlobalState, action: AnyAction) => {
 	// console.log('REBASING hook in place!', action);
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
