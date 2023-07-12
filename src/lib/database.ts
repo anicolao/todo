@@ -238,12 +238,12 @@ export function load() {
 						// Get actions for each list.
 						const numberOfLists = initialListsLoading?.length || 1;
 						let listsToLoad: string[] = [];
+						const searchParams = new URLSearchParams(window.location.search);
+						const currentListId = searchParams.get('listId');
+						if (currentListId !== null) {
+							listsToLoad.push(currentListId);
+						}
 						if (initialListsLoading?.length) {
-							const searchParams = new URLSearchParams(window.location.search);
-							const currentListId = searchParams.get('listId');
-							if (currentListId !== null) {
-								listsToLoad.push(currentListId);
-							}
 							store.dispatch(
 								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
 							);
