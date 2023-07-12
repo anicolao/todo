@@ -21,11 +21,13 @@ import {
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
 
+let promiseId = 1000;
 const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 	new Promise((resolve) => {
-		console.log('starting promise');
+		const myId = promiseId++;
+		//console.log(`starting promise ${myId} at ${new Date()}`);
 		setTimeout(() => {
-			console.log('promise finished');
+			//console.log(`promise ${myId} finished at ${new Date()}`);
 			resolve(resolveValue);
 		}, delay);
 	});
@@ -212,6 +214,34 @@ export function load() {
 									resolve(true);
 								}
 								initialListsLoading = null;
+								store.dispatch(
+									set_loading_status({ loadingPercentage: 100, loadingStatus: 'Ready' })
+								);
+								window.setTimeout(
+									() => store.dispatch(set_loading_status({ loadingStatus: '' })),
+									2000
+								);
+							}
+						}
+
+						const throttleLoading = async (id: string, i: number) => {
+							const searchParams = new URLSearchParams(window.location.search);
+							const currentListId = searchParams.get('listId');
+							if(currentListId !== null && id !== currentListId) {
+								// Delay loading unfocused lists to improve startup responsiveness.
+								console.log('Delay loading for ' + id);
+								for (let count = 0; count < i; ++count) {
+									console.log(`sleep #${count} of ${i} for ${id} at ${new Date()}`)
+									await sleep(50, 0);
+									const newParams = new URLSearchParams(window.location.search);
+									const newListId = newParams.get('listId');
+									if (newListId !== currentListId) {
+										console.log(`changed from ${currentListId} to ${newListId}`);
+										if (newListId === null) {
+											break;
+										}
+									}
+								}
 							}
 						}
 
@@ -219,18 +249,26 @@ export function load() {
 						const numberOfLists = initialListsLoading?.length || 1;
 						let listsToLoad: string[] = [];
 						if (initialListsLoading?.length) {
+							const searchParams = new URLSearchParams(window.location.search);
+							const currentListId = searchParams.get('listId');
+							if (currentListId !== null && initialListsLoading.indexOf(currentListId) !== -1) {
+								listsToLoad.push(currentListId);
+							}
 							store.dispatch(
 								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
 							);
-							listsToLoad = listsToLoad.concat(initialListsLoading);
+							listsToLoad = listsToLoad.concat(initialListsLoading.filter((id) => id !== currentListId));
 						}
 						listsToLoad = listsToLoad.concat(
 							newlyVisibleLists.filter((id) => listsToLoad.indexOf(id) === -1)
 						);
-						listsToLoad.forEach(async (id: string) => {
+						listsToLoad.forEach(async (id: string, i: number) => {
 							if (listListeners[id] === undefined) {
 								const name = state.lists.listIdToList[id];
+								await throttleLoading(id, i);
+								console.log('Loading for ' + id);
 								await createFirebaseListActions(id, user, name);
+								await throttleLoading(id, i);
 								listListeners[id] = watch('lists', id, (snapshot) => {
 									logTime('Calling handleDocChanges for ' + id + ' ' + name);
 									handleDocChanges(snapshot, store.getState().auth, true);
