@@ -73,6 +73,9 @@ export function watch(
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
 			let changes = querySnapshot.docChanges().filter((x) => {
+				// Find the rename_list action every time (at timestamp 0), as
+				// well as client-side actions that don't have a timestamp with
+				//   !x.doc.data().timestamp
 				return !x.doc.data().timestamp || x.doc.data().timestamp.seconds > currentTime;
 			});
 			callback(changes);
