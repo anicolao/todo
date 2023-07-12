@@ -241,7 +241,7 @@ export function load() {
 						if (initialListsLoading?.length) {
 							const searchParams = new URLSearchParams(window.location.search);
 							const currentListId = searchParams.get('listId');
-							if (currentListId !== null && initialListsLoading.indexOf(currentListId) !== -1) {
+							if (currentListId !== null) {
 								listsToLoad.push(currentListId);
 							}
 							store.dispatch(
