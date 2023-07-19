@@ -62,7 +62,8 @@ export function watch(
 ) {
 	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
-	const currentTime = store.getState()?.cache?.cacheLoadTime || 0;
+	const state = store.getState();
+	const currentTime = state?.cache?.cacheLoadTime || 0;
 	console.log(`watch from time ${currentTime} on ${id}`);
 	// TODO: Look at the tradeoff between using where(timestamp) to speed up startup time,
 	// TODO: which also slows down regular usage (especially on older phones).
@@ -78,6 +79,16 @@ export function watch(
 				//   !x.doc.data().timestamp
 				return !x.doc.data().timestamp || x.doc.data().timestamp.seconds > currentTime;
 			});
+			if (changes.length > 0 && changes[0].doc.data().timestamp === 0 && state) {
+				// this is the special rename list action
+				const action = changes[0].doc.data();
+				if (state.lists.listIdToList[action.payload.id] !== undefined) {
+					// Don't replay the special rename_list action at timestamp 0 every
+					// time if we already have a name from cache.  This preserves future
+					// renames, although we do the 0-timestamp rename every time.
+					changes = changes.slice(1);
+				}
+			}
 			callback(changes);
 		},
 		(error) => {
