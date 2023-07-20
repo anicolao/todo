@@ -5,6 +5,7 @@ import { signed_in, signed_out } from './auth';
 export interface ListsState {
 	visibleLists: string[];
 	listIdToList: { [key: string]: string };
+	listIdToTimestamp: { [key: string]: number };
 }
 
 export const create_list = createAction<{ id: string; name: string }>('create_list');
@@ -16,7 +17,8 @@ export const reorder_list = createAction<{ id: string; goes_before?: string }>('
 
 export const initialState = {
 	visibleLists: [],
-	listIdToList: {}
+	listIdToList: {},
+	listIdToTimestamp: {} 
 } as ListsState;
 
 export const lists = createReducer(initialState, (r) => {
@@ -71,6 +73,19 @@ export const lists = createReducer(initialState, (r) => {
 			state.visibleLists = [lists.slice(0, newIndex), removedItem[0], lists.slice(newIndex)].flat();
 		} else {
 			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
+		}
+		return state;
+	});
+	r.addDefault((state, action) => {
+		if (action.timestamp) {
+			// action came from server
+			const candidateId = action.payload.list_id || action.payload.id || action.payload;
+			if (state.visibleLists.indexOf(candidateId) !== -1) {
+				console.log(`Update timestamp for list ${candidateId}`);
+				state = { ...state };
+				state.listIdToTimestamp = { ...state.listIdToTimestamp };
+				state.listIdToTimestamp[candidateId] = action.timestamp;
+			}
 		}
 		return state;
 	});

@@ -174,13 +174,21 @@ export function load() {
 		 * @param user  the authenticated user
 		 */
 		async function loadListActionsAtStartup(user: AuthState) {
-			console.log('src/lib/database.ts: First "requests" snaphot being resolved now.');
+			console.log('src/lib/database.ts: First "requests" snapshot being resolved now.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
 			const listListeners: { [id: string]: Unsubscribe } = {};
 			// TODO: unsubscribe to all listListeners
 
-			const lastCacheTime = store.getState().cache.timestamp;
+			let lastCacheTime = Infinity;
+			const existingState = store.getState();
+			for (const listId in existingState.lists.listIdToTimestamp) {
+				lastCacheTime = Math.min(lastCacheTime, existingState.lists.listIdToTimestamp[listId]);
+			}
+			if (lastCacheTime === Infinity) {
+				lastCacheTime = -1;
+			}
+
 			const activity = collection(firebase.firestore, 'activity');
 			const q = query(activity, where('seconds', '>=', lastCacheTime));
 			const docs = await getDocs(q);
@@ -357,7 +365,7 @@ export function load() {
 							unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 								let changes = querySnapshot.docChanges();
 								if (isFirstRequestsSnapshot) {
-									logTime('First "requests" snaphot.');
+									logTime('First "requests" snapshot.');
 									changes = changes.filter((x: any) => {
 										return x.doc.data().timestamp?.seconds > startTime;
 									});

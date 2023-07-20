@@ -14,8 +14,9 @@ export const initialCacheState = {
 
 export const cache = createReducer(initialCacheState, (r) => {
 	r.addDefault((state, action) => {
-		if (action.timestamp) {
-			// action came from server
+		if (action.timestamp && action.isANormalAction === false) {
+			// action came from server, and is a "request" action,
+			// not a "lists" action
 			state = { ...state };
 			state.timestamp = action.timestamp;
 		}

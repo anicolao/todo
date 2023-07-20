@@ -32,7 +32,7 @@ export function handleDocChanges(
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
-			let data = { ...doc.data(), firebase_doc_id: doc.id } as unknown as AnyAction;
+			let data = { ...doc.data(), firebase_doc_id: doc.id, isANormalAction } as unknown as AnyAction;
 			if (isANormalAction || requestShouldBeAutoExecuted(data)) {
 				store.dispatch(data);
 				++count;
@@ -102,24 +102,21 @@ export type SvelteStore = Writable<GlobalState>;
 
 let rebasedLocalActions: AnyAction[] = [];
 const CACHE_INTERVAL = 1000;
+let timestampOfPendingCache = 0;
 let cachePending = false;
-function cacheState(stateToCache: ReduxStore, timestamp: number) {
+function cacheState(stateToCache: GlobalState, timestamp: number) {
+	timestampOfPendingCache = timestamp;
 	cachePending = true;
 	return async () => {
-		const currentTime = stateToCache.getState().cache.timestamp;
-		if (currentTime !== timestamp) {
-			window.setTimeout(cacheState(stateToCache, currentTime), CACHE_INTERVAL);
-			return;
-		}
 		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
 		const db = await openDB('TODOS', 1, {
 			upgrade(db) {
 				const store = db.createObjectStore('state');
 			}
 		});
-		const me = stateToCache.getState().auth.email;
+		const me = stateToCache.auth.email;
 		if (me) {
-			await db.put('state', stateToCache.getState(), me);
+			await db.put('state', stateToCache, me);
 		}
 		cachePending = false;
 	};
@@ -131,11 +128,11 @@ const rebasingReducer = (state: GlobalState, action: AnyAction) => {
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
 			// console.log('server side action: ', action);
-			if (action.timestamp.seconds > state.cache.timestamp && !cachePending) {
-				// persist this state. Now we know there is an action after it, there is
-				// no chance of overlap.
+			if (action.timestamp.seconds > timestampOfPendingCache && !cachePending) {
+				// persist this prior state. Now we know there is an action after it,
+				// there is no chance of overlap.
 				// assert serverSideStore.getState().cache.timestamp === state.cache.timestamp
-				window.setTimeout(cacheState(serverSideStore, state.cache.timestamp), CACHE_INTERVAL);
+				window.setTimeout(cacheState(serverSideStore.getState(), action.timestamp.seconds), CACHE_INTERVAL);
 			}
 		} else {
 			// console.log('UI or Cache action: ', action);

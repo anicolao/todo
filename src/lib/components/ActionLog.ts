@@ -1,5 +1,5 @@
 import firebase from '$lib/firebase';
-import { handleDocChanges, logTime, store } from '$lib/store';
+import { store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
@@ -9,8 +9,7 @@ import {
 	query,
 	serverTimestamp,
 	type DocumentChange,
-	type DocumentData,
-	Timestamp
+	type DocumentData
 } from 'firebase/firestore';
 
 /*
@@ -63,7 +62,13 @@ export function watch(
 	// console.log({watch: type, id});
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	const state = store.getState();
-	const currentTime = state?.cache?.cacheLoadTime || 0;
+	let currentTime = 0;
+	if (type === 'lists') {
+		const t = state.lists.listIdToTimestamp[id];
+		if (t > 0) {
+			currentTime = t;
+		}
+	}
 	console.log(`watch from time ${currentTime} on ${id}`);
 	// TODO: Look at the tradeoff between using where(timestamp) to speed up startup time,
 	// TODO: which also slows down regular usage (especially on older phones).
