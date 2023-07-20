@@ -18,7 +18,7 @@ export const reorder_list = createAction<{ id: string; goes_before?: string }>('
 export const initialState = {
 	visibleLists: [],
 	listIdToList: {},
-	listIdToTimestamp: {} 
+	listIdToTimestamp: {}
 } as ListsState;
 
 export const lists = createReducer(initialState, (r) => {

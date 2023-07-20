@@ -32,7 +32,11 @@ export function handleDocChanges(
 	docChanges.forEach((change) => {
 		if (change.type === 'added' || (change.type === 'modified' && change.doc)) {
 			let doc = change.doc;
-			let data = { ...doc.data(), firebase_doc_id: doc.id, isANormalAction } as unknown as AnyAction;
+			let data = {
+				...doc.data(),
+				firebase_doc_id: doc.id,
+				isANormalAction
+			} as unknown as AnyAction;
 			if (isANormalAction || requestShouldBeAutoExecuted(data)) {
 				store.dispatch(data);
 				++count;
@@ -132,7 +136,10 @@ const rebasingReducer = (state: GlobalState, action: AnyAction) => {
 				// persist this prior state. Now we know there is an action after it,
 				// there is no chance of overlap.
 				// assert serverSideStore.getState().cache.timestamp === state.cache.timestamp
-				window.setTimeout(cacheState(serverSideStore.getState(), action.timestamp.seconds), CACHE_INTERVAL);
+				window.setTimeout(
+					cacheState(serverSideStore.getState(), action.timestamp.seconds),
+					CACHE_INTERVAL
+				);
 			}
 		} else {
 			// console.log('UI or Cache action: ', action);
