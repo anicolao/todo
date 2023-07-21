@@ -177,7 +177,7 @@ export function load() {
 			console.log('src/lib/database.ts: First "requests" snapshot being resolved now.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
-			const listListeners: { [id: string]: Unsubscribe } = {};
+			const listListeners: { [id: string]: Unsubscribe | null } = {};
 			// TODO: unsubscribe to all listListeners
 
 			let lastCacheTime = Infinity;
@@ -264,6 +264,7 @@ export function load() {
 						);
 						const loadList = async (id: string) => {
 							if (listListeners[id] === undefined) {
+								listListeners[id] = null;
 								const name = state.lists.listIdToList[id];
 								await throttleLoading(id);
 								console.log('Loading for ' + id);
@@ -326,6 +327,7 @@ export function load() {
 						const shareAction = state.requests.requestIdToRequest[requestId];
 						const id = shareAction.payload;
 						if (listListeners[id] === undefined) {
+							listListeners[id] = null;
 							await createFirebaseListActions(id, user);
 							listListeners[id] = watch('lists', id, (snapshot) => {
 								handleDocChanges(snapshot, store.getState().auth, true);
