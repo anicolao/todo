@@ -63,7 +63,7 @@ export function watch(
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	const state = store.getState();
 	let currentTime = 0;
-	if (type === 'lists') {
+	if (type === 'lists' && state.lists.listIdToTimestamp) {
 		const t = state.lists.listIdToTimestamp[id];
 		if (t > 0) {
 			currentTime = t;
