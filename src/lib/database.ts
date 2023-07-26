@@ -329,7 +329,9 @@ export function load() {
 							unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 								let changes = querySnapshot.docChanges();
 								if (isFirstRequestsSnapshot) {
-									logTime(`Filtering ${changes.length} global requests on first call from time ${startTime}`);
+									logTime(
+										`Filtering ${changes.length} global requests on first call from time ${startTime}`
+									);
 									changes = changes.filter((x: any) => {
 										return x.doc.data().timestamp?.seconds > startTime;
 									});
