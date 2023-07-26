@@ -72,7 +72,7 @@ function loadAuth() {
 	console.log('src/lib/database.ts: loadAuth', authCount++);
 	const auth = firebase.auth;
 	console.log('src/lib/database.ts: loadAuth set up auth state callback');
-	/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
+	return onAuthStateChanged(auth, (user) => {
 		if (user) {
 			console.log('src/lib/database.ts: auth callback for user ', { user });
 			const uid = user.uid;
@@ -105,7 +105,6 @@ function loadAuth() {
 			store.dispatch(signed_out());
 		}
 	});
-	// onDestroy(unsubAuth);
 }
 
 async function loadCachedState(user: AuthState) {
@@ -131,7 +130,7 @@ export function load() {
 	console.log('src/lib/database.ts: load', loadCount++);
 	logTime('Beginning of time');
 	store.dispatch(set_loading_status({ loadingPercentage: 0, loadingStatus: 'Initializing' }));
-	loadAuth();
+	let unsubscribeAuth: Unsubscribe |  undefined = loadAuth();
 	logTime('done loadAuth');
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
@@ -151,7 +150,13 @@ export function load() {
 		}
 		if (loadingSubscription) {
 			loadingSubscription();
+			console.log('src/lib/database.ts: UN SUBSCRIBED to loadingSubscription');
 			loadingSubscription = undefined;
+		}
+		if (unsubscribeAuth) {
+			unsubscribeAuth();
+			console.log('src/lib/database.ts: UN SUBSCRIBED to unsubscribeAuth');
+			unsubscribeAuth = undefined;
 		}
 	}
 
