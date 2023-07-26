@@ -135,7 +135,8 @@ export function load() {
 	logTime('done loadAuth');
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
-	let unsubscribeUsers: Unsubscribe | undefined = undefined;
+	let unsubscribeUsers: Unsubscribe | undefined | null = undefined;
+	let loadingSubscription: Unsubscribe | undefined = undefined;
 	function cleanupSubscriptions() {
 		console.log('src/lib/database.ts: CLEANING UP');
 		if (unsubscribeUsers) {
@@ -147,6 +148,10 @@ export function load() {
 			unsubscribeActions();
 			console.log('src/lib/database.ts: UN SUBSCRIBED to actions');
 			unsubscribeActions = undefined;
+		}
+		if (loadingSubscription) {
+			loadingSubscription();
+			loadingSubscription = undefined;
 		}
 	}
 
@@ -188,6 +193,7 @@ export function load() {
 			if (lastCacheTime === Infinity) {
 				lastCacheTime = -1;
 			}
+			console.log(`Looking for activity from server since lastCacheTime ${lastCacheTime}`);
 
 			const activity = collection(firebase.firestore, 'activity');
 			const q = query(activity, where('seconds', '>=', lastCacheTime));
@@ -312,39 +318,41 @@ export function load() {
 								// do the work
 								await loadList(lists[index]);
 								loadListsRecursively(lists, index + 1);
+							} else {
+								// Get actions for lists that are pending shares (to show the list name).
+								state.requests.incomingRequests.forEach(async (requestId: string) => {
+									if (
+										state.requests.completedRequests.indexOf(requestId) === -1 &&
+										state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
+									) {
+										const shareAction = state.requests.requestIdToRequest[requestId];
+										const id = shareAction.payload;
+										if (listListeners[id] === undefined) {
+											listListeners[id] = null;
+											await createFirebaseListActions(id, user);
+											listListeners[id] = watch('lists', id, (snapshot) => {
+												handleDocChanges(snapshot, store.getState().auth, true);
+											});
+										}
+									}
+								});
 							}
 						};
 						loadListsRecursively(listsToLoad, 0);
 					}
 				}
 
-				// Get actions for lists that are pending shares (to show the list name).
-				state.requests.incomingRequests.forEach(async (requestId: string) => {
-					if (
-						state.requests.completedRequests.indexOf(requestId) === -1 &&
-						state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
-					) {
-						const shareAction = state.requests.requestIdToRequest[requestId];
-						const id = shareAction.payload;
-						if (listListeners[id] === undefined) {
-							listListeners[id] = null;
-							await createFirebaseListActions(id, user);
-							listListeners[id] = watch('lists', id, (snapshot) => {
-								handleDocChanges(snapshot, store.getState().auth, true);
-							});
-						}
-					}
-				});
 			});
 		}
 
 		let lastSignInState: any = undefined;
 
-		store.subscribe(async (state: any) => {
+		loadingSubscription = store.subscribe(async (state: any) => {
 			if (state.auth.signedIn !== lastSignInState) {
 				if (state.auth.signedIn) {
 					console.log('src/lib/database.ts: signed in changed to TRUE!');
 					if (unsubscribeUsers === undefined) {
+						unsubscribeUsers = null;
 						const user = state.auth;
 						if (user.uid) {
 							subscribeToUsersCollection();
