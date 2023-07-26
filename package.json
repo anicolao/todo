@@ -1,6 +1,6 @@
 {
 	"name": "todo",
-	"version": "0.1.35",
+	"version": "0.1.36",
 	"private": true,
 	"scripts": {
 		"build": "vite build",
