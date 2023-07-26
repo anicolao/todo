@@ -81,10 +81,12 @@ export const lists = createReducer(initialState, (r) => {
 			// action came from server
 			const candidateId = action.payload.list_id || action.payload.id || action.payload;
 			if (state.visibleLists.indexOf(candidateId) !== -1) {
-				console.log(`Update timestamp for list ${candidateId}`);
-				state = { ...state };
-				state.listIdToTimestamp = { ...state.listIdToTimestamp };
-				state.listIdToTimestamp[candidateId] = action.timestamp;
+				if (action.isANormalAction) {
+					console.log(`Update timestamp for list ${candidateId}`);
+					state = { ...state };
+					state.listIdToTimestamp = { ...state.listIdToTimestamp };
+					state.listIdToTimestamp[candidateId] = action.timestamp;
+				}
 			}
 		}
 		return state;
