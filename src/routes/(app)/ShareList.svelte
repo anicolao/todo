@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('ShareList.svelte');
 	import type { AuthState } from '$lib/components/auth';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { shareAccepted, sharePending } from '$lib/components/users';

@@ -1,22 +1,21 @@
 import { watch } from '$lib/components/ActionLog';
-import { signed_in, signed_out, type AuthState } from '$lib/components/auth';
+import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
 import { handleDocChanges, logTime, store, type GlobalState } from '$lib/store';
-import { onAuthStateChanged } from 'firebase/auth';
 import {
 	collection,
 	collectionGroup,
 	doc,
 	getDoc,
+	getDocs,
 	onSnapshot,
 	orderBy,
 	query,
 	setDoc,
 	where,
-	type Unsubscribe,
-	getDocs
+	type Unsubscribe
 } from 'firebase/firestore';
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
@@ -66,47 +65,6 @@ const createFirebaseListActions = async function (id: string, user: AuthState, n
 	}
 };
 
-let authCount = 0;
-
-function loadAuth() {
-	console.log('src/lib/database.ts: loadAuth', authCount++);
-	const auth = firebase.auth;
-	console.log('src/lib/database.ts: loadAuth set up auth state callback');
-	return onAuthStateChanged(auth, (user) => {
-		if (user) {
-			console.log('src/lib/database.ts: auth callback for user ', { user });
-			const uid = user.uid;
-			console.log('src/lib/database.ts: onAuthStateChanged   sign in ');
-			store.dispatch(
-				signed_in({
-					uid: uid,
-					name: user.displayName,
-					email: user.email,
-					photo: user.photoURL,
-					signedIn: true,
-					authMessage: ''
-				})
-			);
-			if (user.email) {
-				// always true
-				setDoc(doc(firebase.firestore, 'users', user.email), {
-					uid: user.uid,
-					name: user.displayName,
-					email: user.email,
-					photo: user.photoURL,
-					activity_timestamp: new Date().getTime()
-				}).catch((message) => {
-					// TODO: Surface this error state in the UI.
-					console.error(message);
-				});
-			}
-		} else {
-			console.log('src/lib/database.ts: onAuthStateChanged   sign out ');
-			store.dispatch(signed_out());
-		}
-	});
-}
-
 async function loadCachedState(user: AuthState) {
 	const db = await openDB('TODOS', 1, {
 		upgrade(db) {
@@ -130,8 +88,6 @@ export function load() {
 	console.log('src/lib/database.ts: load', loadCount++);
 	logTime('Beginning of time');
 	store.dispatch(set_loading_status({ loadingPercentage: 0, loadingStatus: 'Initializing' }));
-	let unsubscribeAuth: Unsubscribe |  undefined = loadAuth();
-	logTime('done loadAuth');
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined | null = undefined;
@@ -152,11 +108,6 @@ export function load() {
 			loadingSubscription();
 			console.log('src/lib/database.ts: UN SUBSCRIBED to loadingSubscription');
 			loadingSubscription = undefined;
-		}
-		if (unsubscribeAuth) {
-			unsubscribeAuth();
-			console.log('src/lib/database.ts: UN SUBSCRIBED to unsubscribeAuth');
-			unsubscribeAuth = undefined;
 		}
 	}
 
@@ -184,7 +135,7 @@ export function load() {
 		 * @param user  the authenticated user
 		 */
 		async function loadListActionsAtStartup(user: AuthState) {
-			console.log('src/lib/database.ts: First "requests" snapshot being resolved now.');
+			console.log('src/lib/database.ts: load list data.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
 			const listListeners: { [id: string]: Unsubscribe | null } = {};
@@ -278,7 +229,7 @@ export function load() {
 								listListeners[id] = null;
 								const name = state.lists.listIdToList[id];
 								await throttleLoading(id);
-								console.log('Loading for ' + id);
+								console.log('Loading for ' + id + ' ' + name);
 								await createFirebaseListActions(id, user, name);
 								listListeners[id] = watch('lists', id, (snapshot) => {
 									logTime('Calling handleDocChanges for ' + id + ' ' + name);
@@ -353,6 +304,7 @@ export function load() {
 
 		loadingSubscription = store.subscribe(async (state: any) => {
 			if (state.auth.signedIn !== lastSignInState) {
+				lastSignInState = state.auth.signedIn;
 				if (state.auth.signedIn) {
 					console.log('src/lib/database.ts: signed in changed to TRUE!');
 					if (unsubscribeUsers === undefined) {
@@ -365,24 +317,23 @@ export function load() {
 							logTime(`timestamp after ${store.getState()?.cache?.timestamp || 0}`);
 							const startTime = store.getState()?.cache?.timestamp || 0;
 							if (!isResolved && startTime > 0) {
+								logTime(`database.ts: Display cached state in ui.`);
 								isResolved = true;
 								resolve(true);
 							}
 
-							logTime('Start of "requests"...');
+							logTime('Subscribe to global "requests" actions.');
 							const actions = collectionGroup(firebase.firestore, 'requests');
 							const q = query(actions, where('target', '==', user.uid), orderBy('timestamp'));
-							console.log('src/lib/database.ts: Subscribing to actions for you', {
-								'prev unsub': unsubscribeActions
-							});
 							let isFirstRequestsSnapshot = true;
 							unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 								let changes = querySnapshot.docChanges();
 								if (isFirstRequestsSnapshot) {
-									logTime('First "requests" snapshot.');
+									logTime(`Filtering ${changes.length} global requests on first call from time ${startTime}`);
 									changes = changes.filter((x: any) => {
 										return x.doc.data().timestamp?.seconds > startTime;
 									});
+									logTime(`... ${changes.length} global requests remaining.`);
 								}
 								handleDocChanges(changes, user, false);
 								if (isFirstRequestsSnapshot) {
@@ -396,7 +347,6 @@ export function load() {
 					cleanupSubscriptions();
 				}
 			}
-			lastSignInState = state.auth.signedIn;
 		});
 	});
 

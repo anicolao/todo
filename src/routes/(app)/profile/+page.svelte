@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('(app)/profile/+page.svelte');
 	import Login from '$lib/components/Login.svelte';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import UiSettings from '$lib/components/UiSettings.svelte';

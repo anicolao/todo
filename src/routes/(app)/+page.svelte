@@ -1,4 +1,5 @@
 <script>
+	console.log('(app)/+page.svelte');
 	import { store } from '$lib/store';
 	import { goto } from '$app/navigation';
 

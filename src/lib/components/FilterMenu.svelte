@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('FilterMenu.svelte');
 	import { page } from '$app/stores';
 	import List, { Item } from '@smui/list';
 

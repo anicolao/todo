@@ -1,4 +1,5 @@
 <script lang="ts">
+	console.log('AcceptShare.svelte');
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
