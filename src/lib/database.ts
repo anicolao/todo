@@ -341,7 +341,6 @@ export function load() {
 						loadListsRecursively(listsToLoad, 0);
 					}
 				}
-
 			});
 		}
 

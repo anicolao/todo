@@ -21,8 +21,8 @@
 				return false;
 			}
 			previouslySeen[requestId] = true;
-			return pendingRequests(requestId)
-		}
+			return pendingRequests(requestId);
+		};
 	}
 	function revokeRequests(requestId: string) {
 		return (
