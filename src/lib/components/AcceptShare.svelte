@@ -14,6 +14,16 @@
 			$store.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
 		);
 	}
+	function makePendingRequestFilter() {
+		const previouslySeen: { [k: string]: boolean } = {};
+		return (requestId: string) => {
+			if (previouslySeen[requestId] === true) {
+				return false;
+			}
+			previouslySeen[requestId] = true;
+			return pendingRequests(requestId)
+		}
+	}
 	function revokeRequests(requestId: string) {
 		return (
 			$store.requests.completedRequests.indexOf(requestId) === -1 &&
@@ -28,7 +38,7 @@
 	}
 
 	$: incomingRequests = $store.requests.incomingRequests
-		.filter(pendingRequests)
+		.filter(makePendingRequestFilter())
 		.map(mapRequestIdToListShareRequestInfo);
 	$: revoked = $store.requests.incomingRequests
 		.filter(revokeRequests)
