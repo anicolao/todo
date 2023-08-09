@@ -6,13 +6,14 @@
 	import { store } from '$lib/store';
 	import { onAuthStateChanged } from 'firebase/auth';
 	import { doc, setDoc } from 'firebase/firestore';
+	import { getToken, onMessage } from 'firebase/messaging';
 
 	let count = 0;
 	function load() {
 		console.log('src/routes/+layout.svelte load function', count++);
 		const auth = firebase.auth;
 		console.log('src/routes/+layout.svelte set up auth state callback');
-		/*const unsubAuth =*/ onAuthStateChanged(auth, (user) => {
+		/*const unsubAuth =*/ onAuthStateChanged(auth, async (user) => {
 			if (user) {
 				console.log('src/routes/+layout.svelte auth callback for user ', { user });
 				const uid = user.uid;
@@ -29,11 +30,26 @@
 				);
 				if (user.email) {
 					// always true
+					let notificationToken = '';
+					const permission = await Notification.requestPermission();
+					if (permission === 'granted') {
+						console.log('Notification permission granted.');
+						notificationToken = await getToken(firebase.messaging, { vapidKey: firebase.vapidKey });
+						// Handle incoming FCM messages. Called when:
+						// - a message is received while the app has focus
+						// - the user clicks on an app notification created by a service worker
+						//   `messaging.onBackgroundMessage` handler.
+						onMessage(firebase.messaging, (payload) => {
+							console.log('Message received. ', payload);
+						});
+					}
+
 					setDoc(doc(firebase.firestore, 'users', user.email), {
 						uid: user.uid,
 						name: user.displayName,
 						email: user.email,
 						photo: user.photoURL,
+						notificationToken,
 						activity_timestamp: new Date().getTime()
 					}).catch((message) => {
 						// TODO: Surface this error state in the UI.

@@ -2,6 +2,7 @@
 import { store } from '$lib/store';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getMessaging } from 'firebase/messaging';
 import {
 	addDoc,
 	collection,
@@ -19,6 +20,8 @@ import { outgoing_request } from './components/requests';
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+
+// This config is repeated in static/firebase-config.js
 const firebaseConfig = {
 	apiKey: 'AIzaSyC7mMXhf0noyZ-0LTJwyRJLpJlX6b-7MqQ',
 	authDomain: 'todo-firebase-1a740.firebaseapp.com',
@@ -69,11 +72,18 @@ function request(to: string, action: any) {
 	}
 }
 
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
+const vapidKey = "BPvVb9BVOUzp1QOhsG4tQJLqvGTcnyHBuLM-TaudfWBoxLGvRiqgC-gWEIL0k7D5O_FD93dbaiCntreOEfNrf5I";
+
 const firebase = {
-	app: initializeApp(firebaseConfig),
+	app,
 	auth: getAuth(),
 	google_auth_provider: new GoogleAuthProvider(),
 	firestore: getFirestore(),
+	messaging,
+	// messagingToken: getToken(messaging, {vapidKey}),
+	vapidKey,
 	dispatch,
 	request
 };
