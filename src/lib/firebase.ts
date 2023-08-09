@@ -13,6 +13,7 @@ import {
 	serverTimestamp
 } from 'firebase/firestore';
 import { outgoing_request } from './components/requests';
+import { Capacitor } from '@capacitor/core';
 //import { getAnalytics } from 'firebase/analytics';
 //
 // TODO: Add SDKs for Firebase products that you want to use
@@ -73,7 +74,7 @@ function request(to: string, action: any) {
 }
 
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+const messaging = Capacitor.isNativePlatform() ? null : getMessaging(app);
 const vapidKey = "BPvVb9BVOUzp1QOhsG4tQJLqvGTcnyHBuLM-TaudfWBoxLGvRiqgC-gWEIL0k7D5O_FD93dbaiCntreOEfNrf5I";
 
 const firebase = {

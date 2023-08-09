@@ -7,6 +7,9 @@
 	import { onAuthStateChanged } from 'firebase/auth';
 	import { doc, setDoc } from 'firebase/firestore';
 	import { getToken, onMessage } from 'firebase/messaging';
+	import { Capacitor } from '@capacitor/core';
+	import { PushNotifications } from '@capacitor/push-notifications';
+	import { FCM } from '@capacitor-community/fcm';
 
 	let count = 0;
 	function load() {
@@ -31,17 +34,31 @@
 				if (user.email) {
 					// always true
 					let notificationToken = '';
-					const permission = await Notification.requestPermission();
-					if (permission === 'granted') {
-						console.log('Notification permission granted.');
-						notificationToken = await getToken(firebase.messaging, { vapidKey: firebase.vapidKey });
-						// Handle incoming FCM messages. Called when:
-						// - a message is received while the app has focus
-						// - the user clicks on an app notification created by a service worker
-						//   `messaging.onBackgroundMessage` handler.
-						onMessage(firebase.messaging, (payload) => {
-							console.log('Message received. ', payload);
-						});
+					if (Capacitor.isNativePlatform()) {
+						const permission = await PushNotifications.requestPermissions();
+						if (permission.receive === 'granted') {
+							await PushNotifications.requestPermissions();
+							notificationToken = (await FCM.getToken()).token;
+							// FCM.subscribeTo({topic: "todo"});
+							PushNotifications.addListener('pushNotificationReceived', (notification) => {
+								console.log('Push notification received: ', notification);
+							});
+						}
+					} else {
+						const permission = await Notification.requestPermission();
+						if (permission === 'granted' && firebase.messaging !== null) {
+							console.log('Notification permission granted.');
+							notificationToken = await getToken(firebase.messaging, {
+								vapidKey: firebase.vapidKey
+							});
+							// Handle incoming FCM messages. Called when:
+							// - a message is received while the app has focus
+							// - the user clicks on an app notification created by a service worker
+							//   `messaging.onBackgroundMessage` handler.
+							onMessage(firebase.messaging, (payload) => {
+								console.log('Message received. ', payload);
+							});
+						}
 					}
 
 					setDoc(doc(firebase.firestore, 'users', user.email), {
