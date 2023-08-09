@@ -295,6 +295,11 @@ export function load() {
 							}
 						};
 						loadListsRecursively(listsToLoad, 0);
+					} else {
+						if (!isResolved) {
+							isResolved = true;
+							resolve(true);
+						}
 					}
 				}
 			});
