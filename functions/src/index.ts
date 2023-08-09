@@ -63,6 +63,19 @@ exports.onTodoItemChanged = functions.firestore
 							console.log('key', pushKey);
 							promises.push(pushover(pushKey, currentAction.type));
 						}
+						const editorEmailDoc = (await db.doc(`editors/${listId}/${id}/editor`).get()).data();
+						const email = editorEmailDoc?.email;
+						if (email) {
+							const userDoc = (await db.doc(`users/${email}`).get()).data();
+							const fcmToken = userDoc?.notificationToken;
+							if (fcmToken) {
+								const tokens = [fcmToken];
+								const message = { data: { text: currentAction.type }, tokens };
+								admin.messaging().sendEachForMulticast(message).then((r: any) => {
+									console.log("Sent " + r.successCount);
+								});
+							}
+						}
 					}
 				}
 			}
@@ -102,7 +115,7 @@ exports.onTodoListShared = functions.firestore
 const pushoverAndrew = "u5f5ze6p5hvv3k6tprm7s5qnuh4csi";
 
 exports.helloWorld = functions.https.onRequest(async (req, res) => {
-  res.json({ hello: "Hello World!" });
-  return pushover(pushoverAndrew, "Subsuquent notifications from code");
+	res.json({ hello: "Hello World!" });
+	return pushover(pushoverAndrew, "Subsuquent notifications from code");
 })
 */
