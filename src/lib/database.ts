@@ -155,7 +155,21 @@ export function load() {
 			const q = query(activity, where('seconds', '>=', lastCacheTime));
 			const docs = await getDocs(q);
 			console.log('query came from local cache?', docs.metadata.fromCache);
-			const updatedListIds = docs.docChanges().map((d) => d.doc.id);
+			console.log('Examining server activity:');
+			const updatedListIds = docs.docChanges()
+				.filter(d => existingState.lists.visibleLists.includes(d.doc.id))
+				.filter(d => {
+					console.log('  listId ' + d.doc.id + '  ' + existingState.lists.listIdToList[d.doc.id]);
+					console.log('    cached seconds ' + existingState.lists.listIdToTimestamp[d.doc.id]);
+					console.log('    server seconds ' + d.doc.get('seconds'));
+					const hasNew = d.doc.get('seconds') >= existingState.lists.listIdToTimestamp[d.doc.id];
+					console.log('    server has new items? ' + hasNew);
+					return hasNew;
+				})
+				.map(d => d.doc.id);
+			const oldUpdatedListIds = docs.docChanges().map((d) => d.doc.id);
+			console.log('  Old updatedListIds ' + oldUpdatedListIds.length + ' ' + JSON.stringify(oldUpdatedListIds.map(id => existingState.lists.listIdToList[id])));
+			console.log('  New updatedListIds ' + updatedListIds.length + ' ' + JSON.stringify(updatedListIds.map(id => existingState.lists.listIdToList[id])));
 
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: GlobalState) => {

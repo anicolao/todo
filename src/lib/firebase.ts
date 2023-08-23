@@ -91,7 +91,7 @@ const firebase = {
 };
 
 if (!import.meta.env.PROD) {
-	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
+	// connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
 }
 
 enableIndexedDbPersistence(firebase.firestore).catch((err) => {

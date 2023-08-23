@@ -112,7 +112,6 @@ function cacheState(stateToCache: GlobalState, timestamp: number) {
 	timestampOfPendingCache = timestamp;
 	cachePending = true;
 	return async () => {
-		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
 		const db = await openDB('TODOS', 1, {
 			upgrade(db) {
 				const store = db.createObjectStore('state');
@@ -120,6 +119,7 @@ function cacheState(stateToCache: GlobalState, timestamp: number) {
 		});
 		const me = stateToCache.auth.email;
 		if (me) {
+			console.log(`Write the database! @ ${new Date().getTime()} for action's time ${timestamp} for state's cache time ${stateToCache.cache.timestamp}`);
 			await db.put('state', stateToCache, me);
 		}
 		cachePending = false;
