@@ -58,6 +58,8 @@
 							onMessage(firebase.messaging, (payload) => {
 								console.log('Message received. ', payload);
 							});
+						} else {
+							console.error("notification permission denied")
 						}
 					}
 

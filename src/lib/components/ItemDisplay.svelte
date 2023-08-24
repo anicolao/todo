@@ -61,11 +61,12 @@
 			}
 			if ($store.auth.uid) {
 				const completed_time = new Date().getTime();
+				const item = $store.items.listIdToListOfItems[list_id].itemIdToItem[id];
 				dispatch(
 					'lists',
 					list_id,
 					$store.auth.uid,
-					complete_item({ list_id, id, completed, completed_time })
+					complete_item({ list_id, id, completed, completed_time, description: item.description })
 				);
 			}
 		};
@@ -77,11 +78,12 @@
 				const sound = new Audio('/completed.mp3');
 				sound.play();
 				const completed_time = new Date().getTime();
+				const item = $store.items.listIdToListOfItems[list_id].itemIdToItem[id];
 				dispatch(
 					'lists',
 					list_id,
 					$store.auth.uid,
-					complete_item({ list_id, id, completed: true, completed_time })
+					complete_item({ list_id, id, completed: true, completed_time, description: item.description })
 				);
 				dispatch('lists', list_id, $store.auth.uid, complete_forever({ list_id, id }));
 			}

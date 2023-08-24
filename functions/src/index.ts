@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { AnyAction } from '@reduxjs/toolkit';
 
 admin.initializeApp();
 
@@ -35,6 +36,21 @@ exports.users = functions.https.onRequest(async (req, res) => {
 	res.json({ users: query.docChanges() });
 });
 
+function makeNotification(action: AnyAction) {
+	let title = "Test title"
+	let body = action.payload.description;
+	let image = "https://todo-firebase-1a740.web.app/brownCheck.png"
+	if (action.type === "create_item") {
+		title = "New Todo Item"
+	} else if (action.type === "complete_item") {
+		title = "Todo Completed"
+	} else if (action.type === "incoming_request") {
+		title = "List Shared"
+	}
+	return {
+		title, body, image
+	};
+}
 exports.onTodoItemChanged = functions.firestore
 	.document('lists/{listId}/actions/{action}')
 	.onCreate(async (change, _context) => {
@@ -70,7 +86,8 @@ exports.onTodoItemChanged = functions.firestore
 							const fcmToken = userDoc?.notificationToken;
 							if (fcmToken) {
 								const tokens = [fcmToken];
-								const message = { data: { text: currentAction.type }, tokens };
+								const notification = makeNotification(currentAction as AnyAction);
+								const message = { data: { action: JSON.stringify(currentAction) }, notification, tokens };
 								admin.messaging().sendEachForMulticast(message).then((r: any) => {
 									console.log("Sent " + r.successCount);
 								});

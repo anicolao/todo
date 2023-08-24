@@ -69,6 +69,7 @@ export const complete_item = createAction<{
 	id: string;
 	completed: boolean;
 	completed_time: number;
+	description: string;
 }>('complete_item');
 export const uncomplete_item = createAction<{
 	list_id: string;
