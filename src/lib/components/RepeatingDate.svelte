@@ -35,13 +35,19 @@
 				month: 'short',
 				day: 'numeric'
 			});
-			// dueDateStr is like: 'Mon, Jan 2, 2023'
 			if (yearFormat) {
 				dueDateStr = dueDateStr.replace(/ ([0-9]+)$/, " '$1");
 			}
+			// dueDateStr is now like:
+			//       Mon, Jan 2        if the date is in the current year,
+			// or    Mon, Jan 2, '21   if the date is a different year.
 			switch (repeatType) {
 				case RepeatType.DAILY:
-					dueDateStr = dueDateStr.replace(/([0-9]+), ([0-9]+)/, '$1' + repeatChar + ', $2');
+					if(yearFormat) {
+						dueDateStr = dueDateStr.replace(/([0-9]+), ('[0-9]+)/, '$1' + repeatChar + ', $2');
+					} else {
+						dueDateStr += repeatChar;
+					}
 					break;
 				case RepeatType.WEEKDAYS:
 					dueDateStr = dueDateStr.replace(',', repeatChar + ',');
