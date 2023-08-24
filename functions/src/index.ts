@@ -38,8 +38,8 @@ exports.users = functions.https.onRequest(async (req, res) => {
 
 function makeNotification(action: AnyAction) {
 	let title = "Test title"
-	let body = action.payload.description;
-	let image = "https://todo-firebase-1a740.web.app/brownCheck.png"
+	const body = action.payload.description;
+	const image = "https://todo-firebase-1a740.web.app/brownCheck.png"
 	if (action.type === "create_item") {
 		title = "New Todo Item"
 	} else if (action.type === "complete_item") {
