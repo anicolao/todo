@@ -341,7 +341,13 @@
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
 
 {#await pageData.loaded.loaded}
-	<div><p>Loading...</p></div>
+	<div class="title">Todo App</div>
+	<div class="loadingStatus">
+		<p>
+			Loading lists...{#if $store.ui.loadingStatus}&nbsp;&nbsp;{$store.ui.loadingPercentage}%{/if}
+		</p>
+		{#if $store.ui.loadingStatus}<p>{$store.ui.loadingStatus}</p>{/if}
+	</div>
 {:then value}
 	<div class="drawer-container w{width} ">
 		<TopAppBar bind:this={topAppBar} variant="fixed">
@@ -580,5 +586,13 @@
 		overflow: auto;
 
 		background-size: cover;
+	}
+	.title {
+		margin: 2em;
+		font-size: 24px;
+		font-style: bold;
+	}
+	.loadingStatus {
+		margin: 2em;
 	}
 </style>
