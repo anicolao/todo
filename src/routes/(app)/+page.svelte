@@ -10,7 +10,3 @@
 		goto('/profile');
 	}
 </script>
-
-<div>
-	<h1>The All New TODO</h1>
-</div>
