@@ -1,9 +1,8 @@
 <script>
 	import { Icon } from '@smui/icon-button';
-	import { Svg } from '@smui/common';
 </script>
 
-<Icon component={Svg} viewBox="0 0 30 20" width="30px">
+<Icon tag="svg" viewBox="0 0 30 20" width="30px">
 	<svg
 		style="fill: #b9b9b9"
 		class="list rtl-flip"
