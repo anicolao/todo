@@ -37,15 +37,15 @@ exports.users = functions.https.onRequest(async (req, res) => {
 });
 
 function makeNotification(action: AnyAction) {
-	let title = "Test title";
+	let title = 'Test title';
 	const body = action.payload.description;
-	const image = "https://todo-firebase-1a740.web.app/brownCheck.png";
-	if (action.type === "create_item") {
-		title = "New Todo Item";
-	} else if (action.type === "complete_item") {
-		title = "Todo Completed";
-	} else if (action.type === "incoming_request") {
-		title = "List Shared";
+	const image = 'https://todo-firebase-1a740.web.app/brownCheck.png';
+	if (action.type === 'create_item') {
+		title = 'New Todo Item';
+	} else if (action.type === 'complete_item') {
+		title = 'Todo Completed';
+	} else if (action.type === 'incoming_request') {
+		title = 'List Shared';
 	}
 	return {
 		title,
@@ -84,10 +84,10 @@ exports.onTodoItemChanged = functions.firestore
 						const editorEmailDoc = (await db.doc(`editors/${listId}/${id}/editor`).get()).data();
 						const email = editorEmailDoc?.email;
 						if (email) {
-							const userDoc = (await db.doc(`users/${email}`).get()).data();
-							const fcmToken = userDoc?.notificationToken;
-							if (fcmToken) {
-								const tokens = [fcmToken];
+							const notificationTokens = await db.collection(`users/${email}/tokens`).get();
+							const tokens: string[] = [];
+							notificationTokens.forEach((doc) => tokens.push(doc.id));
+							if (tokens.length) {
 								const notification = makeNotification(currentAction as AnyAction);
 								const message = {
 									data: { action: JSON.stringify(currentAction) },
@@ -98,7 +98,13 @@ exports.onTodoItemChanged = functions.firestore
 									.messaging()
 									.sendEachForMulticast(message)
 									.then((r: any) => {
-										console.log('Sent ' + r.successCount);
+										console.log('Sent ' + r.successCount + ' Failed ' + r.failureCount);
+										r.responses.forEach((resp: any, index: number) => {
+											if (!resp.success) {
+												console.log('Multicase send failed for token: ', tokens[index], resp.error);
+												promises.push(db.doc(`users/${email}/tokens/${tokens[index]}`).delete());
+											}
+										});
 									});
 							}
 						}
@@ -116,6 +122,20 @@ function updateActivity(listId: string, seconds: number) {
 		.set({ seconds })
 		.catch((e) => console.log(e));
 }
+
+exports.onLogin = functions.firestore
+	.document('users/{email}')
+	.onWrite(async (change, _context) => {
+		const promises = [];
+		const user = change.after.data();
+		// console.log(JSON.stringify(user));
+		if (user?.notificationToken) {
+			const userDocPath = change.after.ref;
+			const tokenList = userDocPath.collection('tokens');
+			promises.push(tokenList.doc(`${user.notificationToken}`).set({ timestamp: Date.now() }));
+		}
+		return Promise.all(promises);
+	});
 
 exports.onTodoListShared = functions.firestore
 	.document('from/{sharingUser}/to/{targetUser}/requests/{action}')
