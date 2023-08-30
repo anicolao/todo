@@ -75,7 +75,8 @@ function request(to: string, action: any) {
 
 const app = initializeApp(firebaseConfig);
 const messaging = Capacitor.isNativePlatform() ? null : getMessaging(app);
-const vapidKey = "BPvVb9BVOUzp1QOhsG4tQJLqvGTcnyHBuLM-TaudfWBoxLGvRiqgC-gWEIL0k7D5O_FD93dbaiCntreOEfNrf5I";
+const vapidKey =
+	'BPvVb9BVOUzp1QOhsG4tQJLqvGTcnyHBuLM-TaudfWBoxLGvRiqgC-gWEIL0k7D5O_FD93dbaiCntreOEfNrf5I';
 
 const firebase = {
 	app,

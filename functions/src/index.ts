@@ -37,18 +37,20 @@ exports.users = functions.https.onRequest(async (req, res) => {
 });
 
 function makeNotification(action: AnyAction) {
-	let title = "Test title"
+	let title = "Test title";
 	const body = action.payload.description;
-	const image = "https://todo-firebase-1a740.web.app/brownCheck.png"
+	const image = "https://todo-firebase-1a740.web.app/brownCheck.png";
 	if (action.type === "create_item") {
-		title = "New Todo Item"
+		title = "New Todo Item";
 	} else if (action.type === "complete_item") {
-		title = "Todo Completed"
+		title = "Todo Completed";
 	} else if (action.type === "incoming_request") {
-		title = "List Shared"
+		title = "List Shared";
 	}
 	return {
-		title, body, image
+		title,
+		body,
+		image
 	};
 }
 exports.onTodoItemChanged = functions.firestore
@@ -87,10 +89,17 @@ exports.onTodoItemChanged = functions.firestore
 							if (fcmToken) {
 								const tokens = [fcmToken];
 								const notification = makeNotification(currentAction as AnyAction);
-								const message = { data: { action: JSON.stringify(currentAction) }, notification, tokens };
-								admin.messaging().sendEachForMulticast(message).then((r: any) => {
-									console.log("Sent " + r.successCount);
-								});
+								const message = {
+									data: { action: JSON.stringify(currentAction) },
+									notification,
+									tokens
+								};
+								admin
+									.messaging()
+									.sendEachForMulticast(message)
+									.then((r: any) => {
+										console.log('Sent ' + r.successCount);
+									});
 							}
 						}
 					}
