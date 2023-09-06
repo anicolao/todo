@@ -189,6 +189,19 @@ export function load() {
 						(id: string) => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1
 					);
 					lastVisibleLists = state.lists.visibleLists as string[];
+					function loadComplete() {
+						logTime('initialDatabaseLoadComplete');
+						store.dispatch(set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' }));
+						window.setTimeout(
+							() => store.dispatch(set_loading_status({ loadingStatus: '' })),
+							2000
+						);
+						initialListsLoading = null;
+						if (!isResolved) {
+							isResolved = true;
+							resolve(true);
+						}
+					}
 
 					if (newlyVisibleLists.length > 0) {
 						console.log('newly visible lists length: ' + newlyVisibleLists.length);
@@ -277,19 +290,7 @@ export function load() {
 										);
 										if (initialListsLoading.length === 0) {
 											// initial load complete
-											logTime('initialDatabaseLoadComplete');
-											store.dispatch(
-												set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' })
-											);
-											window.setTimeout(
-												() => store.dispatch(set_loading_status({ loadingStatus: '' })),
-												2000
-											);
-											initialListsLoading = null;
-											if (!isResolved) {
-												isResolved = true;
-												resolve(true);
-											}
+											loadComplete();
 										}
 									}
 								});
@@ -324,10 +325,7 @@ export function load() {
 						};
 						loadListsRecursively(listsToLoad, 0);
 					} else {
-						if (!isResolved) {
-							isResolved = true;
-							resolve(true);
-						}
+						loadComplete();
 					}
 				}
 			});
