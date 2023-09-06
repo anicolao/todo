@@ -145,7 +145,10 @@ export function load() {
 			const existingState = store.getState();
 			let latestCacheTime = existingState.cache.timestamp; // The last global cache time.
 			for (const listId in existingState.lists.listIdToTimestamp) {
-				earliestCacheTime = Math.min(earliestCacheTime, existingState.lists.listIdToTimestamp[listId]);
+				earliestCacheTime = Math.min(
+					earliestCacheTime,
+					existingState.lists.listIdToTimestamp[listId]
+				);
 				latestCacheTime = Math.max(latestCacheTime, existingState.lists.listIdToTimestamp[listId]);
 			}
 			if (earliestCacheTime === Infinity) {
@@ -157,19 +160,27 @@ export function load() {
 			const q = query(activity, where('seconds', '>=', earliestCacheTime));
 			const docs = await getDocs(q);
 			console.log('query came from local cache?', docs.metadata.fromCache);
-			const updatedListIds = docs.docChanges()
-				.filter(d => existingState.lists.visibleLists.includes(d.doc.id))
-				.filter(d => {
+			const updatedListIds = docs
+				.docChanges()
+				.filter((d) => existingState.lists.visibleLists.includes(d.doc.id))
+				.filter((d) => {
 					console.log('  listId ' + d.doc.id + '  ' + existingState.lists.listIdToList[d.doc.id]);
 					console.log('    cached seconds ' + existingState.lists.listIdToTimestamp[d.doc.id]);
 					console.log('    server seconds ' + d.doc.get('seconds'));
 					const serverTime = d.doc.get('seconds');
-					const hasNew = serverTime > existingState.lists.listIdToTimestamp[d.doc.id] || serverTime >= latestCacheTime;
+					const hasNew =
+						serverTime > existingState.lists.listIdToTimestamp[d.doc.id] ||
+						serverTime >= latestCacheTime;
 					console.log('    server has new items? ' + hasNew);
 					return hasNew;
 				})
-				.map(d => d.doc.id);
-			console.log('  New updatedListIds ' + updatedListIds.length + ' ' + JSON.stringify(updatedListIds.map(id => existingState.lists.listIdToList[id])));
+				.map((d) => d.doc.id);
+			console.log(
+				'  New updatedListIds ' +
+					updatedListIds.length +
+					' ' +
+					JSON.stringify(updatedListIds.map((id) => existingState.lists.listIdToList[id]))
+			);
 
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: GlobalState) => {
@@ -308,7 +319,7 @@ export function load() {
 										}
 									}
 								});
-							  enableCaching();
+								enableCaching();
 							}
 						};
 						loadListsRecursively(listsToLoad, 0);
