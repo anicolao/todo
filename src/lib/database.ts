@@ -325,7 +325,9 @@ export function load() {
 						};
 						loadListsRecursively(listsToLoad, 0);
 					} else {
-						loadComplete();
+						if (!isResolved) {
+							loadComplete();
+						}
 					}
 				}
 			});
