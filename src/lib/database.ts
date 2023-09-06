@@ -3,7 +3,7 @@ import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
-import { handleDocChanges, logTime, store, type GlobalState } from '$lib/store';
+import { handleDocChanges, logTime, store, type GlobalState, enableCaching } from '$lib/store';
 import {
 	collection,
 	collectionGroup,
@@ -141,21 +141,35 @@ export function load() {
 			const listListeners: { [id: string]: Unsubscribe | null } = {};
 			// TODO: unsubscribe to all listListeners
 
-			let lastCacheTime = Infinity;
+			let earliestCacheTime = Infinity;
 			const existingState = store.getState();
+			let latestCacheTime = existingState.cache.timestamp; // The last global cache time.
 			for (const listId in existingState.lists.listIdToTimestamp) {
-				lastCacheTime = Math.min(lastCacheTime, existingState.lists.listIdToTimestamp[listId]);
+				earliestCacheTime = Math.min(earliestCacheTime, existingState.lists.listIdToTimestamp[listId]);
+				latestCacheTime = Math.max(latestCacheTime, existingState.lists.listIdToTimestamp[listId]);
 			}
-			if (lastCacheTime === Infinity) {
-				lastCacheTime = -1;
+			if (earliestCacheTime === Infinity) {
+				earliestCacheTime = -1;
 			}
-			console.log(`Looking for activity from server since lastCacheTime ${lastCacheTime}`);
+			console.log(`Looking for activity from server since earliestCacheTime ${earliestCacheTime}`);
 
 			const activity = collection(firebase.firestore, 'activity');
-			const q = query(activity, where('seconds', '>=', lastCacheTime));
+			const q = query(activity, where('seconds', '>=', earliestCacheTime));
 			const docs = await getDocs(q);
 			console.log('query came from local cache?', docs.metadata.fromCache);
-			const updatedListIds = docs.docChanges().map((d) => d.doc.id);
+			const updatedListIds = docs.docChanges()
+				.filter(d => existingState.lists.visibleLists.includes(d.doc.id))
+				.filter(d => {
+					console.log('  listId ' + d.doc.id + '  ' + existingState.lists.listIdToList[d.doc.id]);
+					console.log('    cached seconds ' + existingState.lists.listIdToTimestamp[d.doc.id]);
+					console.log('    server seconds ' + d.doc.get('seconds'));
+					const serverTime = d.doc.get('seconds');
+					const hasNew = serverTime > existingState.lists.listIdToTimestamp[d.doc.id] || serverTime >= latestCacheTime;
+					console.log('    server has new items? ' + hasNew);
+					return hasNew;
+				})
+				.map(d => d.doc.id);
+			console.log('  New updatedListIds ' + updatedListIds.length + ' ' + JSON.stringify(updatedListIds.map(id => existingState.lists.listIdToList[id])));
 
 			// Get notified when state.lists.visibleLists changes.
 			store.subscribe((state: GlobalState) => {
@@ -175,7 +189,8 @@ export function load() {
 							initialListsLoading = initialListsLoading.filter(
 								(id) => updatedListIds.indexOf(id) !== -1
 							);
-							console.log('filtered initialListsLoading', initialListsLoading);
+							logTime('filtered initialListsLoading');
+							console.log(initialListsLoading);
 
 							if (initialListsLoading.length === 0) {
 								// We have loaded the lists of lists, and there are 0 lists.
@@ -183,6 +198,7 @@ export function load() {
 									isResolved = true;
 									resolve(true);
 								}
+								logTime('Initial data load for UI complete.');
 								initialListsLoading = null;
 								store.dispatch(
 									set_loading_status({ loadingPercentage: 100, loadingStatus: 'Ready' })
@@ -292,6 +308,7 @@ export function load() {
 										}
 									}
 								});
+							  enableCaching();
 							}
 						};
 						loadListsRecursively(listsToLoad, 0);

@@ -106,7 +106,10 @@ export type SvelteStore = Writable<GlobalState>;
 
 let rebasedLocalActions: AnyAction[] = [];
 const CACHE_INTERVAL = 1000;
-let timestampOfPendingCache = 0;
+let timestampOfPendingCache = Infinity;
+export function enableCaching() {
+	timestampOfPendingCache = 0;
+}
 let cachePending = false;
 function cacheState(stateToCache: GlobalState, timestamp: number) {
 	timestampOfPendingCache = timestamp;
