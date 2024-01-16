@@ -38,7 +38,7 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={isStarred} {comparator} />
+	<ItemList listIdMatcher={() => true} filter={isStarred} {comparator} showListName={true}/>
 </div>
 
 <style>

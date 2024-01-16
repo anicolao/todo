@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isOverdue, isToday, isTomorrow, isYesterday } from '$lib/dates';
 	import { RepeatType, type DueDate } from './items';
 
 	export let dueDate: DueDate | undefined;
@@ -94,34 +95,6 @@
 		dueDateStr = '';
 	}
 
-	function isOverdue(date: Date) {
-		const now = new Date();
-		return date.getTime() < now.getTime() && !isToday(date);
-	}
-
-	function isSameDay(d1: Date, d2: Date) {
-		return (
-			d1.getFullYear() === d2.getFullYear() &&
-			d1.getMonth() === d2.getMonth() &&
-			d1.getDate() === d2.getDate()
-		);
-	}
-
-	function isToday(d: Date) {
-		return isSameDay(d, new Date());
-	}
-
-	function isTomorrow(d: Date) {
-		const other = new Date();
-		other.setDate(other.getDate() + 1);
-		return isSameDay(d, other);
-	}
-
-	function isYesterday(d: Date) {
-		const other = new Date();
-		other.setDate(other.getDate() - 1);
-		return isSameDay(d, other);
-	}
 </script>
 
 <span class:overdue>{dueDateStr}</span>

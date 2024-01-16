@@ -97,7 +97,7 @@
 	let oldListLength = 0;
 	function checkForNewlyCreatedList() {
 		const lists = $store.lists.visibleLists;
-		oldListLength = lists.legnth;
+		oldListLength = lists.length;
 		if (lists.length > 0 && lists[lists.length - 1] === newlyCreatedListId) {
 			setActive('lists?listId=' + newlyCreatedListId);
 			newlyCreatedListId = '';

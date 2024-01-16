@@ -14,6 +14,7 @@
 	export let hasItems = false;
 	export let show = true;
 	export let enableUndo = false;
+	export let showListName = false;
 
 	/*
 	export let send: (
@@ -94,12 +95,6 @@
 			}
 		});
 	}
-
-	let showListName = false;
-	$: showListName =
-		$store.ui.title === 'Starred' ||
-		$store.ui.title === 'By Date' ||
-		$store.ui.title === 'Completed';
 
 	let anchor: Element;
 	let grabbed: HTMLElement | null;

@@ -29,6 +29,12 @@
 	>
 	<Item
 		href="javascript:void(0)"
+		on:click={() => setActive('today')}
+		activated={pagePath === '/today'}
+		draggable="false"><img src="date.svg" alt="today" />Today</Item
+	>
+	<Item
+		href="javascript:void(0)"
 		on:click={() => setActive('completed')}
 		activated={pagePath === '/completed'}
 		draggable="false"><img class="checkmark" src="checkmark.svg" alt="by date" />Completed</Item

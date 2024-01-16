@@ -23,7 +23,7 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={isDated} {comparator} />
+	<ItemList listIdMatcher={() => true} filter={isDated} {comparator} showListName={true}/>
 </div>
 
 <style>

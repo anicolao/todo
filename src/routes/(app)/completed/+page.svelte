@@ -43,7 +43,7 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={hasBeenCompleted} {comparator} enableUndo={true} />
+	<ItemList listIdMatcher={() => true} filter={hasBeenCompleted} {comparator} enableUndo={true} showListName={true}/>
 </div>
 
 <style>
