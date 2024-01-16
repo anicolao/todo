@@ -75,7 +75,7 @@
 	}
 	let lastItems = $store.items;
 	$: if ($store.items !== lastItems) {
-		lastItems = store.items;
+		lastItems = $store.items;
 		updateLastListItemsCache();
 	}
 

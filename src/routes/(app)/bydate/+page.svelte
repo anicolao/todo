@@ -10,7 +10,7 @@
 
 	function isDated(listId: string, itemId: string) {
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
-		return item.dueDate && !item.completed;
+		return item.dueDate !== undefined && !item.completed;
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
 		if (a.dueDate && b.dueDate) {

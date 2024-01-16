@@ -28,13 +28,13 @@
 	});
 	*/
 
-	function hasBeenCompleted(listId: string, id: string) {
+	function hasBeenCompleted(listId: string, id: string): boolean {
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[id];
 		const repeatType = item.dueDate?.repeats?.type;
 		return (
-			item &&
+			item !== undefined &&
 			(item.completed ||
-				(repeatType && repeatType !== RepeatType.NONE && item.completedTimestamp !== 0))
+				(repeatType !== undefined && repeatType !== RepeatType.NONE && item.completedTimestamp !== 0))
 		);
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
