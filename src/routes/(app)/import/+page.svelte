@@ -8,6 +8,10 @@
 	import { complete_item, star_item, set_due_date } from '$lib/components/items';
 
 	function importItem(listItem: any, list_id: string, id: string) {
+		if ($store.auth.uid === null || $store.auth.uid === undefined) {
+			console.error("Not logged in?!")
+			return;
+		}
 		const completed = listItem.extendedProperties.shared.done;
 		const starred = listItem.extendedProperties.shared.starred;
 		const dueDate = listItem.extendedProperties.shared.dueDate;
@@ -85,7 +89,7 @@
 				'lists',
 				list_id,
 				$store.auth.uid,
-				complete_item({ list_id, id, completed, completed_time })
+				complete_item({ list_id, id, completed, completed_time, description })
 			);
 		}
 	}
