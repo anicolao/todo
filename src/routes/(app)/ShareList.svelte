@@ -7,7 +7,6 @@
 	import Checkbox from '@smui/checkbox';
 	import { Icon } from '@smui/icon-button';
 	import List, { Item, Meta, PrimaryText, SecondaryText, Text } from '@smui/list';
-	import { PhoneMultiFactorGenerator } from 'firebase/auth';
 
 	$: otherUsers = $store.users.users.filter((u: AuthState) => u.email !== $store.auth.email);
 	export let selected: string[];
