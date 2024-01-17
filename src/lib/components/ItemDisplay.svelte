@@ -132,6 +132,7 @@
 
 <div class="container {$store.uiSettings.density}">
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	{#if enableUndo}<span class="material-icons" on:click={uncomplete(listId, item.id)}>undo</span
 		>{:else if item.completed}<span
 			class="check material-icons"
@@ -144,17 +145,20 @@
 		on:keydown={handleEnterKey}
 		on:blur={handleBlur(listId, item)}
 		on:focus={(e) => dispatchEvent('focus', { originalEvent: e })}
-	/>{#if !item.completed && item.dueDate && item.dueDate.repeats?.type !== 'none'}<!-- svelte-ignore a11y-click-events-have-key-events --><span
+	/><!-- svelte-ignore a11y-no-static-element-interactions -->
+	{#if !item.completed && item.dueDate && item.dueDate.repeats?.type !== 'none'}<!-- svelte-ignore a11y-click-events-have-key-events --><span
 			class="star material-icons"
 			on:click={completeForever(listId, item.id)}>highlight_off</span
 		>{/if}<span class="itemInfo"
 		><span class="repeatInfo"
 			><RepeatingDate on:click={() => console.log('Clicked!')} dueDate={item.dueDate} /></span
 		>{#if showListName}<span class="listName">{listName}</span>{/if}</span
-	><!-- svelte-ignore a11y-click-events-have-key-events --><span
+	><!-- svelte-ignore a11y-no-static-element-interactions -->
+	<!-- svelte-ignore a11y-click-events-have-key-events --><span
 		on:click={showEditDetailsDialog(listId, item.id)}
 		class="details material-icons">edit_note</span
 	><!-- svelte-ignore a11y-click-events-have-key-events -->
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	{#if item.starred}<span
 			class="star material-icons"
 			style="color: #ffb74d"
