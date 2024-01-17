@@ -40,7 +40,7 @@ export function sharePending(users: UsersState, email: string) {
 	return outgoingRequests.length > 0;
 }
 
-export function getSharedUsers(listId?: string) {
+export function getSharedUsers(listId?: string): AuthState[] {
 	let otherUsers = store
 		.getState()
 		.users.users.filter((u: AuthState) => u.email !== store.getState().auth.email);

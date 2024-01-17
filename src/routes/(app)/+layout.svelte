@@ -206,8 +206,8 @@
 				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
 			}
-			const previousShares = getSharedUsers()
-				.map((u: AuthState) => u.email)
+			const previousShares: string[] = getSharedUsers()
+				.map((u: AuthState) => u.email || "")
 				.sort();
 			selectedShareUsers.sort();
 			console.log({ previousShares, currentShares: selectedShareUsers });
@@ -273,12 +273,12 @@
 			if (
 				useDueDate !== origUseDueDate ||
 				(useDueDate &&
-					(year !== item.dueDate.year ||
+					(item.dueDate === undefined || year !== item.dueDate.year ||
 						month !== item.dueDate.month ||
 						day !== item.dueDate.day)) ||
-				(useDueDate && item.dueDate.repeats && item.dueDate.repeats.type !== type) ||
-				(useDueDate && item.dueDate.repeats && item.dueDate.repeats.every !== every) ||
-				(useDueDate && !item.dueDate.repeats && type !== RepeatType.NONE)
+				(useDueDate && item.dueDate?.repeats && item.dueDate.repeats.type !== type) ||
+				(useDueDate && item.dueDate?.repeats && item.dueDate.repeats.every !== every) ||
+				(useDueDate && !item.dueDate?.repeats && type !== RepeatType.NONE)
 			) {
 				if (useDueDate) {
 					const due_date = {
@@ -325,7 +325,7 @@
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
 	function initializeShareUsers() {
-		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email);
+		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
 	}
 
 	let selectedShareUsers: string[] = [];
@@ -365,7 +365,7 @@
 							style="display: inline-block; margin-right: 1em; text-align: right; font-size: 75%"
 							>{$store.ui.loadingStatus}<br />{$store.ui.loadingPercentage}%</span
 						>{/if}
-					<span><Avatar name={$store.auth.name} photo={$store.auth.photo} /></span>
+					<span><Avatar name={$store.auth.name || ""} photo={$store.auth.photo || ""} /></span>
 				</Section>
 			</Row>
 		</TopAppBar>
