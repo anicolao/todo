@@ -316,7 +316,10 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(nextState, complete_item({ list_id, id, completed: true, completed_time }));
+		nextState = items(
+			nextState,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 
 		const item = list.itemIdToItem[id];
@@ -337,7 +340,10 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(nextState, complete_item({ id, list_id, completed: true, completed_time }));
+		nextState = items(
+			nextState,
+			complete_item({ id, list_id, completed: true, completed_time, description: 'unused' })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 		const item = list.itemIdToItem[id];
 
@@ -351,7 +357,13 @@ describe('items', () => {
 		const completed_time2 = 1235;
 		nextState = items(
 			nextState,
-			complete_item({ id, list_id, completed: false, completed_time: completed_time2 })
+			complete_item({
+				id,
+				list_id,
+				completed: false,
+				completed_time: completed_time2,
+				description: 'unused'
+			})
 		);
 		list = nextState.listIdToListOfItems[list_id];
 		const item2 = list.itemIdToItem[id];
@@ -627,7 +639,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -666,7 +681,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -705,7 +723,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -744,7 +765,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -783,7 +807,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -822,7 +849,10 @@ describe('items', () => {
 			1
 		);
 		const completed_time = new Date(2022, 11, 31).getTime();
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		let list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
@@ -854,7 +884,13 @@ describe('items', () => {
 		const completed_time2 = new Date(2023, 0, 1).getTime();
 		state = items(
 			state,
-			complete_item({ list_id, id, completed: true, completed_time: completed_time2 })
+			complete_item({
+				list_id,
+				id,
+				completed: true,
+				completed_time: completed_time2,
+				description: 'unused'
+			})
 		);
 		list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
@@ -967,7 +1003,10 @@ describe('items', () => {
 		let list = nextState.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem[id].completed).to.equal(false);
 
-		nextState = items(nextState, complete_item({ list_id, id, completed: true, completed_time }));
+		nextState = items(
+			nextState,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		list = nextState.listIdToListOfItems[list_id];
 
 		expect(list.itemIdToItem).to.deep.include({
@@ -1033,7 +1072,10 @@ describe('items', () => {
 		});
 
 		const completed_time = 2468;
-		state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+		state = items(
+			state,
+			complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+		);
 		list = state.listIdToListOfItems[list_id];
 		expect(list.itemIdToItem).to.deep.include({
 			'item id 1': {
@@ -1118,7 +1160,10 @@ describe('items', () => {
 				1
 			);
 			const completed_time = new Date(2022, 11, 31).getTime();
-			state = items(state, complete_item({ list_id, id, completed: true, completed_time }));
+			state = items(
+				state,
+				complete_item({ list_id, id, completed: true, completed_time, description: 'unused' })
+			);
 			let list = state.listIdToListOfItems[list_id];
 			expect(list.itemIdToItem[id].completed).to.equal(false);
 

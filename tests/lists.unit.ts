@@ -83,13 +83,21 @@ describe('lists', () => {
 	});
 
 	it('returns initial state on sign in', () => {
-		const state: ListsState = { visibleLists: ['x', 'y', 'z'], listIdToList: { a: 'A', b: 'B' } };
+		const state: ListsState = {
+			visibleLists: ['x', 'y', 'z'],
+			listIdToList: { a: 'A', b: 'B' },
+			listIdToTimestamp: {}
+		};
 		const nextState = lists(state, signed_in);
 		expect(nextState).to.equal(initialState);
 	});
 
 	it('returns initial state on sign out', () => {
-		const state: ListsState = { visibleLists: ['x', 'y', 'z'], listIdToList: { a: 'A', b: 'B' } };
+		const state: ListsState = {
+			visibleLists: ['x', 'y', 'z'],
+			listIdToList: { a: 'A', b: 'B' },
+			listIdToTimestamp: {}
+		};
 		const nextState = lists(state, signed_out);
 		expect(nextState).to.equal(initialState);
 	});
