@@ -90,7 +90,7 @@ const firebase = {
 	request
 };
 
-if (!import.meta.env.PROD) {
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
 	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
 }
 
