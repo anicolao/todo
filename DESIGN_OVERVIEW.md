@@ -21,3 +21,6 @@ The application is a real-time collaborative Todo list built with SvelteKit and 
 ## Testing
 - **Unit/Integration**: Vitest for testing business logic and store transitions.
 - **E2E**: Playwright for end-to-end testing, utilizing the Firebase Emulator for a consistent and isolated test environment.
+  - **Zero-Pixel Tolerance**: Every atomic test step captures a visual snapshot to verify UI state.
+  - **Unified Step Pattern**: Uses a mandatory `TestStepHelper` to bundle actions, verifications, and automated screenshots.
+  - **Self-Documenting Scenarios**: Tests automatically generate a `README.md` with screenshots for each scenario to serve as living documentation.
