@@ -13,22 +13,20 @@ test('login page verification', async ({ page }, testInfo) => {
 
 	await page.goto('/');
 
-	await helper.step('navigate_to_login', {
-		description: 'User navigates to the home page and is redirected to the login page.',
+	await helper.step('login_page', {
+		description: 'User navigates to the home page and is redirected to the login page, where content and button are verified.',
 		verifications: [
 			{
 				spec: 'URL is /login',
-				check: async () => { await expect(page).toHaveURL(/\/login/); }
-			}
-		]
-	});
-
-	await helper.step('verify_login_content', {
-		description: 'Verify the presence of essential elements on the login page.',
-		verifications: [
+				check: async () => {
+					await expect(page).toHaveURL(/\/login/);
+				}
+			},
 			{
 				spec: 'Title is Todo',
-				check: async () => { await expect(page).toHaveTitle(/Todo/); }
+				check: async () => {
+					await expect(page).toHaveTitle(/Todo/);
+				}
 			},
 			{
 				spec: 'Heading contains TODOs',
@@ -44,13 +42,7 @@ test('login page verification', async ({ page }, testInfo) => {
 					const welcomeMessage = page.locator('p');
 					await expect(welcomeMessage).toContainText('Welcome to Todo. Please sign in.');
 				}
-			}
-		]
-	});
-
-	await helper.step('verify_login_button', {
-		description: 'Ensure the login button is visible and ready for interaction.',
-		verifications: [
+			},
 			{
 				spec: 'Login button is visible',
 				check: async () => {

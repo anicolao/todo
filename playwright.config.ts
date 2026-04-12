@@ -34,7 +34,12 @@ const config: PlaywrightTestConfig = {
 		*/
 		{
 			name: 'Pixel 5',
-			use: { ...devices['Pixel 5'], isMobile: true }
+			use: {
+				...devices['Pixel 5'],
+				viewport: { width: 393, height: 852 },
+				isMobile: true,
+				hasTouch: true
+			}
 		}
 	]
 };
