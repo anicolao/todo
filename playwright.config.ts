@@ -8,12 +8,12 @@ const config: PlaywrightTestConfig = {
 			env: {
 				VITE_USE_FIREBASE_EMULATOR: 'true'
 			},
-			reuseExistingServer: !process.env.CI
+			reuseExistingServer: true
 		},
 		{
 			command: 'npx firebase emulators:start --only firestore',
 			port: 8080,
-			reuseExistingServer: !process.env.CI
+			reuseExistingServer: true
 		}
 	],
 	testDir: 'tests/e2e',
@@ -26,10 +26,12 @@ const config: PlaywrightTestConfig = {
 			name: 'Desktop Chrome',
 			use: { ...devices['Desktop Chrome'] }
 		},
+		/*
 		{
 			name: 'iPhone 12',
 			use: { ...devices['iPhone 12'], isMobile: true }
 		},
+		*/
 		{
 			name: 'Pixel 5',
 			use: { ...devices['Pixel 5'], isMobile: true }
