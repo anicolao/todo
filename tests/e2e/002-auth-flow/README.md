@@ -33,12 +33,31 @@ User is on the profile page.
 
 ![profile_page](screenshots/003-profile-page.png)
 
-### Step 004: after_signout
+### Step 004: create_list_step
+
+User creates a new todo list.
+
+**Verifications:**
+- [x] New list input is visible
+
+![create_list_step](screenshots/004-create-list-step.png)
+
+### Step 005: list_created
+
+User created a new list and is redirected to it.
+
+**Verifications:**
+- [x] URL contains the new list ID
+- [x] List title matches
+
+![list_created](screenshots/005-list-created.png)
+
+### Step 006: after_signout
 
 User clicked sign out and should be redirected to login page.
 
 **Verifications:**
 - [x] Redirected to login page
 
-![after_signout](screenshots/004-after-signout.png)
+![after_signout](screenshots/006-after-signout.png)
 

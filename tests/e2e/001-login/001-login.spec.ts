@@ -39,14 +39,14 @@ test('login page verification', async ({ page }, testInfo) => {
 			{
 				spec: 'Welcome message is present',
 				check: async () => {
-					const welcomeMessage = page.locator('p');
-					await expect(welcomeMessage).toContainText('Welcome to Todo. Please sign in.');
+					const welcomeMessage = page.locator('p').filter({ hasText: 'Welcome to Todo. Please sign in.' });
+					await expect(welcomeMessage).toBeVisible();
 				}
 			},
 			{
 				spec: 'Login button is visible',
 				check: async () => {
-					const loginButton = page.locator('button');
+					const loginButton = page.getByRole('button', { name: 'Sign In', exact: true });
 					await expect(loginButton).toBeVisible();
 				}
 			}

@@ -46,6 +46,27 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 		]
 	});
 
+	await helper.step('create_list_step', {
+		description: 'User creates a new todo list.',
+		verifications: [
+			{ spec: 'New list input is visible', check: async () => expect(page.getByLabel('New list')).toBeVisible() }
+		]
+	});
+
+	const listName = 'My Test List';
+	await page.getByLabel('New list').fill(listName);
+	await page.keyboard.press('Enter');
+
+	await helper.step('list_created', {
+		description: 'User created a new list and is redirected to it.',
+		verifications: [
+			{ spec: 'URL contains the new list ID', check: async () => expect(page).toHaveURL(/lists\?listId=/) },
+			{ spec: 'List title matches', check: async () => expect(page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })).toBeVisible() }
+		]
+	});
+
+	// Go back to profile for signing out
+	await page.goto('/profile');
 	await page.click('button:has-text("Sign Out")');
 
 	await helper.step('after_signout', {
