@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { store } from '$lib/store';
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
 import { getMessaging } from 'firebase/messaging';
 import {
 	addDoc,
@@ -91,7 +91,8 @@ const firebase = {
 };
 
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
-	connectFirestoreEmulator(firebase.firestore, 'localhost', 8080);
+	connectFirestoreEmulator(firebase.firestore, '127.0.0.1', 8080);
+	connectAuthEmulator(firebase.auth, 'http://127.0.0.1:9099');
 }
 
 enableIndexedDbPersistence(firebase.firestore).catch((err) => {

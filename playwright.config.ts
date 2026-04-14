@@ -4,21 +4,22 @@ const config: PlaywrightTestConfig = {
 	webServer: [
 		{
 			command: 'npm run build && npm run preview',
-			port: 4173,
+			url: 'http://127.0.0.1:4173',
 			env: {
 				VITE_USE_FIREBASE_EMULATOR: 'true'
 			},
-			reuseExistingServer: true
+			reuseExistingServer: true,
+			timeout: 120000
 		},
 		{
-			command: 'npx firebase emulators:start --only firestore',
-			port: 8080,
+			command: 'npx firebase emulators:start --only firestore,auth',
+			url: 'http://127.0.0.1:8080',
 			reuseExistingServer: true
 		}
 	],
 	testDir: 'tests/e2e',
 	use: {
-		baseURL: 'http://localhost:4173',
+		baseURL: 'http://127.0.0.1:4173',
 		trace: 'on-first-retry'
 	},
 	projects: [
