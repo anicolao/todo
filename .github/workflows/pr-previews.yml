@@ -1,0 +1,37 @@
+name: PR Previews
+
+on:
+  pull_request:
+    types: [opened, synchronized, reopened]
+
+jobs:
+  build_and_preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Firebase Service Account Secret
+        id: check_secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ The \`FIREBASE_SERVICE_ACCOUNT\` secret is missing. PR Previews cannot be deployed. Please follow the instructions in \`docs/PR_HOSTING_SETUP.md\` to set it up."
+            echo "Secret is missing. Failing the job."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting Preview Channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          projectId: todo-firebase-1a740
