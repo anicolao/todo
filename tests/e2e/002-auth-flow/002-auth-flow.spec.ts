@@ -14,7 +14,7 @@ test.beforeEach(async ({ request }) => {
 
 test('successful login and profile view', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
-	helper.setMetadata('Successful Login Flow', 'Verify that a user can sign in using the test button and view their profile.');
+	helper.setMetadata('Successful Login Flow', 'Verify that a user can sign in using the Sign In button and view their profile.');
 
 	await page.goto('/');
 

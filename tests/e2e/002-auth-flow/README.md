@@ -1,6 +1,6 @@
 # Scenario: Successful Login Flow
 
-Verify that a user can sign in using the test button and view their profile.
+Verify that a user can sign in using the Sign In button and view their profile.
 
 ## Steps
 
