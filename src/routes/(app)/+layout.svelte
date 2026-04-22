@@ -22,7 +22,6 @@
 	import { emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import { logTime, store } from '$lib/store';
-	import { getVersion } from '$lib/version';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
 	import { Actions } from '@smui/dialog';
@@ -403,7 +402,11 @@
 						>
 						<Text>{textLookup('account_circle')}</Text>
 					</Item>
-					<Subheader>{getVersion()}</Subheader>
+					<Subheader>
+					v{import.meta.env.VITE_APP_VERSION} ({import.meta.env.VITE_APP_DIRTY_FLAG
+						? '⚠'
+						: ''}{import.meta.env.VITE_APP_COMMIT_HASH})
+				</Subheader>
 				</List>
 			</Content>
 		</Drawer>
