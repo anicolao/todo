@@ -10,8 +10,8 @@
 	}
 </script>
 
-<div>
-	<Card>
+<div class="container">
+	<Card class="login-card">
 		<CardContent>
 			<h2>TODOs</h2>
 			<p>Welcome to Todo. Please sign in.</p>
@@ -23,8 +23,16 @@
 </div>
 
 <style>
-	div {
-		margin: 25%;
-		margin-top: 5%;
+	.container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 16px;
+		min-height: 80vh;
+	}
+
+	:global(.login-card) {
+		width: 100%;
+		max-width: 400px;
 	}
 </style>

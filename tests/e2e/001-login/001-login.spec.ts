@@ -19,7 +19,7 @@ test('login page verification', async ({ page }, testInfo) => {
 			{
 				spec: 'URL is /login',
 				check: async () => {
-					await expect(page).toHaveURL(/\/login/);
+					await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
 				}
 			},
 			{

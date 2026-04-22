@@ -34,11 +34,11 @@
 			await signInWithEmailAndPassword(auth, 'test@example.com', 'password');
 		} catch (e: any) {
 			console.log('testSignIn catch', e.code);
-			if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-login-credentials') {
+			if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-login-credentials' || e.code === 'auth/invalid-credential') {
 				const userCredential = await createUserWithEmailAndPassword(auth, 'test@example.com', 'password');
 				await updateProfile(userCredential.user, {
 					displayName: 'Test User',
-					photoURL: 'https://via.placeholder.com/150'
+					photoURL: 'https://i.pravatar.cc/150?u=test@example.com'
 				});
 				// After updateProfile, we might need to trigger another state change or just wait.
 				// But onAuthStateChanged should trigger eventually.
@@ -49,7 +49,11 @@
 	}
 
 	function signin() {
-		signInWithGoogle()
+		const promise = import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' 
+			? testSignIn() 
+			: signInWithGoogle();
+		
+		promise
 			.then(() => {
 				console.log('signed in!');
 			})
@@ -72,11 +76,6 @@
 		<Label>Sign In</Label>
 		<i class="material-icons" aria-hidden="true">arrow_forward</i>
 	</Button>
-	{#if import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true'}
-		<Button on:click={testSignIn} id="test-signin">
-			<Label>Test Sign In</Label>
-		</Button>
-	{/if}
 {:else}
 	<img src={$store.auth.photo} referrerpolicy="no-referrer" alt="User avatar" />
 	<p>{$store.auth.email}</p>
