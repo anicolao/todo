@@ -28,6 +28,17 @@ export class TestStepHelper {
   setMetadata(name: string, description: string) {
     this.scenarioName = name;
     this.scenarioDescription = description;
+
+    const specDir = path.dirname(this.testInfo.file);
+    const screenshotDir = path.join(specDir, 'screenshots');
+    const readmePath = path.join(specDir, 'README.md');
+
+    if (fs.existsSync(screenshotDir)) {
+      fs.rmSync(screenshotDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(readmePath)) {
+      fs.rmSync(readmePath, { force: true });
+    }
   }
 
   /**
