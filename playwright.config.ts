@@ -3,7 +3,7 @@ import { devices, type PlaywrightTestConfig } from '@playwright/test';
 const config: PlaywrightTestConfig = {
 	webServer: [
 		{
-			command: 'npm run build && npm run preview',
+			command: 'npm run build && npm run preview -- --host 127.0.0.1',
 			url: 'http://127.0.0.1:4173',
 			env: {
 				VITE_USE_FIREBASE_EMULATOR: 'true'
@@ -14,7 +14,8 @@ const config: PlaywrightTestConfig = {
 		{
 			command: 'npx firebase emulators:start --only firestore,auth',
 			url: 'http://127.0.0.1:8080',
-			reuseExistingServer: true
+			reuseExistingServer: true,
+			timeout: 120000
 		}
 	],
 	testDir: 'tests/e2e',
