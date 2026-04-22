@@ -21,11 +21,11 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 	await helper.step('login_page', {
 		description: 'User is on the login page.',
 		verifications: [
-			{ spec: 'Login button is visible', check: async () => expect(page.locator('#test-signin')).toBeVisible() }
+			{ spec: 'Login button is visible', check: async () => expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible() }
 		]
 	});
 
-	await page.click('#test-signin');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
 	await helper.step('after_login', {
 		description: 'User clicked test sign in and should be redirected to profile page (via home page).',
@@ -67,6 +67,14 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 
 	const listName = 'My Test List';
 	await page.getByLabel('New list').fill(listName);
+
+	await helper.step('entering_list_name', {
+		description: 'User has entered the new list name but has not yet submitted.',
+		verifications: [
+			{ spec: 'Input contains the list name', check: async () => expect(page.getByLabel('New list')).toHaveValue(listName) }
+		]
+	});
+
 	await page.keyboard.press('Enter');
 
 	await helper.step('list_created', {

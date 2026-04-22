@@ -42,7 +42,16 @@ User creates a new todo list.
 
 ![create_list_step](screenshots/004-create-list-step.png)
 
-### Step 005: list_created
+### Step 005: entering_list_name
+
+User has entered the new list name but has not yet submitted.
+
+**Verifications:**
+- [x] Input contains the list name
+
+![entering_list_name](screenshots/005-entering-list-name.png)
+
+### Step 006: list_created
 
 User created a new list and is redirected to it.
 
@@ -50,14 +59,14 @@ User created a new list and is redirected to it.
 - [x] URL contains the new list ID
 - [x] List title matches
 
-![list_created](screenshots/005-list-created.png)
+![list_created](screenshots/006-list-created.png)
 
-### Step 006: after_signout
+### Step 007: after_signout
 
 User clicked sign out and should be redirected to login page.
 
 **Verifications:**
 - [x] Redirected to login page
 
-![after_signout](screenshots/006-after-signout.png)
+![after_signout](screenshots/007-after-signout.png)
 
