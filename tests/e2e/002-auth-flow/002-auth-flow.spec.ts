@@ -8,7 +8,7 @@ test.beforeEach(async ({ request }) => {
 	
 	// Optional: Clear Auth users if possible. 
 	// The Firebase Auth emulator has a REST API for this:
-	// DELETE http://localhost:9099/emulator/v1/projects/{project-id}/accounts
+	// DELETE http://127.0.0.1:9099/emulator/v1/projects/{project-id}/accounts
 	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
 });
 
@@ -49,7 +49,19 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 	await helper.step('create_list_step', {
 		description: 'User creates a new todo list.',
 		verifications: [
-			{ spec: 'New list input is visible', check: async () => expect(page.getByLabel('New list')).toBeVisible() }
+			{ 
+				spec: 'New list input is visible', 
+				check: async () => {
+					const newListInput = page.getByLabel('New list');
+					if (!(await newListInput.isVisible())) {
+						const menuButton = page.locator('button.material-icons:has-text("menu")');
+						if (await menuButton.isVisible()) {
+							await menuButton.click();
+						}
+					}
+					await expect(newListInput).toBeVisible();
+				} 
+			}
 		]
 	});
 

@@ -36,7 +36,7 @@ export class TestStepHelper {
   async waitForAnimations() {
     await this.page.evaluate(async () => {
       const animations = document.getAnimations();
-      await Promise.all(animations.map(a => a.finished));
+      await Promise.allSettled(animations.map(a => a.finished));
     });
   }
 
