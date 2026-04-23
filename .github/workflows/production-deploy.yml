@@ -49,9 +49,13 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Verify Firebase Auth
-        run: npx firebase login:list
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: npx firebase projects:list
 
       - name: Deploy to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: npx firebase deploy --non-interactive --project todo-firebase-1a740 --only hosting,functions,firestore
 
       - name: Create and push deployment tag
