@@ -46,17 +46,13 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Debug Firebase credentials
-        run: |
-          echo "Credentials file path: ${{ steps.auth.outputs.credentials_file_path }}"
-          ls -l "${{ steps.auth.outputs.credentials_file_path }}"
+      - name: Verify Firebase Auth
+        run: npx firebase login:list
 
       - name: Deploy to Firebase
-        run: npx firebase deploy --non-interactive --project todo-firebase-1a740
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: npx firebase deploy --non-interactive --project todo-firebase-1a740 --only hosting,functions,firestore
 
       - name: Create and push deployment tag
         run: |
