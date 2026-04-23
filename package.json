@@ -15,7 +15,8 @@
 		"preview": "vite preview",
 		"test": "vitest run --coverage",
 		"playwright": "playwright test",
-		"deploy": "npm run build && firebase deploy"
+		"deploy": "npm run build && firebase deploy",
+		"commit": "git commit -m"
 	},
 	"devDependencies": {
 		"@capacitor/assets": "^2.0.4",
