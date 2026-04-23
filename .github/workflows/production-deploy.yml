@@ -48,6 +48,11 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Debug Firebase credentials
+        run: |
+          echo "Credentials file path: ${{ steps.auth.outputs.credentials_file_path }}"
+          ls -l "${{ steps.auth.outputs.credentials_file_path }}"
+
       - name: Deploy to Firebase
         run: npx firebase deploy --non-interactive --project todo-firebase-1a740
         env:
