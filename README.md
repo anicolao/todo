@@ -36,3 +36,10 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+## Deployment
+
+This project uses GitHub Actions for automated deployments:
+
+- **PR Previews**: Every pull request triggers a preview deployment to Firebase Hosting. See [docs/PR_HOSTING_SETUP.md](docs/PR_HOSTING_SETUP.md) for setup instructions.
+- **Production Deployments**: Merges to the `main` branch trigger a full deployment (Hosting, Functions, Firestore). See [docs/FIREBASE_ADMIN_SETUP.md](docs/FIREBASE_ADMIN_SETUP.md) for the necessary administrative setup.

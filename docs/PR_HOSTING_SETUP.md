@@ -14,7 +14,8 @@ To enable automated PR Previews, you need to set up a service account in Firebas
     Go to **Project Settings** (gear icon) -> **Service Accounts**.
 
 4.  **Verify Permissions**
-    Ensure the service account has the **Firebase Hosting Admin** role.
+    - For **PR Previews** (Hosting only), ensure the service account has the **Firebase Hosting Admin** role.
+    - For **Production Deployments** (Full deploy including Functions and Firestore), a more comprehensive set of permissions is required. Please refer to [FIREBASE_ADMIN_SETUP.md](./FIREBASE_ADMIN_SETUP.md) for detailed instructions.
 
 5.  **Generate Private Key**
     Click **Generate new private key**, then click **Generate key** to download the JSON file.

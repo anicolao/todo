@@ -24,7 +24,7 @@ jobs:
       - name: Check for Firebase Service Account Secret
         id: check_secret
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "::error::The FIREBASE_SERVICE_ACCOUNT secret is missing. Deployment cannot proceed."
@@ -43,12 +43,23 @@ jobs:
           COMMIT_HASH: ${{ github.sha }}
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+
+      - name: Verify Firebase Auth
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          npx firebase login:list
+          npx firebase projects:list
 
       - name: Deploy to Firebase
-        run: npx firebase deploy --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+          FIREBASE_PROJECT: todo-firebase-1a740
+        run: npx firebase deploy --non-interactive --project todo-firebase-1a740 --only hosting,functions,firestore
 
       - name: Create and push deployment tag
         run: |
