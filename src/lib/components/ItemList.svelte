@@ -269,17 +269,20 @@
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
 			if (dragEnabled) {
+				const pointerId = e.pointerId;
+				const clientY = e.clientY;
+				const currentTarget = e.currentTarget as HTMLElement;
 				pointerX = e.clientX;
-				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
+				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
 				if (target) {
 					window.setTimeout(() => {
 						if (target) {
-							// console.log('onPointerDown GRAB');
-							grab(e.clientY, target);
+							currentTarget.setPointerCapture(pointerId);
+							grab(clientY, target);
 						} else {
 							// console.log('onPointerDown no grab');
 						}
-					}, 50 + touchTimeout);
+					}, 100 + touchTimeout);
 				}
 			}
 		},

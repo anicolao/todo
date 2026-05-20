@@ -177,24 +177,25 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
+			const pointerId = e.pointerId;
+			const clientY = e.clientY;
+			const currentTarget = e.currentTarget as HTMLElement;
 			pointerX = e.clientX;
-			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
+			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
 			if (target) {
 				window.setTimeout(() => {
 					if (target) {
-						// console.log('onPointerDown GRAB');
-						grab(e.clientY, target);
+						currentTarget.setPointerCapture(pointerId);
+						grab(clientY, target);
 					} else {
 						// console.log('onPointerDown no grab');
 					}
-				}, 50 + touchTimeout);
+				}, 100 + touchTimeout);
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
-			e.stopPropagation();
-			e.preventDefault();
 			if (grabbed) {
+				e.preventDefault();
 				pointerX = e.clientX;
 				drag(e.clientY);
 				updateDragTarget(e.clientX, e.clientY);
