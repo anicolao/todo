@@ -12,8 +12,8 @@ const config: PlaywrightTestConfig = {
 			timeout: 120000
 		},
 		{
-			command: 'npx firebase emulators:start --only firestore,auth',
-			url: 'http://127.0.0.1:8080',
+			command: 'npx firebase emulators:start --only firestore,auth --project todo-firebase-1a740 --non-interactive',
+			url: 'http://127.0.0.1:9099',
 			reuseExistingServer: true,
 			timeout: 120000
 		}
