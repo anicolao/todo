@@ -19,10 +19,12 @@ const config: PlaywrightTestConfig = {
 		}
 	],
 	testDir: 'tests/e2e',
+	timeout: 60000,
 	use: {
 		baseURL: 'http://127.0.0.1:4173',
 		trace: 'on-first-retry'
 	},
+	reporter: process.env.CI ? 'html' : 'list',
 	projects: [
 		{
 			name: 'Desktop Chrome',
