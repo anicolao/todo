@@ -9,6 +9,7 @@ Verify that a user can sign in using the Sign In button and view their profile.
 User is on the login page.
 
 **Verifications:**
+
 - [x] Login button is visible
 
 ![login_page](screenshots/001-login-page.png)
@@ -18,6 +19,7 @@ User is on the login page.
 User clicked test sign in and should be redirected to profile page (via home page).
 
 **Verifications:**
+
 - [x] Redirected to profile page
 
 ![after_login](screenshots/002-after-login.png)
@@ -27,6 +29,7 @@ User clicked test sign in and should be redirected to profile page (via home pag
 User is on the profile page.
 
 **Verifications:**
+
 - [x] URL is /profile
 - [x] Email is visible
 - [x] Name is visible
@@ -38,6 +41,7 @@ User is on the profile page.
 User creates a new todo list.
 
 **Verifications:**
+
 - [x] New list input is visible
 
 ![create_list_step](screenshots/004-create-list-step.png)
@@ -47,6 +51,7 @@ User creates a new todo list.
 User has entered the new list name but has not yet submitted.
 
 **Verifications:**
+
 - [x] Input contains the list name
 
 ![entering_list_name](screenshots/005-entering-list-name.png)
@@ -56,6 +61,7 @@ User has entered the new list name but has not yet submitted.
 User created a new list and is redirected to it.
 
 **Verifications:**
+
 - [x] URL contains the new list ID
 - [x] List title matches
 
@@ -66,7 +72,7 @@ User created a new list and is redirected to it.
 User clicked sign out and should be redirected to login page.
 
 **Verifications:**
+
 - [x] Redirected to login page
 
 ![after_signout](screenshots/007-after-signout.png)
-

@@ -24,7 +24,7 @@ jobs:
       - name: Check for Firebase Service Account Secret
         id: check_secret
         env:
-          FIREBASE_SERVICE_ACCOUNT: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "::error::The FIREBASE_SERVICE_ACCOUNT secret is missing. Deployment cannot proceed."
@@ -38,7 +38,7 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
 
       - name: Run deploy preflight
         run: npm run deploy:preflight

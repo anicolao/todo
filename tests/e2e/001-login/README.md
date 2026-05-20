@@ -9,6 +9,7 @@ Verify the initial state of the login page.
 User navigates to the home page and is redirected to the login page, where content and button are verified.
 
 **Verifications:**
+
 - [x] URL is /login
 - [x] Title is Todo
 - [x] Heading contains TODOs
@@ -16,4 +17,3 @@ User navigates to the home page and is redirected to the login page, where conte
 - [x] Login button is visible
 
 ![login_page](screenshots/001-login-page.png)
-

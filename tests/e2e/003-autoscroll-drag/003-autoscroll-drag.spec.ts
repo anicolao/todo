@@ -84,15 +84,13 @@ async function visibleTodoOrder(page: Page) {
 }
 
 async function visibleListMenuOrder(page: Page) {
-	return page
-		.locator('.mdc-drawer .listContainer .item:not(#ghost)')
-		.evaluateAll((items) =>
-			items.map((item) => {
-				const clone = item.cloneNode(true) as HTMLElement;
-				clone.querySelectorAll('button').forEach((button) => button.remove());
-				return clone.textContent?.trim() || '';
-			})
-		);
+	return page.locator('.mdc-drawer .listContainer .item:not(#ghost)').evaluateAll((items) =>
+		items.map((item) => {
+			const clone = item.cloneNode(true) as HTMLElement;
+			clone.querySelectorAll('button').forEach((button) => button.remove());
+			return clone.textContent?.trim() || '';
+		})
+	);
 }
 
 test('dragging a todo item to an off-screen list position autoscrolls the todo list', async ({
