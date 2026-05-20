@@ -1,4 +1,6 @@
-# create-svelte
+# todo
+
+[![CI](https://github.com/anicolao/todo/actions/workflows/ci.yml/badge.svg)](https://github.com/anicolao/todo/actions/workflows/ci.yml)
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
 
