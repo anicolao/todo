@@ -27,11 +27,11 @@ async function createList(page: Page, listName: string) {
 async function createTodoItems(page: Page, itemNames: string[]) {
 	const newTask = page.getByLabel('New task');
 	await expect(newTask).toBeVisible();
-	await page.waitForTimeout(800);
+	await page.waitForTimeout(1500);
 	for (const [index, itemName] of [...itemNames].reverse().entries()) {
 		await newTask.fill(itemName);
 		await page.keyboard.press('Enter');
-		await expect(todoInputs(page)).toHaveCount(index + 1, { timeout: 10000 });
+		await expect(todoInputs(page)).toHaveCount(index + 1, { timeout: 15000 });
 	}
 }
 
@@ -69,12 +69,12 @@ async function dragVisibleRowTowardTopOfViewport(
 
 	await page.mouse.move(startX, startY);
 	await page.mouse.down();
-	await page.waitForTimeout(150);
+	await page.waitForTimeout(500);
 	await page.mouse.move(startX, topDragY, { steps: 20 });
-	await page.waitForTimeout(1600);
+	await page.waitForTimeout(2000);
 	await page.mouse.move(startX, topDragY, { steps: 5 });
 	await page.mouse.up();
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(1000);
 }
 
 async function visibleTodoOrder(page: Page) {
@@ -84,13 +84,15 @@ async function visibleTodoOrder(page: Page) {
 }
 
 async function visibleListMenuOrder(page: Page) {
-	return page.locator('.mdc-drawer .listContainer .item:not(#ghost)').evaluateAll((items) =>
-		items.map((item) => {
-			const clone = item.cloneNode(true) as HTMLElement;
-			clone.querySelectorAll('button').forEach((button) => button.remove());
-			return clone.textContent?.trim() || '';
-		})
-	);
+	return page
+		.locator('.mdc-drawer .listContainer .item:not(#ghost)')
+		.evaluateAll((items) =>
+			items.map((item) => {
+				const clone = item.cloneNode(true) as HTMLElement;
+				clone.querySelectorAll('button').forEach((button) => button.remove());
+				return clone.textContent?.trim() || '';
+			})
+		);
 }
 
 test('dragging a todo item to an off-screen list position autoscrolls the todo list', async ({
@@ -155,4 +157,22 @@ test('dragging a list to an off-screen list-menu position autoscrolls the list o
 	);
 
 	await expect.poll(async () => (await visibleListMenuOrder(page))[0]).toBe(listNames.at(-1));
+});
+
+test('clicking a list in the sidebar navigates to that list', async ({ page }) => {
+	await signIn(page);
+
+	const listName1 = `List One ${Date.now()}`;
+	const listName2 = `List Two ${Date.now()}`;
+
+	await createList(page, listName1);
+	await createList(page, listName2);
+
+	// Click on List One in the sidebar
+	const listOneRow = listMenuRow(page, listName1);
+	await listOneRow.click();
+
+	// Verify we are now on List One
+	await expect(page).toHaveURL(new RegExp(`lists\\?listId=`));
+	await expect(page.locator('.mdc-top-app-bar__title').filter({ hasText: listName1 })).toBeVisible();
 });

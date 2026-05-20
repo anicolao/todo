@@ -4,9 +4,7 @@ const MAX_SCROLL_PX_PER_FRAME = 24;
 function isScrollable(element: HTMLElement) {
 	const style = getComputedStyle(element);
 	const overflowY = style.overflowY;
-	return (
-		(overflowY === 'auto' || overflowY === 'scroll') && element.scrollHeight > element.clientHeight
-	);
+	return overflowY === 'auto' || overflowY === 'scroll';
 }
 
 function findScrollContainer(element: Element | null | undefined) {
