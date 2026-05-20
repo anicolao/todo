@@ -1,6 +1,11 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { AnyAction } from '@reduxjs/toolkit';
+
+interface AnyAction {
+	type: string;
+	payload?: any;
+	[key: string]: any;
+}
 
 admin.initializeApp();
 
