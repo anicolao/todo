@@ -20,6 +20,7 @@
 	*/
 
 	export let setActive: (name: string) => void;
+	export let scrollContainer: CallableFunction | undefined;
 
 	let items: string[] = [];
 	function updateItems() {
@@ -69,6 +70,7 @@
 		if (grabbed) {
 			mouseY = clientY;
 			layerY = anchor.getBoundingClientRect().y;
+			console.log(`drag: offsetY ${offsetY} mouseY ${mouseY} layerY ${layerY}`);
 		}
 	}
 
@@ -95,6 +97,10 @@
 			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
+      if(mouseY < 4 * boxHeight) {
+        console.log(`dragEnter: ${target}`, target);
+        scrollContainer && scrollContainer(-2 * boxHeight);
+      }
 			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
 		}
 	}

@@ -301,6 +301,24 @@
 		store.dispatch(show_edit_dialog(false));
 	}
 
+	let drawerObject;
+	let listContainer;
+
+	// @param pixels: pixels to scroll: positive for down; negative for up.
+	function scrollContainer(pixels: number) {
+    if(drawerObject?.getElement()) {
+      console.log(`scrollContainer: pixels ${pixels}`);
+      drawerObject.getElement().scrollBy({top: pixels});
+    }
+  } 
+
+	function scrollListContainer(pixels: number) {
+    if(listContainer?.getElement()) {
+      console.log(`scrollListContainer: pixels ${pixels}`);
+      listContainer.getElement().scrollBy({top: pixels});
+    }
+  } 
+
 	function cancelItemDetailsDialog() {
 		previousDialogItem = undefined;
 		store.dispatch(show_item_detail_dialog(false));
@@ -376,10 +394,11 @@
 			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
 			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
 			bind:open={drawerOpen}
+      bind:this={drawerObject}
 		>
 			<Content>
 				<FilterMenu {setActive} />
-				<ListMenu {setActive} />
+				<ListMenu {setActive} {scrollContainer} />
 				<div class="verticalspacer" />
 				<AcceptShare />
 				<Textfield
@@ -410,8 +429,8 @@
 
 		<Scrim fixed={false} />
 		<AppContent class="app-content">
-			<div class="backdrop" style:background-image={bgStyle}>
-				<slot />
+			<div class="backdrop" style:background-image={bgStyle} bind:this={listContainer} >
+				<slot {scrollListContainer} />
 				<SgDialog
 					bind:open={itemDetailsOpen}
 					cancelDialog={cancelItemDetailsDialog}

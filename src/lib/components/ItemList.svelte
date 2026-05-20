@@ -15,6 +15,7 @@
 	export let show = true;
 	export let enableUndo = false;
 	export let showListName = false;
+	export let scrollListContainer;
 
 	/*
 	export let send: (
@@ -136,7 +137,16 @@
 		if (grabbed) {
 			mouseY = clientY;
 			layerY = anchor.getBoundingClientRect().y;
-			// console.log( 'mouseY ' + mouseY + ' offsetY ' + offsetY + ' -layerY ' + layerY + ' = ' + (mouseY + offsetY - layerY));
+      if(scrollListContainer) {
+        console.log( 'mouseY ' + mouseY + ' offsetY ' + offsetY + ' -layerY ' + layerY + ' = ' + (mouseY + offsetY - layerY));
+        // const containerBox = container.getBoundingClientRect();
+        // console.log("container box", containerBox);
+        const mouseBelowContainer = mouseY + offsetY - layerY;
+        if(mouseBelowContainer < 4 * boxHeight) {
+          console.log("ItemList.drag: scroll up now.");
+          scrollListContainer(-boxHeight);
+        }
+      }
 		} else {
 			console.log('drag: grabbed is not set');
 		}
