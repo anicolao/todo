@@ -4,7 +4,9 @@ import { TestStepHelper } from '../helpers/test-step-helper';
 test.beforeEach(async ({ request }) => {
 	// Ensure that the E2E tests start with a clean state in the emulator.
 	const projectId = 'todo-firebase-1a740';
-	await request.delete(`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`);
+	await request.delete(
+		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
+	);
 });
 
 test('login page verification', async ({ page }, testInfo) => {
@@ -14,7 +16,8 @@ test('login page verification', async ({ page }, testInfo) => {
 	await page.goto('/');
 
 	await helper.step('login_page', {
-		description: 'User navigates to the home page and is redirected to the login page, where content and button are verified.',
+		description:
+			'User navigates to the home page and is redirected to the login page, where content and button are verified.',
 		verifications: [
 			{
 				spec: 'URL is /login',
@@ -39,7 +42,9 @@ test('login page verification', async ({ page }, testInfo) => {
 			{
 				spec: 'Welcome message is present',
 				check: async () => {
-					const welcomeMessage = page.locator('p').filter({ hasText: 'Welcome to Todo. Please sign in.' });
+					const welcomeMessage = page
+						.locator('p')
+						.filter({ hasText: 'Welcome to Todo. Please sign in.' });
 					await expect(welcomeMessage).toBeVisible();
 				}
 			},

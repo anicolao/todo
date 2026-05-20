@@ -225,8 +225,6 @@
 			target = null;
 		},
 		onPointerCancel: (e: PointerEvent) => {
-			autoScroller.stop();
-			grabbed = null;
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}

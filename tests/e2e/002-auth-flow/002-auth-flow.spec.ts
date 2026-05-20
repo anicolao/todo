@@ -4,9 +4,11 @@ import { TestStepHelper } from '../helpers/test-step-helper';
 test.beforeEach(async ({ request }) => {
 	// Ensure that the E2E tests start with a clean state in the emulator.
 	const projectId = 'todo-firebase-1a740';
-	await request.delete(`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`);
-	
-	// Optional: Clear Auth users if possible. 
+	await request.delete(
+		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
+	);
+
+	// Optional: Clear Auth users if possible.
 	// The Firebase Auth emulator has a REST API for this:
 	// DELETE http://127.0.0.1:9099/emulator/v1/projects/{project-id}/accounts
 	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
@@ -14,23 +16,34 @@ test.beforeEach(async ({ request }) => {
 
 test('successful login and profile view', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
-	helper.setMetadata('Successful Login Flow', 'Verify that a user can sign in using the Sign In button and view their profile.');
+	helper.setMetadata(
+		'Successful Login Flow',
+		'Verify that a user can sign in using the Sign In button and view their profile.'
+	);
 
 	await page.goto('/');
 
 	await helper.step('login_page', {
 		description: 'User is on the login page.',
 		verifications: [
-			{ spec: 'Login button is visible', check: async () => expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible() }
+			{
+				spec: 'Login button is visible',
+				check: async () =>
+					expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible()
+			}
 		]
 	});
 
 	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
 	await helper.step('after_login', {
-		description: 'User clicked test sign in and should be redirected to profile page (via home page).',
+		description:
+			'User clicked test sign in and should be redirected to profile page (via home page).',
 		verifications: [
-			{ spec: 'Redirected to profile page', check: async () => expect(page).toHaveURL(/\/profile/, { timeout: 10000 }) }
+			{
+				spec: 'Redirected to profile page',
+				check: async () => expect(page).toHaveURL(/\/profile/, { timeout: 10000 })
+			}
 		]
 	});
 
@@ -41,16 +54,22 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 		description: 'User is on the profile page.',
 		verifications: [
 			{ spec: 'URL is /profile', check: async () => expect(page).toHaveURL(/\/profile/) },
-			{ spec: 'Email is visible', check: async () => expect(page.locator('p', { hasText: 'test@example.com' })).toBeVisible() },
-			{ spec: 'Name is visible', check: async () => expect(page.locator('p', { hasText: 'Test User' })).toBeVisible() }
+			{
+				spec: 'Email is visible',
+				check: async () => expect(page.locator('p', { hasText: 'test@example.com' })).toBeVisible()
+			},
+			{
+				spec: 'Name is visible',
+				check: async () => expect(page.locator('p', { hasText: 'Test User' })).toBeVisible()
+			}
 		]
 	});
 
 	await helper.step('create_list_step', {
 		description: 'User creates a new todo list.',
 		verifications: [
-			{ 
-				spec: 'New list input is visible', 
+			{
+				spec: 'New list input is visible',
 				check: async () => {
 					const newListInput = page.getByLabel('New list');
 					if (!(await newListInput.isVisible())) {
@@ -60,7 +79,7 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 						}
 					}
 					await expect(newListInput).toBeVisible();
-				} 
+				}
 			}
 		]
 	});
@@ -71,7 +90,10 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 	await helper.step('entering_list_name', {
 		description: 'User has entered the new list name but has not yet submitted.',
 		verifications: [
-			{ spec: 'Input contains the list name', check: async () => expect(page.getByLabel('New list')).toHaveValue(listName) }
+			{
+				spec: 'Input contains the list name',
+				check: async () => expect(page.getByLabel('New list')).toHaveValue(listName)
+			}
 		]
 	});
 
@@ -80,8 +102,17 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 	await helper.step('list_created', {
 		description: 'User created a new list and is redirected to it.',
 		verifications: [
-			{ spec: 'URL contains the new list ID', check: async () => expect(page).toHaveURL(/lists\?listId=/) },
-			{ spec: 'List title matches', check: async () => expect(page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })).toBeVisible() }
+			{
+				spec: 'URL contains the new list ID',
+				check: async () => expect(page).toHaveURL(/lists\?listId=/)
+			},
+			{
+				spec: 'List title matches',
+				check: async () =>
+					expect(
+						page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })
+					).toBeVisible()
+			}
 		]
 	});
 

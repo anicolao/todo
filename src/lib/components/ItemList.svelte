@@ -270,7 +270,6 @@
 		onPointerDown: (e: PointerEvent) => {
 			if (dragEnabled) {
 				pointerX = e.clientX;
-				(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 				if (target) {
 					window.setTimeout(() => {

@@ -24,7 +24,7 @@ In the **Grant this service account access to project** section, add the followi
 - **Cloud Build Editor**: Required for the build step of Cloud Functions.
 - **Artifact Registry Administrator**: Required to store the function images.
 
-*Note: If you have a highly complex setup, you might need additional roles like "API Gateway Admin" or "Secret Manager Secret Accessor", but the above are the standard requirements for a full Firebase CLI deployment.*
+_Note: If you have a highly complex setup, you might need additional roles like "API Gateway Admin" or "Secret Manager Secret Accessor", but the above are the standard requirements for a full Firebase CLI deployment._
 
 Click **CONTINUE** and then **DONE**.
 
