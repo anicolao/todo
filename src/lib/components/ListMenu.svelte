@@ -7,6 +7,7 @@
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { reorder_list } from './lists';
 	import { Capacitor } from '@capacitor/core';
+	import { createDragAutoScroller } from './autoscroll';
 
 	/*
 	export let send: (
@@ -69,6 +70,7 @@
 		if (grabbed) {
 			mouseY = clientY;
 			layerY = anchor.getBoundingClientRect().y;
+			autoScroller.update(clientY);
 		}
 	}
 
@@ -99,6 +101,39 @@
 		}
 	}
 
+	function updateDragTarget(clientX: number, clientY: number, edgeDirection: -1 | 0 | 1 = 0) {
+		const midPoint = clientY + offsetY + boxHeight / 2;
+		let target: HTMLElement | null | undefined = document
+			.elementFromPoint(clientX, midPoint)
+			?.closest('.item');
+		const candidates = Array.from(
+			container?.querySelectorAll<HTMLElement>('.item:not(#ghost):not(#grabbed)') || []
+		);
+		const grabbedIndex = Number(grabbed?.dataset.index ?? -1);
+		if (edgeDirection < 0 && candidates.length && grabbedIndex > 0) {
+			target = candidates[0];
+		} else if (edgeDirection > 0 && candidates.length && grabbedIndex < items.length - 1) {
+			target = candidates[candidates.length - 1];
+		}
+		if (!target || target === grabbed || target.id === 'ghost' || !container?.contains(target)) {
+			const rect = container?.getBoundingClientRect();
+			if (rect && candidates.length && midPoint < rect.top && grabbedIndex > 0) {
+				target = candidates[0];
+			} else if (
+				rect &&
+				candidates.length &&
+				midPoint > rect.bottom &&
+				grabbedIndex < items.length - 1
+			) {
+				target = candidates[candidates.length - 1];
+			}
+		}
+		if (target && (target != lastTarget || edgeDirection !== 0)) {
+			lastTarget = target;
+			dragEnter(target);
+		}
+	}
+
 	// does the actual moving of items in data
 	function moveDatum(from: number, to: number) {
 		let temp = items[from];
@@ -112,6 +147,7 @@
 	}
 
 	function release() {
+		autoScroller.stop();
 		if (
 			$store.auth.uid &&
 			grabbed &&
@@ -130,10 +166,19 @@
 	}
 
 	let target: HTMLElement | null | undefined = null;
+	let pointerX = 0;
 	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
+	let container: Element | undefined = undefined;
+	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
+		if (grabbed) {
+			updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+		}
+	});
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
+			pointerX = e.clientX;
+			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item');
 			if (target) {
 				window.setTimeout(() => {
@@ -150,21 +195,16 @@
 			e.stopPropagation();
 			e.preventDefault();
 			if (grabbed) {
+				pointerX = e.clientX;
 				drag(e.clientY);
-				const midPoint = e.clientY + offsetY + boxHeight / 2;
-				let target: HTMLElement | null | undefined = document
-					.elementFromPoint(e.clientX, midPoint)
-					?.closest('.item');
-				if (target) {
-					if (target != lastTarget) {
-						lastTarget = target;
-						dragEnter(target);
-					}
-				}
+				updateDragTarget(e.clientX, e.clientY);
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
 			release();
+			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+			}
 			target = null;
 		},
 		onTouchStart: (e: TouchEvent) => {
@@ -175,18 +215,9 @@
 				e.preventDefault();
 				const x = e.touches[0].clientX;
 				const y = e.touches[0].clientY;
+				pointerX = x;
 				drag(y);
-
-				const midPoint = y + offsetY + boxHeight / 2;
-				let target: HTMLElement | null | undefined = document
-					.elementFromPoint(x, midPoint)
-					?.closest('.item');
-				if (target) {
-					if (target != lastTarget) {
-						lastTarget = target;
-						dragEnter(target);
-					}
-				}
+				updateDragTarget(x, y);
 			}
 		},
 		onTouchEnd: (e: TouchEvent) => {
@@ -194,6 +225,11 @@
 			target = null;
 		},
 		onPointerCancel: (e: PointerEvent) => {
+			autoScroller.stop();
+			grabbed = null;
+			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+			}
 			target = null;
 		}
 	};
@@ -203,6 +239,7 @@
 
 <div
 	class="listContainer"
+	bind:this={container}
 	on:pointerdown={containerDragHandlers.onPointerDown}
 	on:pointermove={containerDragHandlers.onPointerMove}
 	on:pointerup={containerDragHandlers.onPointerUp}

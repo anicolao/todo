@@ -29,11 +29,12 @@
               coreutils
               git
               google-cloud-sdk
+              jdk17
               nodejs_22
             ];
 
             shellHook = ''
-              echo "todo dev shell: run npm ci, then npm run deploy:preflight -- path/to/service-account.json"
+              echo "todo dev shell: run npm ci, npm run deploy:preflight -- path/to/service-account.json, or npm run playwright"
             '';
           };
         }
