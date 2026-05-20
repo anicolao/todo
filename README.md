@@ -16,7 +16,14 @@ npm create svelte@latest my-app
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Enter the Nix shell to get Node.js and Google Cloud tooling, then install npm dependencies:
+
+```bash
+nix develop
+npm ci
+```
+
+Start a development server:
 
 ```bash
 npm run dev
@@ -35,4 +42,28 @@ npm run build
 
 You can preview the production build with `npm run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+## Firebase deploy credentials
+
+Check that a Firebase deploy service account can see the project, has the required IAM permissions, and can inspect the configured Cloud Functions:
+
+```bash
+npm run deploy:preflight -- path/to/service-account.json
+```
+
+The same check can use the GitHub secret value directly:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT="$(cat path/to/service-account.json)" npm run deploy:preflight
+```
+
+Deploys use the explicit production target:
+
+```bash
+npm run deploy
+```
+
+The deploy script installs `functions/` dependencies before invoking Firebase so the functions predeploy lint and build hooks work from a fresh clone. It also treats Firebase function deployment errors in the CLI output as fatal, even if the Firebase CLI exits successfully.
+
+## Deployment Setup
+
+For detailed instructions on setting up the necessary Firebase and Google Cloud permissions for production deployments, see [docs/FIREBASE_ADMIN_SETUP.md](docs/FIREBASE_ADMIN_SETUP.md).

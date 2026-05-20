@@ -18,13 +18,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Check for Firebase Service Account Secret
         id: check_secret
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "::error::The FIREBASE_SERVICE_ACCOUNT secret is missing. Deployment cannot proceed."
@@ -34,21 +34,20 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install functions dependencies
-        run: npm ci --prefix functions
-
-      - name: Build the app
-        run: npm run build
-        env:
-          COMMIT_HASH: ${{ github.sha }}
-
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          credentials_json: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+
+      - name: Run deploy preflight
+        run: npm run deploy:preflight
 
       - name: Deploy to Firebase
-        run: npx firebase deploy --non-interactive
+        run: npm run deploy
+        env:
+          COMMIT_HASH: ${{ github.sha }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
 
       - name: Create and push deployment tag
         run: |
