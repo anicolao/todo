@@ -179,6 +179,8 @@ export function load() {
 				const timestamp = store.getState().lists.listIdToTimestamp[id];
 				return timestamp > 0 ? timestamp : 0;
 			};
+			const getKnownListName = (id: string, name: string | undefined) =>
+				name || store.getState().lists.listIdToList[id] || '';
 			const getInitialListProgress = () => {
 				const listIndex =
 					initialListsLoading && numberOfInitialLists > 0
@@ -194,7 +196,7 @@ export function load() {
 					store.dispatch(
 						set_loading_status({
 							...getInitialListProgress(),
-							loadingListName: name || id,
+							loadingListName: getKnownListName(id, name),
 							loadingActionIndex: 0,
 							loadingActionTotal: 0
 						})
@@ -207,13 +209,31 @@ export function load() {
 				changes: Parameters<typeof handleDocChanges>[0]
 			) => {
 				const totalActions = changes.length;
-				if (initialListsLoading && totalActions === 0) {
+				if (initialListsLoading && totalActions <= ACTION_PROGRESS_BATCH_SIZE) {
 					store.dispatch(
 						set_loading_status({
 							...getInitialListProgress(),
-							loadingListName: name || id,
+							loadingListName: getKnownListName(id, name),
 							loadingActionIndex: 0,
 							loadingActionTotal: 0
+						})
+					);
+				}
+				if (totalActions <= ACTION_PROGRESS_BATCH_SIZE) {
+					handleDocChanges(changes, store.getState().auth, true);
+					const updatedName = getKnownListName(id, name);
+					if (initialListsLoading && updatedName) {
+						store.dispatch(set_loading_status({ loadingListName: updatedName }));
+					}
+					return;
+				}
+				if (initialListsLoading) {
+					store.dispatch(
+						set_loading_status({
+							...getInitialListProgress(),
+							loadingListName: getKnownListName(id, name),
+							loadingActionIndex: 0,
+							loadingActionTotal: totalActions
 						})
 					);
 				}
@@ -223,13 +243,17 @@ export function load() {
 						store.dispatch(
 							set_loading_status({
 								...getInitialListProgress(),
-								loadingListName: name || id,
+								loadingListName: getKnownListName(id, name),
 								loadingActionIndex: end,
 								loadingActionTotal: totalActions
 							})
 						);
 					}
 					handleDocChanges(changes.slice(start, end), store.getState().auth, true);
+					const updatedName = getKnownListName(id, name);
+					if (initialListsLoading && updatedName) {
+						store.dispatch(set_loading_status({ loadingListName: updatedName }));
+					}
 					if (end < totalActions) {
 						await sleep(0);
 					}
@@ -246,10 +270,10 @@ export function load() {
 								loadingPercentage: Math.floor(
 									((numberOfInitialLists - initialListsLoading.length) / numberOfInitialLists) * 100
 								),
-								loadingStatus: name || id,
+								loadingStatus: getKnownListName(id, name) || 'Loading list',
 								loadingListIndex: numberOfInitialLists - initialListsLoading.length,
 								loadingListTotal: numberOfInitialLists,
-								loadingListName: name || id,
+								loadingListName: getKnownListName(id, name),
 								loadingActionIndex: 0,
 								loadingActionTotal: 0
 							})

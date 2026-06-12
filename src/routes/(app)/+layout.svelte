@@ -350,10 +350,7 @@
 					$store.ui.loadingListTotal
 				}`
 			: $store.ui.loadingStatus || 'Loading';
-	$: loadingActionLabel =
-		$store.ui.loadingActionTotal > 0
-			? `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`
-			: 'Preparing actions';
+	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
 </script>
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
@@ -369,13 +366,15 @@
 				</div>
 				<progress value={loadingListPercent} max="100" aria-label="List loading progress" />
 			</div>
-			<div class="loading-row">
-				<div class="loading-line">
-					<span>{loadingActionLabel}</span>
-					<span>{loadingActionPercent}%</span>
+			{#if $store.ui.loadingActionTotal > 0}
+				<div class="loading-row">
+					<div class="loading-line">
+						<span>{loadingActionLabel}</span>
+						<span>{loadingActionPercent}%</span>
+					</div>
+					<progress value={loadingActionPercent} max="100" aria-label="Action replay progress" />
 				</div>
-				<progress value={loadingActionPercent} max="100" aria-label="Action replay progress" />
-			</div>
+			{/if}
 			{#if $store.ui.loadingListName}
 				<div class="loading-detail">{$store.ui.loadingListName}</div>
 			{/if}
