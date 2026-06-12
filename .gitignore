@@ -10,3 +10,6 @@ node_modules
 .firebase
 *.log
 android/.idea
+playwright-report/
+test-results/
+worktrees/

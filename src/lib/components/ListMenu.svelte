@@ -7,7 +7,7 @@
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { reorder_list } from './lists';
 	import { Capacitor } from '@capacitor/core';
-	import { createDragAutoScroller } from './autoscroll';
+	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
 	/*
 	export let send: (
@@ -102,32 +102,16 @@
 	}
 
 	function updateDragTarget(clientX: number, clientY: number, edgeDirection: -1 | 0 | 1 = 0) {
-		const midPoint = clientY + offsetY + boxHeight / 2;
-		let target: HTMLElement | null | undefined = document
-			.elementFromPoint(clientX, midPoint)
-			?.closest('.item');
-		const candidates = Array.from(
-			container?.querySelectorAll<HTMLElement>('.item:not(#ghost):not(#grabbed)') || []
-		);
-		const grabbedIndex = Number(grabbed?.dataset.index ?? -1);
-		if (edgeDirection < 0 && candidates.length && grabbedIndex > 0) {
-			target = candidates[0];
-		} else if (edgeDirection > 0 && candidates.length && grabbedIndex < items.length - 1) {
-			target = candidates[candidates.length - 1];
-		}
-		if (!target || target === grabbed || target.id === 'ghost' || !container?.contains(target)) {
-			const rect = container?.getBoundingClientRect();
-			if (rect && candidates.length && midPoint < rect.top && grabbedIndex > 0) {
-				target = candidates[0];
-			} else if (
-				rect &&
-				candidates.length &&
-				midPoint > rect.bottom &&
-				grabbedIndex < items.length - 1
-			) {
-				target = candidates[candidates.length - 1];
-			}
-		}
+		const target = findDragTarget({
+			clientX,
+			clientY,
+			offsetY,
+			boxHeight,
+			edgeDirection,
+			container,
+			grabbed,
+			itemCount: items.length
+		});
 		if (target && (target != lastTarget || edgeDirection !== 0)) {
 			lastTarget = target;
 			dragEnter(target);
