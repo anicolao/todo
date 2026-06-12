@@ -20,6 +20,8 @@ import {
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
 
+const RECENT_LIST_ACTIVITY_SECONDS = 24 * 60 * 60;
+
 let promiseId = 1000;
 const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
 	new Promise((resolve) => {
@@ -91,7 +93,9 @@ export function load() {
 
 	let unsubscribeActions: Unsubscribe | undefined = undefined;
 	let unsubscribeUsers: Unsubscribe | undefined | null = undefined;
+	let unsubscribeActivity: Unsubscribe | undefined = undefined;
 	let loadingSubscription: Unsubscribe | undefined = undefined;
+	let listListeners: { [id: string]: Unsubscribe | null } = {};
 	function cleanupSubscriptions() {
 		console.log('src/lib/database.ts: CLEANING UP');
 		if (unsubscribeUsers) {
@@ -104,6 +108,18 @@ export function load() {
 			console.log('src/lib/database.ts: UN SUBSCRIBED to actions');
 			unsubscribeActions = undefined;
 		}
+		if (unsubscribeActivity) {
+			unsubscribeActivity();
+			console.log('src/lib/database.ts: UN SUBSCRIBED to activity');
+			unsubscribeActivity = undefined;
+		}
+		Object.keys(listListeners).forEach((id) => {
+			const unsubscribe = listListeners[id];
+			if (unsubscribe) {
+				unsubscribe();
+			}
+		});
+		listListeners = {};
 		if (loadingSubscription) {
 			loadingSubscription();
 			console.log('src/lib/database.ts: UN SUBSCRIBED to loadingSubscription');
@@ -138,48 +154,67 @@ export function load() {
 			console.log('src/lib/database.ts: load list data.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let initialListsLoading: string[] | undefined | null = undefined;
-			const listListeners: { [id: string]: Unsubscribe | null } = {};
-			// TODO: unsubscribe to all listListeners
+			let numberOfLists = 1;
+			const activitySecondsByListId: { [id: string]: number } = {};
+			const recentActivityCutoff = Math.floor(Date.now() / 1000) - RECENT_LIST_ACTIVITY_SECONDS;
 
 			let earliestCacheTime = Infinity;
 			const existingState = store.getState();
-			let latestCacheTime = existingState.cache.timestamp; // The last global cache time.
 			for (const listId in existingState.lists.listIdToTimestamp) {
 				earliestCacheTime = Math.min(
 					earliestCacheTime,
 					existingState.lists.listIdToTimestamp[listId]
 				);
-				latestCacheTime = Math.max(latestCacheTime, existingState.lists.listIdToTimestamp[listId]);
 			}
 			if (earliestCacheTime === Infinity) {
 				earliestCacheTime = -1;
 			}
-			console.log(`Looking for activity from server since earliestCacheTime ${earliestCacheTime}`);
+			const activityStartTime = Math.min(earliestCacheTime, recentActivityCutoff);
+			console.log(`Looking for activity from server since ${activityStartTime}`);
 
 			const activity = collection(firebase.firestore, 'activity');
-			const q = query(activity, where('seconds', '>=', earliestCacheTime));
+			const q = query(activity, where('seconds', '>=', activityStartTime));
 			const docs = await getDocs(q);
 			console.log('query came from local cache?', docs.metadata.fromCache);
-			const updatedListIds = docs
-				.docChanges()
-				.filter((d) => existingState.lists.visibleLists.includes(d.doc.id))
-				.filter((d) => {
-					console.log('  listId ' + d.doc.id + '  ' + existingState.lists.listIdToList[d.doc.id]);
-					console.log('    cached seconds ' + existingState.lists.listIdToTimestamp[d.doc.id]);
-					console.log('    server seconds ' + d.doc.get('seconds'));
-					const serverTime = d.doc.get('seconds');
-					const hasNew =
-						serverTime > existingState.lists.listIdToTimestamp[d.doc.id] ||
-						serverTime >= latestCacheTime;
-					console.log('    server has new items? ' + hasNew);
-					return hasNew;
-				})
-				.map((d) => d.doc.id);
+			docs.forEach((doc) => {
+				const seconds = doc.get('seconds');
+				if (typeof seconds === 'number') {
+					activitySecondsByListId[doc.id] = seconds;
+				}
+			});
+
+			const getCurrentListId = () => new URLSearchParams(window.location.search).get('listId');
+			const getCachedListTime = (state: GlobalState, id: string) =>
+				state.lists.listIdToTimestamp[id] || 0;
+			const getActivitySeconds = (id: string) => activitySecondsByListId[id] || 0;
+			const listChangedSinceCache = (state: GlobalState, id: string) => {
+				const activitySeconds = getActivitySeconds(id);
+				return activitySeconds > 0 && activitySeconds > getCachedListTime(state, id);
+			};
+			const listWasRecentlyActive = (id: string) => getActivitySeconds(id) >= recentActivityCutoff;
+			const listHasUnknownCacheState = (state: GlobalState, id: string) =>
+				getCachedListTime(state, id) <= 0;
+			const shouldWatchList = (state: GlobalState, id: string, currentListId: string | null) =>
+				id === currentListId ||
+				listChangedSinceCache(state, id) ||
+				listWasRecentlyActive(id) ||
+				listHasUnknownCacheState(state, id);
+			const sortByActivity = (ids: string[]) =>
+				ids.slice().sort((a, b) => getActivitySeconds(b) - getActivitySeconds(a));
+			const pushUnique = (ids: string[], id: string | null | undefined) => {
+				if (id && ids.indexOf(id) === -1) {
+					ids.push(id);
+				}
+			};
+
+			const initiallyWatchedLists = existingState.lists.visibleLists.filter((id) =>
+				shouldWatchList(existingState, id, getCurrentListId())
+			);
 			console.log(
-				'  New updatedListIds ' +
-					updatedListIds.length +
+				'  Startup watch listIds ' +
+					initiallyWatchedLists.length +
 					' ' +
-					JSON.stringify(updatedListIds.map((id) => existingState.lists.listIdToList[id]))
+					JSON.stringify(initiallyWatchedLists.map((id) => existingState.lists.listIdToList[id]))
 			);
 
 			// Get notified when state.lists.visibleLists changes.
@@ -207,12 +242,13 @@ export function load() {
 						console.log('newly visible lists length: ' + newlyVisibleLists.length);
 						if (initialListsLoading === undefined) {
 							// our first time; note that we need to load these lists
-							initialListsLoading = lastVisibleLists.slice();
-
-							// Filter initialListsLoading for the lists that have changed since we last loaded.
-							initialListsLoading = initialListsLoading.filter(
-								(id) => updatedListIds.indexOf(id) !== -1
-							);
+							const initialCurrentListId = getCurrentListId();
+							initialListsLoading =
+								initialCurrentListId &&
+								lastVisibleLists.indexOf(initialCurrentListId) !== -1 &&
+								shouldWatchList(state, initialCurrentListId, initialCurrentListId)
+									? [initialCurrentListId]
+									: [];
 							logTime('filtered initialListsLoading');
 							console.log(initialListsLoading);
 
@@ -246,28 +282,23 @@ export function load() {
 						};
 
 						// Get actions for each list.
-						const numberOfLists = initialListsLoading?.length || 1;
+						numberOfLists = initialListsLoading?.length || 1;
 						let listsToLoad: string[] = [];
-						const searchParams = new URLSearchParams(window.location.search);
-						const currentListId = searchParams.get('listId');
-						if (currentListId !== null) {
-							listsToLoad.push(currentListId);
-						}
+						const currentListId = getCurrentListId();
+						pushUnique(listsToLoad, currentListId);
 						if (initialListsLoading?.length) {
 							store.dispatch(
 								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
 							);
-							listsToLoad = listsToLoad.concat(
-								initialListsLoading.filter((id) => id !== currentListId)
-							);
+							initialListsLoading.forEach((id) => pushUnique(listsToLoad, id));
 						}
-						listsToLoad = listsToLoad.concat(
-							newlyVisibleLists.filter((id) => listsToLoad.indexOf(id) === -1)
-						);
+						sortByActivity(
+							newlyVisibleLists.filter((id) => shouldWatchList(state, id, currentListId))
+						).forEach((id) => pushUnique(listsToLoad, id));
 						const loadList = async (id: string) => {
 							if (listListeners[id] === undefined) {
 								listListeners[id] = null;
-								const name = state.lists.listIdToList[id];
+								const name = store.getState().lists.listIdToList[id];
 								await throttleLoading(id);
 								console.log('Loading for ' + id + ' ' + name);
 								await createFirebaseListActions(id, user, name);
@@ -301,7 +332,7 @@ export function load() {
 							if (index < lists.length) {
 								// do the work
 								await loadList(lists[index]);
-								loadListsRecursively(lists, index + 1);
+								await loadListsRecursively(lists, index + 1);
 							} else {
 								// Get actions for lists that are pending shares (to show the list name).
 								state.requests.incomingRequests.forEach(async (requestId: string) => {
@@ -323,6 +354,26 @@ export function load() {
 								enableCaching();
 							}
 						};
+						if (unsubscribeActivity === undefined) {
+							const recentActivity = query(activity, where('seconds', '>=', recentActivityCutoff));
+							let isFirstActivitySnapshot = true;
+							unsubscribeActivity = onSnapshot(recentActivity, (querySnapshot) => {
+								querySnapshot.docChanges().forEach((change) => {
+									const seconds = change.doc.get('seconds');
+									if (typeof seconds === 'number') {
+										activitySecondsByListId[change.doc.id] = seconds;
+									}
+									if (isFirstActivitySnapshot || change.type === 'removed') {
+										return;
+									}
+									const currentState = store.getState();
+									if (currentState.lists.visibleLists.indexOf(change.doc.id) !== -1) {
+										loadList(change.doc.id);
+									}
+								});
+								isFirstActivitySnapshot = false;
+							});
+						}
 						loadListsRecursively(listsToLoad, 0);
 					} else {
 						if (!isResolved) {
