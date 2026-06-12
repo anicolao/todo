@@ -3,7 +3,7 @@ import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
-import { handleDocChanges, logTime, store, enableCaching } from '$lib/store';
+import { handleDocChanges, logTime, store, enableCaching, writeCacheNow } from '$lib/store';
 import {
 	collection,
 	collectionGroup,
@@ -285,6 +285,7 @@ export function load() {
 			function loadComplete() {
 				logTime('initialDatabaseLoadComplete');
 				enableCaching();
+				writeCacheNow().catch(console.error);
 				store.dispatch(
 					set_loading_status({
 						loadingPercentage: 100,

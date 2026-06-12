@@ -111,6 +111,40 @@ export function enableCaching() {
 	timestampOfPendingCache = 0;
 }
 let cacheWriteTimeout: number | undefined = undefined;
+
+function getCacheBoundaryTimestamp(stateToCache: GlobalState) {
+	return Math.max(
+		stateToCache.cache.timestamp || 0,
+		...Object.values(stateToCache.lists.listIdToTimestamp || {}).filter(
+			(timestamp) => typeof timestamp === 'number' && timestamp > 0
+		)
+	);
+}
+
+async function writeCacheState(stateToCache: GlobalState, timestamp: number) {
+	console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
+	const db = await openDB('TODOS', 1, {
+		upgrade(db) {
+			const store = db.createObjectStore('state');
+		}
+	});
+	const me = stateToCache.auth.email;
+	if (me) {
+		await db.put('state', stateToCache, me);
+	}
+}
+
+export function writeCacheNow() {
+	if (cacheWriteTimeout !== undefined) {
+		window.clearTimeout(cacheWriteTimeout);
+		cacheWriteTimeout = undefined;
+	}
+	const stateToCache = serverSideStore.getState();
+	const timestamp = getCacheBoundaryTimestamp(stateToCache);
+	timestampOfPendingCache = timestamp;
+	return writeCacheState(stateToCache, timestamp);
+}
+
 function scheduleCacheState(stateToCache: GlobalState, timestamp: number) {
 	timestampOfPendingCache = timestamp;
 	if (cacheWriteTimeout !== undefined) {
@@ -118,16 +152,7 @@ function scheduleCacheState(stateToCache: GlobalState, timestamp: number) {
 	}
 	cacheWriteTimeout = window.setTimeout(async () => {
 		cacheWriteTimeout = undefined;
-		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
-		const db = await openDB('TODOS', 1, {
-			upgrade(db) {
-				const store = db.createObjectStore('state');
-			}
-		});
-		const me = stateToCache.auth.email;
-		if (me) {
-			await db.put('state', stateToCache, me);
-		}
+		await writeCacheState(stateToCache, timestamp);
 	}, CACHE_INTERVAL);
 }
 const combinedReducers = combineReducers(reducer);
