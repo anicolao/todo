@@ -173,6 +173,30 @@ export function load() {
 				});
 				return earliestCacheTime === Infinity ? -1 : earliestCacheTime;
 			};
+			const getListCurrentTime = (id: string) => {
+				const timestamp = store.getState().lists.listIdToTimestamp[id];
+				return timestamp > 0 ? timestamp : 0;
+			};
+			const handleInitialListLoaded = (id: string, name: string | undefined) => {
+				if (initialListsLoading) {
+					const idIndex = initialListsLoading.indexOf(id);
+					if (idIndex >= 0) {
+						initialListsLoading.splice(idIndex, 1);
+						logTime('loading initial list data --> ' + initialListsLoading.length);
+						store.dispatch(
+							set_loading_status({
+								loadingPercentage: Math.floor(
+									((numberOfInitialLists - initialListsLoading.length) / numberOfInitialLists) * 100
+								),
+								loadingStatus: name
+							})
+						);
+						if (initialListsLoading.length === 0) {
+							loadComplete();
+						}
+					}
+				}
+			};
 			function loadComplete() {
 				logTime('initialDatabaseLoadComplete');
 				enableCaching();
@@ -204,26 +228,7 @@ export function load() {
 						listListeners[id] = watch('lists', id, (snapshot) => {
 							logTime('Calling handleDocChanges for ' + id + ' ' + name);
 							handleDocChanges(snapshot, store.getState().auth, true);
-							if (initialListsLoading) {
-								const idIndex = initialListsLoading.indexOf(id);
-								if (idIndex >= 0) {
-									initialListsLoading.splice(idIndex, 1);
-									logTime('loading initial list data --> ' + initialListsLoading.length);
-									store.dispatch(
-										set_loading_status({
-											loadingPercentage: Math.floor(
-												((numberOfInitialLists - initialListsLoading.length) /
-													numberOfInitialLists) *
-													100
-											),
-											loadingStatus: name
-										})
-									);
-									if (initialListsLoading.length === 0) {
-										loadComplete();
-									}
-								}
-							}
+							handleInitialListLoaded(id, name);
 						});
 					} catch (error) {
 						if (listLoadAttempts[id] === attempt) {
@@ -232,6 +237,32 @@ export function load() {
 						}
 						console.error(error);
 					}
+				}
+			};
+			const loadListOnce = async (id: string, nameOverride?: string) => {
+				const name = nameOverride || store.getState().lists.listIdToList[id];
+				try {
+					await createFirebaseListActions(id, user, name);
+					const currentTime = getListCurrentTime(id);
+					const actions = collection(firebase.firestore, 'lists', id, 'actions');
+					const snapshot = await getDocs(query(actions, orderBy('timestamp')));
+					const initialState = store.getState();
+					let changes = snapshot.docChanges().filter((change) => {
+						const timestamp = change.doc.data().timestamp;
+						return !timestamp || timestamp.seconds > currentTime;
+					});
+					if (changes.length > 0 && changes[0].doc.data().timestamp === 0 && initialState) {
+						const action = changes[0].doc.data();
+						if (initialState.lists.listIdToList[action.payload.id] !== undefined) {
+							changes = changes.slice(1);
+						}
+					}
+					logTime('Calling handleDocChanges once for ' + id + ' ' + name);
+					handleDocChanges(changes, store.getState().auth, true);
+				} catch (error) {
+					console.error(error);
+				} finally {
+					handleInitialListLoaded(id, name);
 				}
 			};
 
@@ -273,23 +304,38 @@ export function load() {
 					}
 				}
 				for (const id of listsToLoad) {
-					if (isStartup && (currentListId === null || id !== currentListId)) {
+					if (isStartup && id !== currentListId) {
 						await sleep(50);
+						await loadListOnce(id);
+					} else {
+						await loadList(id, undefined, retryLoading);
 					}
-					await loadList(id, undefined, retryLoading);
 				}
 			};
 
+			let pendingShareListNamesLoading = false;
+			const pendingShareListNamesLoaded: { [id: string]: boolean } = {};
 			const watchPendingShareLists = (state: any) => {
-				state.requests.incomingRequests.forEach(async (requestId: string) => {
-					if (
-						state.requests.completedRequests.indexOf(requestId) === -1 &&
-						state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
-					) {
-						const shareAction = state.requests.requestIdToRequest[requestId];
-						await loadList(shareAction.payload);
+				if (pendingShareListNamesLoading) {
+					return;
+				}
+				pendingShareListNamesLoading = true;
+				const pendingListIds = state.requests.incomingRequests
+					.filter(
+						(requestId: string) =>
+							state.requests.completedRequests.indexOf(requestId) === -1 &&
+							state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
+					)
+					.map((requestId: string) => state.requests.requestIdToRequest[requestId].payload)
+					.filter((id: string) => !pendingShareListNamesLoaded[id]);
+				(async () => {
+					for (const id of pendingListIds) {
+						pendingShareListNamesLoaded[id] = true;
+						await sleep(50);
+						await loadListOnce(id);
 					}
-				});
+					pendingShareListNamesLoading = false;
+				})();
 			};
 
 			if (unsubscribeActivity === undefined) {
