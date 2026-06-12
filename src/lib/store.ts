@@ -110,11 +110,14 @@ let timestampOfPendingCache = Infinity;
 export function enableCaching() {
 	timestampOfPendingCache = 0;
 }
-let cachePending = false;
-function cacheState(stateToCache: GlobalState, timestamp: number) {
+let cacheWriteTimeout: number | undefined = undefined;
+function scheduleCacheState(stateToCache: GlobalState, timestamp: number) {
 	timestampOfPendingCache = timestamp;
-	cachePending = true;
-	return async () => {
+	if (cacheWriteTimeout !== undefined) {
+		window.clearTimeout(cacheWriteTimeout);
+	}
+	cacheWriteTimeout = window.setTimeout(async () => {
+		cacheWriteTimeout = undefined;
 		console.log(`Write the database! @ ${new Date().getTime()} for time ${timestamp}`);
 		const db = await openDB('TODOS', 1, {
 			upgrade(db) {
@@ -125,8 +128,7 @@ function cacheState(stateToCache: GlobalState, timestamp: number) {
 		if (me) {
 			await db.put('state', stateToCache, me);
 		}
-		cachePending = false;
-	};
+	}, CACHE_INTERVAL);
 }
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
@@ -135,14 +137,11 @@ const rebasingReducer = (state: GlobalState | undefined, action: AnyAction) => {
 	if (action.timestamp !== null) {
 		if (action.timestamp !== undefined) {
 			// console.log('server side action: ', action);
-			if (action.timestamp.seconds > timestampOfPendingCache && !cachePending) {
+			if (action.timestamp.seconds >= timestampOfPendingCache) {
 				// persist this prior state. Now we know there is an action after it,
 				// there is no chance of overlap.
 				// assert serverSideStore.getState().cache.timestamp === state.cache.timestamp
-				window.setTimeout(
-					cacheState(serverSideStore.getState(), action.timestamp.seconds),
-					CACHE_INTERVAL
-				);
+				scheduleCacheState(serverSideStore.getState(), action.timestamp.seconds);
 			}
 		} else {
 			// console.log('UI or Cache action: ', action);
