@@ -2,6 +2,8 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 
 const projectId = 'todo-firebase-1a740';
 
+test.describe.configure({ mode: 'serial' });
+
 test.beforeEach(async ({ request }, testInfo) => {
 	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only drag regression coverage.');
 
@@ -13,13 +15,17 @@ test.beforeEach(async ({ request }, testInfo) => {
 
 async function signIn(page: Page) {
 	await page.goto('/');
+	await page.addStyleTag({
+		content: '.firebase-emulator-warning { display: none !important; }'
+	});
 	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-	await expect(page).toHaveURL(/\/profile/, { timeout: 10000 });
+	await expect(page.getByLabel('New list')).toBeVisible({ timeout: 15000 });
 }
 
 async function createList(page: Page, listName: string) {
-	await page.getByLabel('New list').fill(listName);
-	await page.keyboard.press('Enter');
+	const newList = page.getByLabel('New list');
+	await newList.fill(listName);
+	await newList.press('Enter');
 	await expect(page).toHaveURL(/lists\?listId=/, { timeout: 10000 });
 	await expect(page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })).toBeVisible();
 }
@@ -28,11 +34,13 @@ async function createTodoItems(page: Page, itemNames: string[]) {
 	const newTask = page.getByLabel('New task');
 	await expect(newTask).toBeVisible();
 	await page.waitForTimeout(1500);
-	for (const [index, itemName] of [...itemNames].reverse().entries()) {
+	for (const itemName of [...itemNames].reverse()) {
 		await newTask.fill(itemName);
-		await page.keyboard.press('Enter');
-		await expect(todoInputs(page)).toHaveCount(index + 1, { timeout: 15000 });
+		await newTask.press('Enter');
+		await expect.poll(async () => visibleTodoOrder(page), { timeout: 15000 }).toContain(itemName);
+		await expect(newTask).toHaveValue('');
 	}
+	await expect(todoInputs(page)).toHaveCount(itemNames.length, { timeout: 15000 });
 }
 
 function todoRows(page: Page) {
@@ -63,13 +71,13 @@ async function dragVisibleRowTowardTopOfViewport(
 		throw new Error('Cannot drag toward a scroll container without a bounding box.');
 	}
 
-	const startX = box.x + Math.min(32, box.width / 2);
+	const startX = box.x + box.width / 2;
 	const startY = box.y + box.height / 2;
 	const topDragY = scrollContainerBox.y + topInset;
 
 	await page.mouse.move(startX, startY);
 	await page.mouse.down();
-	await page.waitForTimeout(500);
+	await expect(row).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
 	await page.mouse.move(startX, topDragY, { steps: 20 });
 	await page.waitForTimeout(2000);
 	await page.mouse.move(startX, topDragY, { steps: 5 });
