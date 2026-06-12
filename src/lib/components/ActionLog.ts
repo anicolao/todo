@@ -5,9 +5,12 @@ import {
 	addDoc,
 	collection,
 	onSnapshot,
+	or,
 	orderBy,
 	query,
 	serverTimestamp,
+	Timestamp,
+	where,
 	type DocumentChange,
 	type DocumentData
 } from 'firebase/firestore';
@@ -74,8 +77,16 @@ export function watch(
 	// TODO: which also slows down regular usage (especially on older phones).
 	// TODO: and which might even break off-line usage.
 	// const currentTimestamp = new Timestamp(currentTime, 0);
+	const actionsQuery =
+		currentTime > 0
+			? query(
+					actions,
+					or(where('timestamp', '==', 0), where('timestamp', '>', new Timestamp(currentTime, 0))),
+					orderBy('timestamp')
+			  )
+			: query(actions, orderBy('timestamp'));
 	return onSnapshot(
-		query(actions, orderBy('timestamp')),
+		actionsQuery,
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
 			let changes = querySnapshot.docChanges().filter((x) => {
