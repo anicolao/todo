@@ -21,6 +21,7 @@ const config: PlaywrightTestConfig = {
 	],
 	testDir: 'tests/e2e',
 	timeout: 60000,
+	workers: process.env.CI ? 1 : undefined,
 	use: {
 		baseURL: 'http://127.0.0.1:4173',
 		trace: 'on-first-retry'
