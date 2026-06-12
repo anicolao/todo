@@ -10,6 +10,7 @@ const projectId = process.env.FIREBASE_PROJECT_ID || 'todo-firebase-1a740';
 const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
 const firestoreBase = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents`;
 const emulatorBase = `http://127.0.0.1:8080/v1/projects/${projectId}/databases/${databaseId}/documents`;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function readFirebaseCliTokens() {
 	const configPath = path.join(os.homedir(), '.config', 'configstore', 'firebase-tools.json');
@@ -152,21 +153,31 @@ async function seed(inputPath) {
 	const batchSize = 400;
 	for (let index = 0; index < backupData.documents.length; index += batchSize) {
 		const batch = backupData.documents.slice(index, index + batchSize);
-		await requestJson(`${emulatorBase}:commit`, {
-			method: 'POST',
-			headers: {
-				authorization: 'Bearer owner',
-				'content-type': 'application/json'
-			},
-			body: JSON.stringify({
-				writes: batch.map((document) => ({
-					update: {
-						name: `projects/${projectId}/databases/${databaseId}/documents/${document.path}`,
-						fields: document.fields || {}
-					}
-				}))
-			})
-		});
+		for (let attempt = 1; ; attempt++) {
+			try {
+				await requestJson(`${emulatorBase}:commit`, {
+					method: 'POST',
+					headers: {
+						authorization: 'Bearer owner',
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify({
+						writes: batch.map((document) => ({
+							update: {
+								name: `projects/${projectId}/databases/${databaseId}/documents/${document.path}`,
+								fields: document.fields || {}
+							}
+						}))
+					})
+				});
+				break;
+			} catch (error) {
+				if (!String(error.message).includes('409') || attempt >= 5) {
+					throw error;
+				}
+				await sleep(attempt * 1000);
+			}
+		}
 		console.log(
 			`Seeded ${Math.min(index + batch.length, backupData.documents.length)} / ${
 				backupData.documents.length
