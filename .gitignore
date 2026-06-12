@@ -13,3 +13,4 @@ android/.idea
 playwright-report/
 test-results/
 worktrees/
+firestore-backups/

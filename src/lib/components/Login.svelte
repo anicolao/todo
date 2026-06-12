@@ -49,10 +49,11 @@
 	}
 
 	function signin() {
-		const promise = import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' 
-			? testSignIn() 
-			: signInWithGoogle();
-		
+		const useAuthEmulator =
+			import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' ||
+			import.meta.env.VITE_USE_AUTH_EMULATOR === 'true';
+		const promise = useAuthEmulator ? testSignIn() : signInWithGoogle();
+
 		promise
 			.then(() => {
 				console.log('signed in!');
