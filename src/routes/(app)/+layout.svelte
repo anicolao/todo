@@ -340,16 +340,17 @@
 		$store.ui.loadingListTotal > 0
 			? Math.floor(($store.ui.loadingListIndex / $store.ui.loadingListTotal) * 100)
 			: $store.ui.loadingPercentage || 0;
+	$: loadingListText = $store.ui.loadingListName || 'Loading lists';
+	$: loadingListCount =
+		$store.ui.loadingListTotal > 0
+			? `${Math.min($store.ui.loadingListIndex || 1, $store.ui.loadingListTotal)}/${
+					$store.ui.loadingListTotal
+				} (${loadingListPercent}%)`
+			: `${loadingListPercent}%`;
 	$: loadingActionPercent =
 		$store.ui.loadingActionTotal > 0
 			? Math.floor(($store.ui.loadingActionIndex / $store.ui.loadingActionTotal) * 100)
 			: 0;
-	$: loadingListLabel =
-		$store.ui.loadingListTotal > 0
-			? `List ${Math.min($store.ui.loadingListIndex || 1, $store.ui.loadingListTotal)} of ${
-					$store.ui.loadingListTotal
-				}`
-			: $store.ui.loadingStatus || 'Loading';
 	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
 </script>
 
@@ -359,17 +360,10 @@
 	<div class="loading-screen">
 		<div class="loading-panel">
 			<div class="loading-title">Loading...</div>
-			<div class="loading-row loading-list-row">
+			<div class="loading-row">
 				<div class="loading-line">
-					<span>{loadingListLabel}</span>
-					<span>{loadingListPercent}%</span>
-				</div>
-				<div
-					class:loading-list-name-hidden={!$store.ui.loadingListName}
-					class="loading-list-name"
-					aria-hidden={!$store.ui.loadingListName}
-				>
-					{$store.ui.loadingListName}
+					<span class="loading-list-text">{loadingListText}</span>
+					<span class="loading-count">{loadingListCount}</span>
 				</div>
 				<progress value={loadingListPercent} max="100" aria-label="List loading progress" />
 			</div>
@@ -407,7 +401,7 @@
 				<Section align="end" toolbar>
 					{#if $store.ui.loadingStatus}<span
 							style="display: inline-block; margin-right: 1em; text-align: right; font-size: 75%"
-							>{loadingListLabel}<br />{$store.ui.loadingPercentage}%</span
+							>{loadingListText}<br />{loadingListCount}</span
 						>{/if}
 					<span><Avatar name={$store.auth.name || ""} photo={$store.auth.photo || ""} /></span>
 				</Section>
@@ -613,25 +607,16 @@
 		gap: 0.45rem;
 		position: relative;
 	}
-	.loading-list-row {
-		padding-top: 1.75rem;
-	}
-	.loading-list-name {
-		font-size: 0.95rem;
-		left: 50%;
-		line-height: 1.25;
-		max-width: 75%;
+	.loading-list-text {
+		flex: 1;
+		min-width: 0;
 		overflow: hidden;
-		position: absolute;
-		text-align: center;
 		text-overflow: ellipsis;
-		top: 0;
-		transform: translateX(-50%);
-		transition: opacity 120ms ease;
 		white-space: nowrap;
 	}
-	.loading-list-name-hidden {
-		opacity: 0;
+	.loading-count {
+		flex: 0 0 auto;
+		margin-left: 1rem;
 	}
 	.loading-action-row {
 		transition: opacity 120ms ease;
