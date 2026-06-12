@@ -9,6 +9,7 @@ import {
 	collectionGroup,
 	doc,
 	getDoc,
+	getDocs,
 	onSnapshot,
 	orderBy,
 	query,
@@ -81,7 +82,9 @@ export function load() {
 	let unsubscribeUsers: Unsubscribe | undefined | null = undefined;
 	let unsubscribeActivity: Unsubscribe | undefined = undefined;
 	let loadingSubscription: Unsubscribe | undefined = undefined;
+	let unsubscribeOnline: (() => void) | undefined = undefined;
 	let listListeners: { [id: string]: Unsubscribe | null } = {};
+	let listLoadAttempts: { [id: string]: number } = {};
 	function cleanupSubscriptions() {
 		console.log('src/lib/database.ts: CLEANING UP');
 		if (unsubscribeUsers) {
@@ -99,6 +102,11 @@ export function load() {
 			console.log('src/lib/database.ts: UN SUBSCRIBED to activity');
 			unsubscribeActivity = undefined;
 		}
+		if (unsubscribeOnline) {
+			unsubscribeOnline();
+			console.log('src/lib/database.ts: UN SUBSCRIBED to online listener');
+			unsubscribeOnline = undefined;
+		}
 		Object.keys(listListeners).forEach((id) => {
 			const unsubscribe = listListeners[id];
 			if (unsubscribe) {
@@ -106,6 +114,7 @@ export function load() {
 			}
 		});
 		listListeners = {};
+		listLoadAttempts = {};
 		if (loadingSubscription) {
 			loadingSubscription();
 			console.log('src/lib/database.ts: UN SUBSCRIBED to loadingSubscription');
@@ -134,6 +143,8 @@ export function load() {
 		 * We avoid eagerly watching every list. A list gets watched when the
 		 * local user opens it, when it is needed to display a pending share, or
 		 * when the activity collection tells us that a visible list changed.
+		 * On reconnect, we refresh from activity again so a list opened offline
+		 * or updated while we were offline gets a listener.
 		 */
 		async function loadListActionsAtStartup(user: AuthState) {
 			console.log('src/lib/database.ts: load list data.');
@@ -147,6 +158,17 @@ export function load() {
 			const getCurrentListId = () =>
 				store.getState().ui.listId || new URLSearchParams(window.location.search).get('listId');
 			const isVisibleList = (id: string) => store.getState().lists.visibleLists.indexOf(id) !== -1;
+			const getEarliestCachedListTime = () => {
+				let earliestCacheTime = Infinity;
+				const state = store.getState();
+				state.lists.visibleLists.forEach((id) => {
+					const timestamp = state.lists.listIdToTimestamp[id];
+					if (timestamp > 0) {
+						earliestCacheTime = Math.min(earliestCacheTime, timestamp);
+					}
+				});
+				return earliestCacheTime === Infinity ? -1 : earliestCacheTime;
+			};
 			function loadComplete() {
 				logTime('initialDatabaseLoadComplete');
 				enableCaching();
@@ -159,19 +181,61 @@ export function load() {
 				}
 			}
 
-			const loadList = async (id: string, nameOverride?: string) => {
+			const loadList = async (id: string, nameOverride?: string, retryLoading = false) => {
+				if (retryLoading && listListeners[id] === null) {
+					delete listListeners[id];
+				}
 				if (listListeners[id] === undefined) {
 					listListeners[id] = null;
+					const attempt = (listLoadAttempts[id] || 0) + 1;
+					listLoadAttempts[id] = attempt;
 					const name = nameOverride || store.getState().lists.listIdToList[id];
 					console.log('Loading for ' + id + ' ' + name);
-					await createFirebaseListActions(id, user, name);
-					listListeners[id] = watch('lists', id, (snapshot) => {
-						logTime('Calling handleDocChanges for ' + id + ' ' + name);
-						handleDocChanges(snapshot, store.getState().auth, true);
-						if (initialListLoading === id) {
-							loadComplete();
+					try {
+						await createFirebaseListActions(id, user, name);
+						if (listLoadAttempts[id] !== attempt) {
+							return;
+						}
+						listListeners[id] = watch('lists', id, (snapshot) => {
+							logTime('Calling handleDocChanges for ' + id + ' ' + name);
+							handleDocChanges(snapshot, store.getState().auth, true);
+							if (initialListLoading === id) {
+								loadComplete();
+							}
+						});
+					} catch (error) {
+						if (listLoadAttempts[id] === attempt) {
+							delete listListeners[id];
+							delete listLoadAttempts[id];
+						}
+						console.error(error);
+					}
+				}
+			};
+
+			const refreshListSubscriptions = async (reason: string) => {
+				const state = store.getState();
+				const retryLoading = reason === 'online';
+				const currentListId = getCurrentListId();
+				console.log(`Refresh list subscriptions: ${reason}`);
+				if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
+					loadList(currentListId, undefined, retryLoading);
+				}
+
+				const activityRefreshStartTime = getEarliestCachedListTime();
+				try {
+					const docs = await getDocs(
+						query(activity, where('seconds', '>=', activityRefreshStartTime))
+					);
+					docs.forEach((doc) => {
+						const seconds = doc.get('seconds');
+						const cachedSeconds = store.getState().lists.listIdToTimestamp[doc.id] || 0;
+						if (typeof seconds === 'number' && seconds > cachedSeconds && isVisibleList(doc.id)) {
+							loadList(doc.id, undefined, retryLoading);
 						}
 					});
+				} catch (error) {
+					console.error(error);
 				}
 			};
 
@@ -201,6 +265,14 @@ export function load() {
 				});
 			}
 
+			if (unsubscribeOnline === undefined) {
+				const onOnline = () => {
+					refreshListSubscriptions('online');
+				};
+				window.addEventListener('online', onOnline);
+				unsubscribeOnline = () => window.removeEventListener('online', onOnline);
+			}
+
 			store.subscribe((state: any) => {
 				if (state.lists.visibleLists !== lastVisibleLists) {
 					lastVisibleLists = state.lists.visibleLists;
@@ -214,7 +286,7 @@ export function load() {
 							store.dispatch(
 								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading list' })
 							);
-							loadList(initialListLoading);
+							refreshListSubscriptions('startup');
 						} else {
 							logTime('Initial data load for UI complete.');
 							loadComplete();
