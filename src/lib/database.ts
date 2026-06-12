@@ -23,6 +23,7 @@ import { selectListsForRefresh, type ActivityList } from './list-refresh';
 
 const sleep = (delay: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, delay));
+const ACTION_PROGRESS_BATCH_SIZE = 100;
 
 const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
 	if (user.uid) {
@@ -178,6 +179,62 @@ export function load() {
 				const timestamp = store.getState().lists.listIdToTimestamp[id];
 				return timestamp > 0 ? timestamp : 0;
 			};
+			const getInitialListProgress = () => {
+				const listIndex =
+					initialListsLoading && numberOfInitialLists > 0
+						? numberOfInitialLists - initialListsLoading.length + 1
+						: 0;
+				return {
+					loadingListIndex: listIndex,
+					loadingListTotal: numberOfInitialLists
+				};
+			};
+			const setCurrentListLoadingStatus = (id: string, name: string | undefined) => {
+				if (initialListsLoading) {
+					store.dispatch(
+						set_loading_status({
+							...getInitialListProgress(),
+							loadingListName: name || id,
+							loadingActionIndex: 0,
+							loadingActionTotal: 0
+						})
+					);
+				}
+			};
+			const handleListDocChanges = async (
+				id: string,
+				name: string | undefined,
+				changes: Parameters<typeof handleDocChanges>[0]
+			) => {
+				const totalActions = changes.length;
+				if (initialListsLoading && totalActions === 0) {
+					store.dispatch(
+						set_loading_status({
+							...getInitialListProgress(),
+							loadingListName: name || id,
+							loadingActionIndex: 0,
+							loadingActionTotal: 0
+						})
+					);
+				}
+				for (let start = 0; start < totalActions; start += ACTION_PROGRESS_BATCH_SIZE) {
+					const end = Math.min(start + ACTION_PROGRESS_BATCH_SIZE, totalActions);
+					if (initialListsLoading) {
+						store.dispatch(
+							set_loading_status({
+								...getInitialListProgress(),
+								loadingListName: name || id,
+								loadingActionIndex: end,
+								loadingActionTotal: totalActions
+							})
+						);
+					}
+					handleDocChanges(changes.slice(start, end), store.getState().auth, true);
+					if (end < totalActions) {
+						await sleep(0);
+					}
+				}
+			};
 			const handleInitialListLoaded = (id: string, name: string | undefined) => {
 				if (initialListsLoading) {
 					const idIndex = initialListsLoading.indexOf(id);
@@ -189,7 +246,12 @@ export function load() {
 								loadingPercentage: Math.floor(
 									((numberOfInitialLists - initialListsLoading.length) / numberOfInitialLists) * 100
 								),
-								loadingStatus: name
+								loadingStatus: name || id,
+								loadingListIndex: numberOfInitialLists - initialListsLoading.length,
+								loadingListTotal: numberOfInitialLists,
+								loadingListName: name || id,
+								loadingActionIndex: 0,
+								loadingActionTotal: 0
 							})
 						);
 						if (initialListsLoading.length === 0) {
@@ -201,8 +263,28 @@ export function load() {
 			function loadComplete() {
 				logTime('initialDatabaseLoadComplete');
 				enableCaching();
-				store.dispatch(set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' }));
-				window.setTimeout(() => store.dispatch(set_loading_status({ loadingStatus: '' })), 2000);
+				store.dispatch(
+					set_loading_status({
+						loadingPercentage: 100,
+						loadingStatus: 'Done',
+						loadingListIndex: numberOfInitialLists,
+						loadingListTotal: numberOfInitialLists,
+						loadingActionIndex: 0,
+						loadingActionTotal: 0
+					})
+				);
+				window.setTimeout(
+					() =>
+						store.dispatch(
+							set_loading_status({
+								loadingStatus: '',
+								loadingListName: '',
+								loadingActionIndex: 0,
+								loadingActionTotal: 0
+							})
+						),
+					2000
+				);
 				initialListsLoading = null;
 				watchPendingShareLists(store.getState());
 				if (!isResolved) {
@@ -222,13 +304,14 @@ export function load() {
 					const name = nameOverride || store.getState().lists.listIdToList[id];
 					console.log('Loading for ' + id + ' ' + name);
 					try {
+						setCurrentListLoadingStatus(id, name);
 						await createFirebaseListActions(id, user, name);
 						if (listLoadAttempts[id] !== attempt) {
 							return;
 						}
-						listListeners[id] = watch('lists', id, (snapshot) => {
+						listListeners[id] = watch('lists', id, async (snapshot) => {
 							logTime('Calling handleDocChanges for ' + id + ' ' + name);
-							handleDocChanges(snapshot, store.getState().auth, true);
+							await handleListDocChanges(id, name, snapshot);
 							handleInitialListLoaded(id, name);
 						});
 					} catch (error) {
@@ -243,6 +326,7 @@ export function load() {
 			const loadListOnce = async (id: string, nameOverride?: string) => {
 				const name = nameOverride || store.getState().lists.listIdToList[id];
 				try {
+					setCurrentListLoadingStatus(id, name);
 					await createFirebaseListActions(id, user, name);
 					const currentTime = getListCurrentTime(id);
 					const actions = collection(firebase.firestore, 'lists', id, 'actions');
@@ -259,7 +343,7 @@ export function load() {
 						}
 					}
 					logTime('Calling handleDocChanges once for ' + id + ' ' + name);
-					handleDocChanges(changes, store.getState().auth, true);
+					await handleListDocChanges(id, name, changes);
 				} catch (error) {
 					console.error(error);
 				} finally {
