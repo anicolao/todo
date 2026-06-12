@@ -55,7 +55,10 @@ export const lists = createReducer(initialState, (r) => {
 	});
 	r.addCase(accept_pending_share, (state, action) => {
 		state = { ...state };
-		state.visibleLists = [action.payload, ...state.visibleLists];
+		state.visibleLists =
+			state.visibleLists.indexOf(action.payload) === -1
+				? [action.payload, ...state.visibleLists]
+				: state.visibleLists;
 		return state;
 	});
 	r.addCase(reorder_list, (state, action) => {
