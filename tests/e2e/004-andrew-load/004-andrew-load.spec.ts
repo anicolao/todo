@@ -82,6 +82,7 @@ async function signInAsAndrew(page: Page) {
 
 test('loads Andrew production data from the Firestore emulator', async ({ page }, testInfo) => {
 	const consoleEvents: string[] = [];
+	let cacheWriteMs: number | null = null;
 	page.on('console', (message) => {
 		const text = message.text();
 		if (
@@ -89,9 +90,13 @@ test('loads Andrew production data from the Firestore emulator', async ({ page }
 			text.includes('Filtering ') ||
 			text.includes('load list data') ||
 			text.includes('initialDatabaseLoadComplete') ||
-			text.includes('Initial data load for UI complete')
+			text.includes('Initial data load for UI complete') ||
+			text.includes('Write the database!')
 		) {
 			consoleEvents.push(text);
+		}
+		if (text.includes('Write the database!') && cacheWriteMs === null) {
+			cacheWriteMs = Date.now() - start;
 		}
 	});
 
@@ -105,17 +110,24 @@ test('loads Andrew production data from the Firestore emulator', async ({ page }
 	});
 	const firstListVisibleMs = Date.now() - start;
 	const listCount = await page.locator('.mdc-drawer .listContainer .item:not(#ghost)').count();
+	await expect
+		.poll(() => cacheWriteMs, {
+			timeout: maxLoadMs,
+			message: 'Wait for the IndexedDB cache write to be scheduled'
+		})
+		.not.toBeNull();
 
 	const summary = {
 		appShellLoadMs,
 		firstListVisibleMs,
+		cacheWriteMs,
 		listCount,
 		consoleEvents
 	};
 	console.log(`Andrew load summary: ${JSON.stringify(summary, null, 2)}`);
 	testInfo.annotations.push({
 		type: 'andrew-load-summary',
-		description: JSON.stringify({ appShellLoadMs, firstListVisibleMs, listCount })
+		description: JSON.stringify({ appShellLoadMs, firstListVisibleMs, cacheWriteMs, listCount })
 	});
 
 	expect(appShellLoadMs).toBeLessThan(maxLoadMs);
