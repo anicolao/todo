@@ -181,6 +181,14 @@ export function load() {
 			};
 			const getKnownListName = (id: string, name: string | undefined) =>
 				name || store.getState().lists.listIdToList[id] || '';
+			const setLoadingStatus = (payload: Parameters<typeof set_loading_status>[0]) => {
+				if (!payload.loadingListName) {
+					const { loadingListName, ...payloadWithoutEmptyName } = payload;
+					store.dispatch(set_loading_status(payloadWithoutEmptyName));
+					return;
+				}
+				store.dispatch(set_loading_status(payload));
+			};
 			const getInitialListProgress = () => {
 				const listIndex =
 					initialListsLoading && numberOfInitialLists > 0
@@ -193,14 +201,12 @@ export function load() {
 			};
 			const setCurrentListLoadingStatus = (id: string, name: string | undefined) => {
 				if (initialListsLoading) {
-					store.dispatch(
-						set_loading_status({
-							...getInitialListProgress(),
-							loadingListName: getKnownListName(id, name),
-							loadingActionIndex: 0,
-							loadingActionTotal: 0
-						})
-					);
+					setLoadingStatus({
+						...getInitialListProgress(),
+						loadingListName: getKnownListName(id, name),
+						loadingActionIndex: 0,
+						loadingActionTotal: 0
+					});
 				}
 			};
 			const handleListDocChanges = async (
@@ -210,14 +216,12 @@ export function load() {
 			) => {
 				const totalActions = changes.length;
 				if (initialListsLoading && totalActions <= ACTION_PROGRESS_BATCH_SIZE) {
-					store.dispatch(
-						set_loading_status({
-							...getInitialListProgress(),
-							loadingListName: getKnownListName(id, name),
-							loadingActionIndex: 0,
-							loadingActionTotal: 0
-						})
-					);
+					setLoadingStatus({
+						...getInitialListProgress(),
+						loadingListName: getKnownListName(id, name),
+						loadingActionIndex: 0,
+						loadingActionTotal: 0
+					});
 				}
 				if (totalActions <= ACTION_PROGRESS_BATCH_SIZE) {
 					handleDocChanges(changes, store.getState().auth, true);
@@ -228,26 +232,22 @@ export function load() {
 					return;
 				}
 				if (initialListsLoading) {
-					store.dispatch(
-						set_loading_status({
-							...getInitialListProgress(),
-							loadingListName: getKnownListName(id, name),
-							loadingActionIndex: 0,
-							loadingActionTotal: totalActions
-						})
-					);
+					setLoadingStatus({
+						...getInitialListProgress(),
+						loadingListName: getKnownListName(id, name),
+						loadingActionIndex: 0,
+						loadingActionTotal: totalActions
+					});
 				}
 				for (let start = 0; start < totalActions; start += ACTION_PROGRESS_BATCH_SIZE) {
 					const end = Math.min(start + ACTION_PROGRESS_BATCH_SIZE, totalActions);
 					if (initialListsLoading) {
-						store.dispatch(
-							set_loading_status({
-								...getInitialListProgress(),
-								loadingListName: getKnownListName(id, name),
-								loadingActionIndex: end,
-								loadingActionTotal: totalActions
-							})
-						);
+						setLoadingStatus({
+							...getInitialListProgress(),
+							loadingListName: getKnownListName(id, name),
+							loadingActionIndex: end,
+							loadingActionTotal: totalActions
+						});
 					}
 					handleDocChanges(changes.slice(start, end), store.getState().auth, true);
 					const updatedName = getKnownListName(id, name);
@@ -265,19 +265,17 @@ export function load() {
 					if (idIndex >= 0) {
 						initialListsLoading.splice(idIndex, 1);
 						logTime('loading initial list data --> ' + initialListsLoading.length);
-						store.dispatch(
-							set_loading_status({
-								loadingPercentage: Math.floor(
-									((numberOfInitialLists - initialListsLoading.length) / numberOfInitialLists) * 100
-								),
-								loadingStatus: getKnownListName(id, name) || 'Loading list',
-								loadingListIndex: numberOfInitialLists - initialListsLoading.length,
-								loadingListTotal: numberOfInitialLists,
-								loadingListName: getKnownListName(id, name),
-								loadingActionIndex: 0,
-								loadingActionTotal: 0
-							})
-						);
+						setLoadingStatus({
+							loadingPercentage: Math.floor(
+								((numberOfInitialLists - initialListsLoading.length) / numberOfInitialLists) * 100
+							),
+							loadingStatus: getKnownListName(id, name) || 'Loading list',
+							loadingListIndex: numberOfInitialLists - initialListsLoading.length,
+							loadingListTotal: numberOfInitialLists,
+							loadingListName: getKnownListName(id, name),
+							loadingActionIndex: 0,
+							loadingActionTotal: 0
+						});
 						if (initialListsLoading.length === 0) {
 							loadComplete();
 						}
