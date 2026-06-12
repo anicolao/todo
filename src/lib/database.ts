@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
+import { selectListsForRefresh, type ActivityList } from './list-refresh';
 
 const sleep = (delay: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, delay));
@@ -271,29 +272,26 @@ export function load() {
 				const retryLoading = reason === 'online';
 				const currentListId = getCurrentListId();
 				const isStartup = reason === 'startup';
-				const listsToLoad: string[] = [];
+				let activityLists: ActivityList[] = [];
 				console.log(`Refresh list subscriptions: ${reason}`);
-				if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
-					listsToLoad.push(currentListId);
-				}
 
 				const activityRefreshStartTime = getEarliestCachedListTime();
 				try {
 					const docs = await getDocs(
 						query(activity, where('seconds', '>=', activityRefreshStartTime))
 					);
-					docs.forEach((doc) => {
-						const seconds = doc.get('seconds');
-						const cachedSeconds = store.getState().lists.listIdToTimestamp[doc.id] || 0;
-						if (typeof seconds === 'number' && seconds > cachedSeconds && isVisibleList(doc.id)) {
-							if (listsToLoad.indexOf(doc.id) === -1) {
-								listsToLoad.push(doc.id);
-							}
-						}
-					});
+					docs.forEach((doc) => activityLists.push({ id: doc.id, seconds: doc.get('seconds') }));
 				} catch (error) {
 					console.error(error);
 				}
+				const refreshedState = store.getState();
+				const listsToLoad = selectListsForRefresh({
+					currentListId,
+					visibleLists: refreshedState.lists.visibleLists,
+					listIdToTimestamp: refreshedState.lists.listIdToTimestamp,
+					activityLists,
+					isStartup
+				});
 				if (isStartup) {
 					initialListsLoading = listsToLoad.slice();
 					numberOfInitialLists = initialListsLoading.length || 1;
