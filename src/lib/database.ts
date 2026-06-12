@@ -288,6 +288,7 @@ export function load() {
 							);
 							refreshListSubscriptions('startup');
 						} else {
+							refreshListSubscriptions('startup');
 							logTime('Initial data load for UI complete.');
 							loadComplete();
 						}
