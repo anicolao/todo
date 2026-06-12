@@ -90,8 +90,16 @@ const firebase = {
 	request
 };
 
-if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+const useFirebaseEmulator = import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true';
+const useFirestoreEmulator =
+	useFirebaseEmulator || import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true';
+const useAuthEmulator = useFirebaseEmulator || import.meta.env.VITE_USE_AUTH_EMULATOR === 'true';
+
+if (useFirestoreEmulator) {
 	connectFirestoreEmulator(firebase.firestore, '127.0.0.1', 8080);
+}
+
+if (useAuthEmulator) {
 	connectAuthEmulator(firebase.auth, 'http://127.0.0.1:9099');
 }
 
