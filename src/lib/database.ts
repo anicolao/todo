@@ -20,6 +20,9 @@ import {
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
 
+const sleep = (delay: number): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, delay));
+
 const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
 	if (user.uid) {
 		const listDesc = id + (name ? ' ' + name : '');
@@ -150,7 +153,8 @@ export function load() {
 			console.log('src/lib/database.ts: load list data.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let lastCurrentListId: string | null = null;
-			let initialListLoading: string | null | undefined = undefined;
+			let initialListsLoading: string[] | null | undefined = undefined;
+			let numberOfInitialLists = 0;
 			const activityStartTime = Math.floor(Date.now() / 1000);
 			const activity = collection(firebase.firestore, 'activity');
 			console.log(`Watching for activity from server since ${activityStartTime}`);
@@ -174,7 +178,8 @@ export function load() {
 				enableCaching();
 				store.dispatch(set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' }));
 				window.setTimeout(() => store.dispatch(set_loading_status({ loadingStatus: '' })), 2000);
-				initialListLoading = null;
+				initialListsLoading = null;
+				watchPendingShareLists(store.getState());
 				if (!isResolved) {
 					isResolved = true;
 					resolve(true);
@@ -199,8 +204,25 @@ export function load() {
 						listListeners[id] = watch('lists', id, (snapshot) => {
 							logTime('Calling handleDocChanges for ' + id + ' ' + name);
 							handleDocChanges(snapshot, store.getState().auth, true);
-							if (initialListLoading === id) {
-								loadComplete();
+							if (initialListsLoading) {
+								const idIndex = initialListsLoading.indexOf(id);
+								if (idIndex >= 0) {
+									initialListsLoading.splice(idIndex, 1);
+									logTime('loading initial list data --> ' + initialListsLoading.length);
+									store.dispatch(
+										set_loading_status({
+											loadingPercentage: Math.floor(
+												((numberOfInitialLists - initialListsLoading.length) /
+													numberOfInitialLists) *
+													100
+											),
+											loadingStatus: name
+										})
+									);
+									if (initialListsLoading.length === 0) {
+										loadComplete();
+									}
+								}
 							}
 						});
 					} catch (error) {
@@ -217,9 +239,11 @@ export function load() {
 				const state = store.getState();
 				const retryLoading = reason === 'online';
 				const currentListId = getCurrentListId();
+				const isStartup = reason === 'startup';
+				const listsToLoad: string[] = [];
 				console.log(`Refresh list subscriptions: ${reason}`);
 				if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
-					loadList(currentListId, undefined, retryLoading);
+					listsToLoad.push(currentListId);
 				}
 
 				const activityRefreshStartTime = getEarliestCachedListTime();
@@ -231,11 +255,28 @@ export function load() {
 						const seconds = doc.get('seconds');
 						const cachedSeconds = store.getState().lists.listIdToTimestamp[doc.id] || 0;
 						if (typeof seconds === 'number' && seconds > cachedSeconds && isVisibleList(doc.id)) {
-							loadList(doc.id, undefined, retryLoading);
+							if (listsToLoad.indexOf(doc.id) === -1) {
+								listsToLoad.push(doc.id);
+							}
 						}
 					});
 				} catch (error) {
 					console.error(error);
+				}
+				if (isStartup) {
+					initialListsLoading = listsToLoad.slice();
+					numberOfInitialLists = initialListsLoading.length || 1;
+					if (initialListsLoading.length === 0) {
+						logTime('Initial data load for UI complete.');
+						loadComplete();
+						return;
+					}
+				}
+				for (const id of listsToLoad) {
+					if (isStartup && (currentListId === null || id !== currentListId)) {
+						await sleep(50);
+					}
+					await loadList(id, undefined, retryLoading);
 				}
 			};
 
@@ -277,23 +318,21 @@ export function load() {
 				if (state.lists.visibleLists !== lastVisibleLists) {
 					lastVisibleLists = state.lists.visibleLists;
 					const currentListId = getCurrentListId();
-					if (initialListLoading === undefined) {
-						initialListLoading =
-							currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1
-								? currentListId
-								: null;
-						if (initialListLoading) {
-							store.dispatch(
-								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading list' })
-							);
-							refreshListSubscriptions('startup');
-						} else {
-							refreshListSubscriptions('startup');
-							logTime('Initial data load for UI complete.');
-							loadComplete();
-						}
+					if (initialListsLoading === undefined) {
+						store.dispatch(
+							set_loading_status({
+								loadingPercentage: 0,
+								loadingStatus:
+									currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1
+										? 'Loading list'
+										: 'Loading lists'
+							})
+						);
+						refreshListSubscriptions('startup');
 					}
-					watchPendingShareLists(state);
+					if (initialListsLoading === null) {
+						watchPendingShareLists(state);
+					}
 				}
 
 				const currentListId = getCurrentListId();
