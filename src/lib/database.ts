@@ -3,13 +3,12 @@ import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
-import { handleDocChanges, logTime, store, type GlobalState, enableCaching } from '$lib/store';
+import { handleDocChanges, logTime, store, enableCaching } from '$lib/store';
 import {
 	collection,
 	collectionGroup,
 	doc,
 	getDoc,
-	getDocs,
 	onSnapshot,
 	orderBy,
 	query,
@@ -19,19 +18,6 @@ import {
 } from 'firebase/firestore';
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
-
-const RECENT_LIST_ACTIVITY_SECONDS = 24 * 60 * 60;
-
-let promiseId = 1000;
-const sleep = <T extends any>(delay: number, resolveValue: T): Promise<T> =>
-	new Promise((resolve) => {
-		const myId = promiseId++;
-		//console.log(`starting promise ${myId} at ${new Date()}`);
-		setTimeout(() => {
-			//console.log(`promise ${myId} finished at ${new Date()}`);
-			resolve(resolveValue);
-		}, delay);
-	});
 
 const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
 	if (user.uid) {
@@ -143,242 +129,105 @@ export function load() {
 	let actionsPromise = new Promise((resolve) => {
 		let isResolved = false;
 		/**
-		 * Load and replay the actions for all lists, at startup.
+		 * Load the active list at startup, then add list listeners on demand.
 		 *
-		 * When the application starts, get the inital list of lists.
-		 * For each list, load and replay all of its actions.
-		 *
-		 * @param user  the authenticated user
+		 * We avoid eagerly watching every list. A list gets watched when the
+		 * local user opens it, when it is needed to display a pending share, or
+		 * when the activity collection tells us that a visible list changed.
 		 */
 		async function loadListActionsAtStartup(user: AuthState) {
 			console.log('src/lib/database.ts: load list data.');
 			let lastVisibleLists: string[] | undefined = undefined;
-			let initialListsLoading: string[] | undefined | null = undefined;
-			let numberOfLists = 1;
-			const activitySecondsByListId: { [id: string]: number } = {};
-			const recentActivityCutoff = Math.floor(Date.now() / 1000) - RECENT_LIST_ACTIVITY_SECONDS;
-
-			let earliestCacheTime = Infinity;
-			const existingState = store.getState();
-			for (const listId in existingState.lists.listIdToTimestamp) {
-				earliestCacheTime = Math.min(
-					earliestCacheTime,
-					existingState.lists.listIdToTimestamp[listId]
-				);
-			}
-			if (earliestCacheTime === Infinity) {
-				earliestCacheTime = -1;
-			}
-			const activityStartTime = Math.min(earliestCacheTime, recentActivityCutoff);
-			console.log(`Looking for activity from server since ${activityStartTime}`);
-
+			let lastCurrentListId: string | null = null;
+			let initialListLoading: string | null | undefined = undefined;
+			const activityStartTime = Math.floor(Date.now() / 1000);
 			const activity = collection(firebase.firestore, 'activity');
-			const q = query(activity, where('seconds', '>=', activityStartTime));
-			const docs = await getDocs(q);
-			console.log('query came from local cache?', docs.metadata.fromCache);
-			docs.forEach((doc) => {
-				const seconds = doc.get('seconds');
-				if (typeof seconds === 'number') {
-					activitySecondsByListId[doc.id] = seconds;
+			console.log(`Watching for activity from server since ${activityStartTime}`);
+
+			const getCurrentListId = () =>
+				store.getState().ui.listId || new URLSearchParams(window.location.search).get('listId');
+			const isVisibleList = (id: string) => store.getState().lists.visibleLists.indexOf(id) !== -1;
+			function loadComplete() {
+				logTime('initialDatabaseLoadComplete');
+				enableCaching();
+				store.dispatch(set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' }));
+				window.setTimeout(() => store.dispatch(set_loading_status({ loadingStatus: '' })), 2000);
+				initialListLoading = null;
+				if (!isResolved) {
+					isResolved = true;
+					resolve(true);
 				}
-			});
+			}
 
-			const getCurrentListId = () => new URLSearchParams(window.location.search).get('listId');
-			const getCachedListTime = (state: GlobalState, id: string) =>
-				state.lists.listIdToTimestamp[id] || 0;
-			const getActivitySeconds = (id: string) => activitySecondsByListId[id] || 0;
-			const listChangedSinceCache = (state: GlobalState, id: string) => {
-				const activitySeconds = getActivitySeconds(id);
-				return activitySeconds > 0 && activitySeconds > getCachedListTime(state, id);
-			};
-			const listWasRecentlyActive = (id: string) => getActivitySeconds(id) >= recentActivityCutoff;
-			const listHasUnknownCacheState = (state: GlobalState, id: string) =>
-				getCachedListTime(state, id) <= 0;
-			const shouldWatchList = (state: GlobalState, id: string, currentListId: string | null) =>
-				id === currentListId ||
-				listChangedSinceCache(state, id) ||
-				listWasRecentlyActive(id) ||
-				listHasUnknownCacheState(state, id);
-			const sortByActivity = (ids: string[]) =>
-				ids.slice().sort((a, b) => getActivitySeconds(b) - getActivitySeconds(a));
-			const pushUnique = (ids: string[], id: string | null | undefined) => {
-				if (id && ids.indexOf(id) === -1) {
-					ids.push(id);
-				}
-			};
-
-			const initiallyWatchedLists = existingState.lists.visibleLists.filter((id) =>
-				shouldWatchList(existingState, id, getCurrentListId())
-			);
-			console.log(
-				'  Startup watch listIds ' +
-					initiallyWatchedLists.length +
-					' ' +
-					JSON.stringify(initiallyWatchedLists.map((id) => existingState.lists.listIdToList[id]))
-			);
-
-			// Get notified when state.lists.visibleLists changes.
-			store.subscribe((state: GlobalState) => {
-				if (state.lists.visibleLists !== lastVisibleLists) {
-					const newlyVisibleLists: string[] = state.lists.visibleLists.filter(
-						(id: string) => lastVisibleLists === undefined || lastVisibleLists.indexOf(id) === -1
-					);
-					lastVisibleLists = state.lists.visibleLists as string[];
-					function loadComplete() {
-						logTime('initialDatabaseLoadComplete');
-						store.dispatch(set_loading_status({ loadingPercentage: 100, loadingStatus: 'Done' }));
-						window.setTimeout(
-							() => store.dispatch(set_loading_status({ loadingStatus: '' })),
-							2000
-						);
-						initialListsLoading = null;
-						if (!isResolved) {
-							isResolved = true;
-							resolve(true);
-						}
-					}
-
-					if (newlyVisibleLists.length > 0) {
-						console.log('newly visible lists length: ' + newlyVisibleLists.length);
-						if (initialListsLoading === undefined) {
-							// our first time; note that we need to load these lists
-							const initialCurrentListId = getCurrentListId();
-							initialListsLoading =
-								initialCurrentListId &&
-								lastVisibleLists.indexOf(initialCurrentListId) !== -1 &&
-								shouldWatchList(state, initialCurrentListId, initialCurrentListId)
-									? [initialCurrentListId]
-									: [];
-							logTime('filtered initialListsLoading');
-							console.log(initialListsLoading);
-
-							if (initialListsLoading.length === 0) {
-								// We have loaded the lists of lists, and there are 0 lists.
-								if (!isResolved) {
-									isResolved = true;
-									resolve(true);
-								}
-								logTime('Initial data load for UI complete.');
-								initialListsLoading = null;
-								store.dispatch(
-									set_loading_status({ loadingPercentage: 100, loadingStatus: 'Ready' })
-								);
-								window.setTimeout(
-									() => store.dispatch(set_loading_status({ loadingStatus: '' })),
-									2000
-								);
-							}
-						}
-
-						const throttleLoading = async (id: string) => {
-							const searchParams = new URLSearchParams(window.location.search);
-							const currentListId = searchParams.get('listId');
-							if (currentListId !== null && id !== currentListId) {
-								// Delay loading unfocused lists to improve startup responsiveness.
-								console.log('Delay loading for ' + id);
-								await sleep(50, 0);
-								console.log('Done delay for ' + id);
-							}
-						};
-
-						// Get actions for each list.
-						numberOfLists = initialListsLoading?.length || 1;
-						let listsToLoad: string[] = [];
-						const currentListId = getCurrentListId();
-						pushUnique(listsToLoad, currentListId);
-						if (initialListsLoading?.length) {
-							store.dispatch(
-								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading lists' })
-							);
-							initialListsLoading.forEach((id) => pushUnique(listsToLoad, id));
-						}
-						sortByActivity(
-							newlyVisibleLists.filter((id) => shouldWatchList(state, id, currentListId))
-						).forEach((id) => pushUnique(listsToLoad, id));
-						const loadList = async (id: string) => {
-							if (listListeners[id] === undefined) {
-								listListeners[id] = null;
-								const name = store.getState().lists.listIdToList[id];
-								await throttleLoading(id);
-								console.log('Loading for ' + id + ' ' + name);
-								await createFirebaseListActions(id, user, name);
-								listListeners[id] = watch('lists', id, (snapshot) => {
-									logTime('Calling handleDocChanges for ' + id + ' ' + name);
-									handleDocChanges(snapshot, store.getState().auth, true);
-									if (initialListsLoading) {
-										let idIndex = initialListsLoading.indexOf(id);
-										if (idIndex >= 0) {
-											initialListsLoading.splice(idIndex, 1);
-										}
-										logTime('loading initial list data --> ' + initialListsLoading.length);
-										store.dispatch(
-											set_loading_status({
-												loadingPercentage: Math.floor(
-													((numberOfLists - initialListsLoading.length) / numberOfLists) * 100
-												),
-												loadingStatus: name
-											})
-										);
-										if (initialListsLoading.length === 0) {
-											// initial load complete
-											loadComplete();
-										}
-									}
-								});
-							}
-						};
-						//listsToLoad.forEach(loadList);
-						const loadListsRecursively = async (lists: string[], index: number) => {
-							if (index < lists.length) {
-								// do the work
-								await loadList(lists[index]);
-								await loadListsRecursively(lists, index + 1);
-							} else {
-								// Get actions for lists that are pending shares (to show the list name).
-								state.requests.incomingRequests.forEach(async (requestId: string) => {
-									if (
-										state.requests.completedRequests.indexOf(requestId) === -1 &&
-										state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
-									) {
-										const shareAction = state.requests.requestIdToRequest[requestId];
-										const id = shareAction.payload;
-										if (listListeners[id] === undefined) {
-											listListeners[id] = null;
-											await createFirebaseListActions(id, user);
-											listListeners[id] = watch('lists', id, (snapshot) => {
-												handleDocChanges(snapshot, store.getState().auth, true);
-											});
-										}
-									}
-								});
-								enableCaching();
-							}
-						};
-						if (unsubscribeActivity === undefined) {
-							const recentActivity = query(activity, where('seconds', '>=', recentActivityCutoff));
-							let isFirstActivitySnapshot = true;
-							unsubscribeActivity = onSnapshot(recentActivity, (querySnapshot) => {
-								querySnapshot.docChanges().forEach((change) => {
-									const seconds = change.doc.get('seconds');
-									if (typeof seconds === 'number') {
-										activitySecondsByListId[change.doc.id] = seconds;
-									}
-									if (isFirstActivitySnapshot || change.type === 'removed') {
-										return;
-									}
-									const currentState = store.getState();
-									if (currentState.lists.visibleLists.indexOf(change.doc.id) !== -1) {
-										loadList(change.doc.id);
-									}
-								});
-								isFirstActivitySnapshot = false;
-							});
-						}
-						loadListsRecursively(listsToLoad, 0);
-					} else {
-						if (!isResolved) {
+			const loadList = async (id: string, nameOverride?: string) => {
+				if (listListeners[id] === undefined) {
+					listListeners[id] = null;
+					const name = nameOverride || store.getState().lists.listIdToList[id];
+					console.log('Loading for ' + id + ' ' + name);
+					await createFirebaseListActions(id, user, name);
+					listListeners[id] = watch('lists', id, (snapshot) => {
+						logTime('Calling handleDocChanges for ' + id + ' ' + name);
+						handleDocChanges(snapshot, store.getState().auth, true);
+						if (initialListLoading === id) {
 							loadComplete();
 						}
+					});
+				}
+			};
+
+			const watchPendingShareLists = (state: any) => {
+				state.requests.incomingRequests.forEach(async (requestId: string) => {
+					if (
+						state.requests.completedRequests.indexOf(requestId) === -1 &&
+						state.requests.requestIdToRequest[requestId].type === 'accept_pending_share'
+					) {
+						const shareAction = state.requests.requestIdToRequest[requestId];
+						await loadList(shareAction.payload);
+					}
+				});
+			};
+
+			if (unsubscribeActivity === undefined) {
+				const changedActivity = query(activity, where('seconds', '>=', activityStartTime));
+				unsubscribeActivity = onSnapshot(changedActivity, (querySnapshot) => {
+					querySnapshot.docChanges().forEach((change) => {
+						if (change.type === 'removed') {
+							return;
+						}
+						if (isVisibleList(change.doc.id)) {
+							loadList(change.doc.id);
+						}
+					});
+				});
+			}
+
+			store.subscribe((state: any) => {
+				if (state.lists.visibleLists !== lastVisibleLists) {
+					lastVisibleLists = state.lists.visibleLists;
+					const currentListId = getCurrentListId();
+					if (initialListLoading === undefined) {
+						initialListLoading =
+							currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1
+								? currentListId
+								: null;
+						if (initialListLoading) {
+							store.dispatch(
+								set_loading_status({ loadingPercentage: 0, loadingStatus: 'Loading list' })
+							);
+							loadList(initialListLoading);
+						} else {
+							logTime('Initial data load for UI complete.');
+							loadComplete();
+						}
+					}
+					watchPendingShareLists(state);
+				}
+
+				const currentListId = getCurrentListId();
+				if (currentListId !== lastCurrentListId) {
+					lastCurrentListId = currentListId;
+					if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
+						loadList(currentListId);
 					}
 				}
 			});
@@ -436,7 +285,7 @@ export function load() {
 		});
 	});
 
-	let loaded = Promise.all([actionsPromise, sleep(100, 0)]);
+	let loaded = Promise.all([actionsPromise, new Promise((resolve) => setTimeout(resolve, 100))]);
 
 	return {
 		loaded: { loaded },

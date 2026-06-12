@@ -5,12 +5,9 @@ import {
 	addDoc,
 	collection,
 	onSnapshot,
-	or,
 	orderBy,
 	query,
 	serverTimestamp,
-	Timestamp,
-	where,
 	type DocumentChange,
 	type DocumentData
 } from 'firebase/firestore';
@@ -25,14 +22,11 @@ export async function create(type: string, uid: string) {
 export async function dispatch(type: string, id: string, uid: string, action: AnyAction) {
 	const actions = collection(firebase.firestore, type, id, 'actions');
 	console.log('DISPATCH DISPATCH ', { action });
-	return addDoc(actions, { ...action, timestamp: serverTimestamp(), creator: uid })
-		.then((docRef) => {
-			store.dispatch({ ...action, firebase_doc_id: docRef.id, timestamp: null });
-			return docRef;
-		})
-		.catch((message) => {
+	return addDoc(actions, { ...action, timestamp: serverTimestamp(), creator: uid }).catch(
+		(message) => {
 			console.error(message);
-		});
+		}
+	);
 }
 
 /*
@@ -76,18 +70,7 @@ export function watch(
 		}
 	}
 	console.log(`watch from time ${currentTime} on ${id}`);
-	// TODO: Look at the tradeoff between using where(timestamp) to speed up startup time,
-	// TODO: which also slows down regular usage (especially on older phones).
-	// TODO: and which might even break off-line usage.
-	// const currentTimestamp = new Timestamp(currentTime, 0);
-	const actionsQuery =
-		currentTime > 0
-			? query(
-					actions,
-					or(where('timestamp', '==', 0), where('timestamp', '>', new Timestamp(currentTime, 0))),
-					orderBy('timestamp')
-			  )
-			: query(actions, orderBy('timestamp'));
+	const actionsQuery = query(actions, orderBy('timestamp'));
 	return onSnapshot(
 		actionsQuery,
 		{ includeMetadataChanges: true },
