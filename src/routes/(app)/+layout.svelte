@@ -351,7 +351,6 @@
 				}`
 			: $store.ui.loadingStatus || 'Loading';
 	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
-	$: loadingTitle = $store.ui.loadingListName ? `Loading ${$store.ui.loadingListName}` : 'Loading...';
 </script>
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
@@ -359,11 +358,18 @@
 {#await pageData.loaded.loaded}
 	<div class="loading-screen">
 		<div class="loading-panel">
-			<div class="loading-title">{loadingTitle}</div>
-			<div class="loading-row">
+			<div class="loading-title">Loading...</div>
+			<div class="loading-row loading-list-row">
 				<div class="loading-line">
 					<span>{loadingListLabel}</span>
 					<span>{loadingListPercent}%</span>
+				</div>
+				<div
+					class:loading-list-name-hidden={!$store.ui.loadingListName}
+					class="loading-list-name"
+					aria-hidden={!$store.ui.loadingListName}
+				>
+					{$store.ui.loadingListName}
 				</div>
 				<progress value={loadingListPercent} max="100" aria-label="List loading progress" />
 			</div>
@@ -606,6 +612,26 @@
 		flex-direction: column;
 		gap: 0.45rem;
 		position: relative;
+	}
+	.loading-list-row {
+		padding-top: 1.75rem;
+	}
+	.loading-list-name {
+		font-size: 0.95rem;
+		left: 50%;
+		line-height: 1.25;
+		max-width: 75%;
+		overflow: hidden;
+		position: absolute;
+		text-align: center;
+		text-overflow: ellipsis;
+		top: 0;
+		transform: translateX(-50%);
+		transition: opacity 120ms ease;
+		white-space: nowrap;
+	}
+	.loading-list-name-hidden {
+		opacity: 0;
 	}
 	.loading-action-row {
 		transition: opacity 120ms ease;
