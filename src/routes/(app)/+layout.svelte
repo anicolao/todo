@@ -351,6 +351,7 @@
 				}`
 			: $store.ui.loadingStatus || 'Loading';
 	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
+	$: loadingTitle = $store.ui.loadingListName ? `Loading ${$store.ui.loadingListName}` : 'Loading...';
 </script>
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
@@ -358,7 +359,7 @@
 {#await pageData.loaded.loaded}
 	<div class="loading-screen">
 		<div class="loading-panel">
-			<div class="loading-title">Loading lists</div>
+			<div class="loading-title">{loadingTitle}</div>
 			<div class="loading-row">
 				<div class="loading-line">
 					<span>{loadingListLabel}</span>
@@ -366,18 +367,17 @@
 				</div>
 				<progress value={loadingListPercent} max="100" aria-label="List loading progress" />
 			</div>
-			{#if $store.ui.loadingActionTotal > 0}
-				<div class="loading-row">
-					<div class="loading-line">
-						<span>{loadingActionLabel}</span>
-						<span>{loadingActionPercent}%</span>
-					</div>
-					<progress value={loadingActionPercent} max="100" aria-label="Action replay progress" />
+			<div
+				class:loading-row-hidden={$store.ui.loadingActionTotal <= 0}
+				class="loading-row loading-action-row"
+				aria-hidden={$store.ui.loadingActionTotal <= 0}
+			>
+				<div class="loading-line">
+					<span>{loadingActionLabel}</span>
+					<span>{loadingActionPercent}%</span>
 				</div>
-			{/if}
-			{#if $store.ui.loadingListName}
-				<div class="loading-detail">{$store.ui.loadingListName}</div>
-			{/if}
+				<progress value={loadingActionPercent} max="100" aria-label="Action replay progress" />
+			</div>
 		</div>
 	</div>
 {:then value}
@@ -570,33 +570,56 @@
 		flex-direction: column;
 		gap: 1.25rem;
 		max-width: 34rem;
+		min-height: 13.5rem;
+		overflow: hidden;
+		position: relative;
 		width: min(100%, 34rem);
+	}
+	.loading-panel::before {
+		background-image: url('/loading-icon.png');
+		background-position: center;
+		background-repeat: no-repeat;
+		background-size: contain;
+		content: '';
+		height: 13rem;
+		left: 50%;
+		opacity: 0.1;
+		pointer-events: none;
+		position: absolute;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 13rem;
 	}
 	.loading-title {
 		font-size: 1.45rem;
 		font-weight: 600;
+		line-height: 1.35;
+		min-height: 2rem;
+		overflow: hidden;
+		position: relative;
 		text-align: center;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.loading-row {
 		display: flex;
 		flex-direction: column;
 		gap: 0.45rem;
+		position: relative;
+	}
+	.loading-action-row {
+		transition: opacity 120ms ease;
+	}
+	.loading-row-hidden {
+		opacity: 0;
+		pointer-events: none;
+		visibility: hidden;
 	}
 	.loading-line {
 		display: flex;
 		font-size: 0.95rem;
 		justify-content: space-between;
 		line-height: 1.4;
-	}
-	.loading-detail {
-		color: #56615c;
-		font-size: 0.9rem;
-		line-height: 1.35;
-		min-height: 1.25rem;
-		overflow: hidden;
-		text-align: center;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	progress {
 		accent-color: #2e7d67;
