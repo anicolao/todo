@@ -335,12 +335,52 @@
 	function onOrientationChanged() {
 		width = window.innerWidth;
 	}
+
+	$: loadingListPercent =
+		$store.ui.loadingListTotal > 0
+			? Math.floor(($store.ui.loadingListIndex / $store.ui.loadingListTotal) * 100)
+			: $store.ui.loadingPercentage || 0;
+	$: loadingActionPercent =
+		$store.ui.loadingActionTotal > 0
+			? Math.floor(($store.ui.loadingActionIndex / $store.ui.loadingActionTotal) * 100)
+			: 0;
+	$: loadingListLabel =
+		$store.ui.loadingListTotal > 0
+			? `List ${Math.min($store.ui.loadingListIndex || 1, $store.ui.loadingListTotal)} of ${
+					$store.ui.loadingListTotal
+				}`
+			: $store.ui.loadingStatus || 'Loading';
+	$: loadingActionLabel =
+		$store.ui.loadingActionTotal > 0
+			? `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`
+			: 'Preparing actions';
 </script>
 
 <svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
 
 {#await pageData.loaded.loaded}
-	<div><p>Loading...</p></div>
+	<div class="loading-screen">
+		<div class="loading-panel">
+			<div class="loading-title">Loading lists</div>
+			<div class="loading-row">
+				<div class="loading-line">
+					<span>{loadingListLabel}</span>
+					<span>{loadingListPercent}%</span>
+				</div>
+				<progress value={loadingListPercent} max="100" aria-label="List loading progress" />
+			</div>
+			<div class="loading-row">
+				<div class="loading-line">
+					<span>{loadingActionLabel}</span>
+					<span>{loadingActionPercent}%</span>
+				</div>
+				<progress value={loadingActionPercent} max="100" aria-label="Action replay progress" />
+			</div>
+			{#if $store.ui.loadingListName}
+				<div class="loading-detail">{$store.ui.loadingListName}</div>
+			{/if}
+		</div>
+	</div>
 {:then value}
 	<div class="drawer-container w{width} ">
 		<TopAppBar bind:this={topAppBar} variant="fixed">
@@ -362,7 +402,7 @@
 				<Section align="end" toolbar>
 					{#if $store.ui.loadingStatus}<span
 							style="display: inline-block; margin-right: 1em; text-align: right; font-size: 75%"
-							>{$store.ui.loadingStatus}<br />{$store.ui.loadingPercentage}%</span
+							>{loadingListLabel}<br />{$store.ui.loadingPercentage}%</span
 						>{/if}
 					<span><Avatar name={$store.auth.name || ""} photo={$store.auth.photo || ""} /></span>
 				</Section>
@@ -516,6 +556,53 @@
 		display: flex;
 		flex: 1;
 		border-bottom: 1px solid #888e;
+	}
+	.loading-screen {
+		align-items: center;
+		background: #f7f8f5;
+		color: #1e2522;
+		display: flex;
+		justify-content: center;
+		min-height: 100vh;
+		padding: 2rem;
+	}
+	.loading-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		max-width: 34rem;
+		width: min(100%, 34rem);
+	}
+	.loading-title {
+		font-size: 1.45rem;
+		font-weight: 600;
+		text-align: center;
+	}
+	.loading-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+	}
+	.loading-line {
+		display: flex;
+		font-size: 0.95rem;
+		justify-content: space-between;
+		line-height: 1.4;
+	}
+	.loading-detail {
+		color: #56615c;
+		font-size: 0.9rem;
+		line-height: 1.35;
+		min-height: 1.25rem;
+		overflow: hidden;
+		text-align: center;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	progress {
+		accent-color: #2e7d67;
+		height: 0.65rem;
+		width: 100%;
 	}
 	/* Hide everything above this component. */
 	:global(app),

@@ -10,6 +10,11 @@ export interface UiState {
 	showItemDetailsDialog: boolean;
 	loadingPercentage: number;
 	loadingStatus: string;
+	loadingListIndex: number;
+	loadingListTotal: number;
+	loadingListName: string;
+	loadingActionIndex: number;
+	loadingActionTotal: number;
 }
 
 export const set_current_listid = createAction<string>('set_current_listid');
@@ -21,6 +26,11 @@ export const show_item_detail_dialog = createAction<boolean>('show_item_detail_d
 export const set_loading_status = createAction<{
 	loadingPercentage?: number;
 	loadingStatus?: string;
+	loadingListIndex?: number;
+	loadingListTotal?: number;
+	loadingListName?: string;
+	loadingActionIndex?: number;
+	loadingActionTotal?: number;
 }>('set_loading_status');
 
 const initialUiState = {
@@ -29,7 +39,14 @@ const initialUiState = {
 	title: 'Todo',
 	icon: 'list',
 	showEditDialog: false,
-	showItemDetailsDialog: false
+	showItemDetailsDialog: false,
+	loadingPercentage: 0,
+	loadingStatus: '',
+	loadingListIndex: 0,
+	loadingListTotal: 0,
+	loadingListName: '',
+	loadingActionIndex: 0,
+	loadingActionTotal: 0
 } as UiState;
 
 export const ui = createReducer(initialUiState, (r) => {
