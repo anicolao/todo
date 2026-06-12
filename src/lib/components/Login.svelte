@@ -16,6 +16,11 @@
 		updateProfile
 	} from 'firebase/auth';
 
+	const testLoginEmail = import.meta.env.VITE_TEST_LOGIN_EMAIL || 'test@example.com';
+	const testLoginPassword = import.meta.env.VITE_TEST_LOGIN_PASSWORD || 'password';
+	const testLoginName = import.meta.env.VITE_TEST_LOGIN_NAME || 'Test User';
+	const testLoginPhoto = `https://i.pravatar.cc/150?u=${encodeURIComponent(testLoginEmail)}`;
+
 	const signInWithGoogle = async () => {
 		// 1. Create credentials on the native layer
 		const result = await FirebaseAuthentication.signInWithGoogle({
@@ -31,14 +36,22 @@
 	async function testSignIn() {
 		const auth = getAuth();
 		try {
-			await signInWithEmailAndPassword(auth, 'test@example.com', 'password');
+			await signInWithEmailAndPassword(auth, testLoginEmail, testLoginPassword);
 		} catch (e: any) {
 			console.log('testSignIn catch', e.code);
-			if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-login-credentials' || e.code === 'auth/invalid-credential') {
-				const userCredential = await createUserWithEmailAndPassword(auth, 'test@example.com', 'password');
+			if (
+				e.code === 'auth/user-not-found' ||
+				e.code === 'auth/invalid-login-credentials' ||
+				e.code === 'auth/invalid-credential'
+			) {
+				const userCredential = await createUserWithEmailAndPassword(
+					auth,
+					testLoginEmail,
+					testLoginPassword
+				);
 				await updateProfile(userCredential.user, {
-					displayName: 'Test User',
-					photoURL: 'https://i.pravatar.cc/150?u=test@example.com'
+					displayName: testLoginName,
+					photoURL: testLoginPhoto
 				});
 				// After updateProfile, we might need to trigger another state change or just wait.
 				// But onAuthStateChanged should trigger eventually.

@@ -6,7 +6,10 @@ const config: PlaywrightTestConfig = {
 			command: 'npm run build && npm run preview -- --host 127.0.0.1',
 			url: 'http://127.0.0.1:4173',
 			env: {
-				VITE_USE_FIREBASE_EMULATOR: 'true'
+				VITE_USE_FIREBASE_EMULATOR: 'true',
+				VITE_TEST_LOGIN_EMAIL: process.env.VITE_TEST_LOGIN_EMAIL || '',
+				VITE_TEST_LOGIN_PASSWORD: process.env.VITE_TEST_LOGIN_PASSWORD || '',
+				VITE_TEST_LOGIN_NAME: process.env.VITE_TEST_LOGIN_NAME || ''
 			},
 			reuseExistingServer: true,
 			timeout: 120000
