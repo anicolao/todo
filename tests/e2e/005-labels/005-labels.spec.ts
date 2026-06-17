@@ -23,7 +23,7 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 	await expect(drawer.getByText(listName)).toBeVisible({ timeout: 10000 });
 	const editButton = drawer.getByRole('button', { name: 'Edit list' });
 	await expect(editButton).toBeVisible({ timeout: 10000 });
-	await editButton.click({ force: true });
+	await editButton.dispatchEvent('pointerdown');
 	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
 }
 
