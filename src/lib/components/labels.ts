@@ -73,6 +73,17 @@ function queryWithPredicate(query: LabelQuery, predicate: LabelQuery): LabelQuer
 	};
 }
 
+export function setQueryIdMembership(
+	query: LabelQuery | undefined,
+	id: string,
+	selected: boolean
+): LabelQuery {
+	const predicate = { type: 'id' as const, id };
+	return selected
+		? queryWithPredicate(query || emptyLabelQuery, predicate)
+		: queryWithoutPredicate(query || emptyLabelQuery, predicate);
+}
+
 export function queryHasId(query: LabelQuery | undefined, id: string): boolean {
 	if (!query) {
 		return false;
