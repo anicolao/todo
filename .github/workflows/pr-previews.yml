@@ -2,14 +2,56 @@ name: PR Previews
 
 on:
   pull_request:
-    types: [opened, synchronized, reopened]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to deploy'
+        required: true
+        type: number
+
+permissions:
+  checks: write
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
 
 jobs:
   build_and_preview:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve pull request preview metadata
+        id: preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            pr_number="$EVENT_PR_NUMBER"
+            head_ref="$EVENT_HEAD_REF"
+            head_sha="$EVENT_HEAD_SHA"
+          else
+            pr_metadata="$(gh pr view "$INPUT_PR_NUMBER" --json number,headRefName,headRefOid --jq '[.number, .headRefName, .headRefOid] | @tsv')"
+            pr_number="$(printf '%s' "$pr_metadata" | cut -f 1)"
+            head_ref="$(printf '%s' "$pr_metadata" | cut -f 2)"
+            head_sha="$(printf '%s' "$pr_metadata" | cut -f 3)"
+          fi
+
+          safe_ref="$(printf '%s' "$head_ref" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+|-+$//g' | cut -c 1-32)"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "channel_id=pr${pr_number}-${safe_ref}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.preview.outputs.head_sha }}
 
       - name: Check for Firebase Service Account Secret
         id: check_secret
@@ -18,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ The \`FIREBASE_SERVICE_ACCOUNT\` secret is missing. PR Previews cannot be deployed. Please follow the instructions in \`docs/PR_HOSTING_SETUP.md\` to set it up."
+            gh pr comment ${{ steps.preview.outputs.pr_number }} --body "⚠️ The \`FIREBASE_SERVICE_ACCOUNT\` secret is missing. PR Previews cannot be deployed. Please follow the instructions in \`docs/PR_HOSTING_SETUP.md\` to set it up."
             echo "Secret is missing. Failing the job."
             exit 1
           fi
@@ -29,11 +71,26 @@ jobs:
       - name: Build the app
         run: npm run build
         env:
-          COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
+          COMMIT_HASH: ${{ steps.preview.outputs.head_sha }}
 
       - name: Deploy to Firebase Hosting Preview Channel
+        id: deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: todo-firebase-1a740
+          channelId: ${{ steps.preview.outputs.channel_id }}
+
+      - name: Comment manual preview URL
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.preview.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.preview.outputs.head_sha }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.details_url }}
+        run: |
+          short_sha="$(printf '%s' "$HEAD_SHA" | cut -c 1-7)"
+          gh pr comment "$PR_NUMBER" --body "Visit the preview URL for this PR (manually refreshed for commit \`$short_sha\`):
+
+          [$PREVIEW_URL]($PREVIEW_URL)"
