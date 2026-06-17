@@ -51,8 +51,28 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	await expect(page.getByText('Edit List')).toBeVisible();
 
 	const labelName = 'Important Label';
+	await helper.step('label_creation_ui_available', {
+		description: 'User can create a label from the list edit dialog.',
+		verifications: [
+			{
+				spec: 'Labels section is visible',
+				check: async () => expect(page.getByText('Labels', { exact: true })).toBeVisible()
+			},
+			{
+				spec: 'New label field is visible',
+				check: async () => expect(page.getByLabel('New label')).toBeVisible()
+			},
+			{
+				spec: 'Create label button is disabled until a name is entered',
+				check: async () =>
+					expect(page.getByRole('button', { name: 'Create label' })).toBeDisabled()
+			}
+		]
+	});
+
 	await page.getByLabel('New label').fill(labelName);
-	await page.getByRole('button', { name: 'Add' }).click();
+	await expect(page.getByRole('button', { name: 'Create label' })).toBeEnabled();
+	await page.getByRole('button', { name: 'Create label' }).click();
 	await expect(page.getByLabel('New label')).toHaveValue('');
 	await page.getByRole('button', { name: 'Done' }).click();
 
