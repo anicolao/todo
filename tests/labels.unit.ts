@@ -9,7 +9,6 @@ import {
 	queryHasId,
 	remove_label_predicate,
 	resolveLabelQuery,
-	setQueryIdMembership,
 	set_label_query,
 	type LabelQuery
 } from '$lib/components/labels';
@@ -110,39 +109,23 @@ describe('labels', () => {
 		expect(has('label2', 'list2')).to.equal(true);
 	});
 
-	it('can materialize id membership as a complete query', () => {
-		let query = setQueryIdMembership(emptyLabelQuery, 'list1', true);
-		expect(queryHasId(query, 'list1')).to.equal(true);
-
-		query = setQueryIdMembership(query, 'list2', true);
-		expect(queryHasId(query, 'list1')).to.equal(true);
-		expect(queryHasId(query, 'list2')).to.equal(true);
-
-		query = setQueryIdMembership(query, 'list1', false);
-		expect(queryHasId(query, 'list1')).to.equal(false);
-		expect(queryHasId(query, 'list2')).to.equal(true);
-	});
-
-	it('lets a final set query override earlier add/remove history', () => {
+	it('removes predicates whose fields are returned in Firestore order', () => {
 		let state = labels(
 			initialState,
-			set_label_query({ label_id: 'label1', query: emptyLabelQuery })
+			set_label_query({
+				label_id: 'label1',
+				query: {
+					type: 'or',
+					predicates: [{ id: 'list1', type: 'id' }]
+				}
+			})
 		);
-		state = labels(
-			state,
-			add_label_predicate({ label_id: 'label1', predicate: { type: 'id', id: 'list1' } })
-		);
+
+		expect(queryHasId(state.labelIdToLabel.label1.query, 'list1')).to.equal(true);
 		state = labels(
 			state,
 			remove_label_predicate({ label_id: 'label1', predicate: { type: 'id', id: 'list1' } })
 		);
-		state = labels(
-			state,
-			add_label_predicate({ label_id: 'label1', predicate: { type: 'id', id: 'list1' } })
-		);
-
-		const query = setQueryIdMembership(state.labelIdToLabel.label1.query, 'list1', false);
-		state = labels(state, set_label_query({ label_id: 'label1', query }));
 
 		expect(queryHasId(state.labelIdToLabel.label1.query, 'list1')).to.equal(false);
 	});
