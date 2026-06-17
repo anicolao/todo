@@ -102,8 +102,9 @@ This is metadata about the document id in the sidebar. It does not make labels a
 separate storage system; it lets one ordered `visibleLists` array contain both
 kinds of entries.
 
-Old cached states will not have `listIdToType`. During cache loading, missing
-types should default to `'list'` for every id in `visibleLists`.
+Reducers should not special-case old cached states that are missing this field.
+Instead, adding `listIdToType` should bump the global materialized-state schema
+version so old caches are discarded and rebuilt from the action logs.
 
 ## Label Document State
 
@@ -128,6 +129,46 @@ This state is analogous to item state for ordinary lists:
 The existing document watch/cache machinery should watch label ids the same way
 it watches list ids. The reducer that consumes the document actions determines
 whether those actions update items or label query state.
+
+## Schema Version
+
+Add a top-level materialized-state schema version:
+
+```ts
+export const CURRENT_SCHEMA_VERSION = 2;
+
+export interface GlobalState {
+	schemaVersion: number;
+	auth: AuthState;
+	uiSettings: UiSettingsState;
+	ui: UiState;
+	lists: ListsState;
+	items: ItemsState;
+	labels: LabelsState;
+	requests: RequestsState;
+	cache: CacheState;
+	users: UsersState;
+}
+```
+
+The exact value is arbitrary; the rule is what matters. Every materialized Redux
+state written to IndexedDB should include `schemaVersion:
+CURRENT_SCHEMA_VERSION`. When reading cached state:
+
+1. If `cachedState.schemaVersion` is missing, discard the cached state.
+2. If `cachedState.schemaVersion !== CURRENT_SCHEMA_VERSION`, discard the cached
+   state.
+3. Only dispatch `CACHE_LOADED@INIT` when the version matches.
+4. After discarding a cache, replay from Firebase action logs from scratch.
+
+This keeps reducers simple. Reducers only need to construct the current schema
+from their current initial state and action replay. They should not contain
+fallbacks for missing fields from older cache shapes.
+
+Whenever a reducer slice changes shape in a way that would make an older cached
+state incomplete, stale, or ambiguous, bump `CURRENT_SCHEMA_VERSION`. This labels
+change should bump it because it adds `listIdToType`, label query state, and
+last-known inaccessible-list metadata.
 
 ## Query Language
 
@@ -460,17 +501,20 @@ filtering them out.
 
 ## Migration
 
-Existing cached and replayed state will not have `listIdToType`. Cache loading
-should normalize missing values by treating every existing visible id as a normal
-list:
+There should be no field-level migration for `listIdToType`,
+`listIdToLastKnownInfo`, label query state, or any future materialized-state shape
+change. The migration strategy is schema-version invalidation:
 
-```ts
-listIdToType[id] ?? 'list'
-```
+- The cache reader checks the top-level `schemaVersion` before dispatching
+  `CACHE_LOADED@INIT`.
+- Missing or mismatched versions cause the cache to be ignored.
+- The app replays global actions and document actions from scratch.
+- The current reducers materialize a complete state with all current fields set.
+- The next cache write stores that complete state with the current schema version.
 
-There is no `visibleLabels` migration because labels intentionally participate in
-`visibleLists`. Existing caches will also lack `listIdToLastKnownInfo`; initialize
-it from the currently known names where possible and otherwise to `{}`.
+This avoids special defaults and stale-field assumptions. The only persistent
+source of truth remains the action logs; the IndexedDB cache is an optimization
+for a specific schema version.
 
 ## Testing Plan
 
@@ -478,8 +522,12 @@ Unit tests:
 
 - `create_label` inserts the new id at the top of `visibleLists`.
 - `create_label` records `listIdToType[id] === 'label'`.
-- Existing cached state without `listIdToType` treats visible ids as ordinary
-  lists.
+- Cache loading discards cached state when `schemaVersion` is missing.
+- Cache loading discards cached state when `schemaVersion` differs from
+  `CURRENT_SCHEMA_VERSION`.
+- Cache loading accepts cached state only when `schemaVersion` matches.
+- Replaying from scratch after cache discard materializes `listIdToType`,
+  `listIdToLastKnownInfo`, and label query state through current reducers.
 - Label reducer can replay `set_label_query` into a query state.
 - `add_label_predicate` is idempotent.
 - `remove_label_predicate` is idempotent.
