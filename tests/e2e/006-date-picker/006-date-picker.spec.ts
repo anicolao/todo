@@ -176,7 +176,7 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 
 	await helper.step('repeat_options_open', {
 		description:
-			'The repeat <Select> is open, showing the available repeat schedules: Doesn\'t repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.',
+			'The repeat selector (a Material `Select`) is open, showing the available repeat schedules: Doesn\'t repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.',
 		verifications: [
 			{
 				spec: 'Weekly option is available',
