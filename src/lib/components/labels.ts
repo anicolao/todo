@@ -49,7 +49,19 @@ export const initialState = {
 } as LabelsState;
 
 function sameQuery(a: LabelQuery, b: LabelQuery): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
+	if (a.type !== b.type) {
+		return false;
+	}
+	if (a.type === 'id' && b.type === 'id') {
+		return a.id === b.id;
+	}
+	if (a.type === 'or' && b.type === 'or') {
+		return (
+			a.predicates.length === b.predicates.length &&
+			a.predicates.every((predicate, index) => sameQuery(predicate, b.predicates[index]))
+		);
+	}
+	return false;
 }
 
 function queryWithoutPredicate(query: LabelQuery, predicate: LabelQuery): LabelQuery {
@@ -71,17 +83,6 @@ function queryWithPredicate(query: LabelQuery, predicate: LabelQuery): LabelQuer
 		type: 'or',
 		predicates: [...orQuery.predicates, predicate]
 	};
-}
-
-export function setQueryIdMembership(
-	query: LabelQuery | undefined,
-	id: string,
-	selected: boolean
-): LabelQuery {
-	const predicate = { type: 'id' as const, id };
-	return selected
-		? queryWithPredicate(query || emptyLabelQuery, predicate)
-		: queryWithoutPredicate(query || emptyLabelQuery, predicate);
 }
 
 export function queryHasId(query: LabelQuery | undefined, id: string): boolean {
