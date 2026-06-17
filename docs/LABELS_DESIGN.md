@@ -20,8 +20,7 @@ system. A label should be represented like a list:
 - It has a name and a position in the existing sidebar order.
 - It has a document under the same `lists/{id}` tree as ordinary lists.
 - It has an action log under `lists/{id}/actions`.
-- The only difference is that its actions construct a label query instead of a
-  task list.
+- Its actions construct a query view instead of task items.
 
 The only global action needed for this feature is `create_label`. All edits to a
 label after creation are label-document actions, just as task edits are list
@@ -46,9 +45,11 @@ Today, the `lists` reducer owns:
 - `listIdToList`: id to display name.
 - `listIdToTimestamp`: latest loaded document-action timestamp for cache refresh.
 
-Label ids should be stored in `visibleLists` alongside ordinary list ids. The app
-will need enough metadata to know whether a visible id is an ordinary task list
-or a label document, but labels should not get a separate `visibleLabels` order.
+Label ids should be stored in `visibleLists` alongside ordinary list ids. They
+should participate in the same ordering, sharing, and visibility mechanics as
+ordinary lists. The app will need enough metadata to know which renderer to use
+for a visible id, but labels should not get a separate `visibleLabels` order or a
+separate sidebar model.
 
 ## Global Action
 
@@ -130,10 +131,18 @@ whether those actions update items or label query state.
 
 ## Query Language
 
-The query language should be general enough to grow, even though the first UI
-workflow only needs a label that includes specific lists.
+The query language should be general enough to cover both user-created labels and
+the existing built-in query views such as All, Today, and Starred. Those views
+already compile to closely related primitives:
 
-Represent a label query as a boolean expression:
+- `ItemList` receives a `listIdMatcher` to decide which task-list ids to scan.
+- `ItemList` receives an item `filter` to decide which tasks to show.
+- Some views pass a `comparator` to produce a cross-list sorted result.
+- The All view differs mostly in presentation: it iterates `visibleLists` and
+  renders a grouped result for each visible entry.
+
+A stored label query should be a boolean expression. The first user-created
+labels only need `or` plus `id` predicates:
 
 ```ts
 export type LabelQuery = OrQuery | IdPredicate;
@@ -149,8 +158,10 @@ export interface IdPredicate {
 }
 ```
 
-If we prefer a more explicit predicate name, use `type: 'is_id'` instead of
-`type: 'id'`. Pick one spelling before implementation and use it consistently.
+An `id` predicate names a document id from the same id space used by
+`visibleLists`. If the id names a task list, it resolves to that task list. If the
+id names a label, it resolves by evaluating that label's query. The compiler must
+detect cycles and render a label-cycle error rather than recursing forever.
 
 A label containing three lists is represented as:
 
@@ -179,12 +190,67 @@ top-level shape, for example:
 { type: 'and', predicates: [...] }
 { type: 'not', predicate: ... }
 { type: 'starred' }
+{ type: 'completed' }
 { type: 'due_today' }
 { type: 'text_contains', text: '...' }
 ```
 
-The first implementation only needs to compile `or` and `id`/`is_id` into a
-`listIdMatcher` for `ItemList`.
+The first implementation only needs to compile `or` and `id` into the same view
+primitives that `ItemList` already consumes.
+
+## Built-In Query Views
+
+The existing special routes can be described as predefined query views:
+
+- All: iterate each id in `visibleLists`, resolve that visible entry, filter to
+  incomplete items, and render results grouped by the visible entry's name.
+- Starred: resolve the visible entries, filter to starred incomplete items, sort
+  by descending `starTimestamp`, and show source list names.
+- Today: resolve the visible entries, filter to incomplete items that are starred
+  or due today, sort starred items first and otherwise by due date, and show
+  source list names.
+- By Date: resolve the visible entries, filter to incomplete dated items, sort by
+  due date, and show source list names.
+- Completed: resolve the visible entries, filter to completed or previously
+  completed repeating items, sort by descending completed timestamp, and enable
+  undo.
+
+Labels should use this same model. A label created from list ids is equivalent to
+the All view with a narrower list query:
+
+```ts
+{
+	lists: {
+		type: 'or',
+		predicates: [
+			{ type: 'id', id: 'X' },
+			{ type: 'id', id: 'Y' }
+		]
+	},
+	items: { type: 'not', predicate: { type: 'completed' } },
+	presentation: { groupBy: 'list' }
+}
+```
+
+The persisted first version can store only the `lists` expression in the label
+document and let the label route supply the default item filter/presentation:
+incomplete tasks grouped by source list. The compiler should still be shaped so
+the built-in views and future labels share entry resolution, item filtering, and
+presentation instead of growing separate predicate systems.
+
+## Visible Entry Resolution
+
+The query compiler should have a single way to resolve ids from `visibleLists`:
+
+1. If `listIdToType[id] === 'list'`, the id resolves to one task-list group.
+2. If `listIdToType[id] === 'label'`, the id resolves by replaying and compiling
+   that label document's query.
+3. If the id is referenced but inaccessible, it resolves to an inaccessible-list
+   placeholder group.
+
+This makes labels first-class visible entries while still allowing the renderer to
+produce task rows. It also makes the All view a useful guide for implementation:
+All is a grouped view over every visible entry, not a separate sidebar structure.
 
 ## Label Document Actions
 
@@ -246,7 +312,8 @@ introducing `rename_label`.
 ## Sidebar UI
 
 Labels participate in `visibleLists`; they are not shown from a separate
-`visibleLabels` structure.
+`visibleLabels` structure and should not be segregated into a different sidebar
+section.
 
 For the first implementation, new labels should be inserted at the top of
 `visibleLists`. Existing list reordering behavior can move labels and lists
@@ -261,8 +328,8 @@ list  -> /lists?listId=ID
 label -> /labels?labelId=ID
 ```
 
-The sidebar row should use a label icon for `type === 'label'` and the existing
-list/shared-list icons for ordinary lists.
+The sidebar row should use the renderer implied by `listIdToType[id]`. This is a
+display distinction, not a separate ordering or sharing model.
 
 ## List Edit Dialog UI
 
@@ -302,9 +369,11 @@ The route should:
 - Read `labelId` from the URL.
 - Look up and compile that label document's query.
 - Set the app icon and title from `listIdToList[labelId]`.
-- Use `ItemList` with a `listIdMatcher` compiled from the label query.
-- Show incomplete items by default, matching ordinary list/search behavior.
-- Use `showListName=true` so tasks reveal their source list.
+- Render the default label view as incomplete tasks grouped by matched source,
+  matching the All view's grouped presentation over a narrowed list set.
+- Use source names in group headers so tasks reveal their source list or label.
+- Render inaccessible referenced lists as explicit placeholders rather than
+  silently dropping them.
 
 For the first implementation, label views should not allow cross-list drag
 reordering. Reordering across multiple underlying list action logs is ambiguous.
@@ -318,30 +387,76 @@ watched/loaded so its query can be replayed from `lists/{labelId}/actions`.
 Opening a label view requires two layers of loaded state:
 
 1. The label document actions, so the app knows the query.
-2. The ordinary list documents matched by that query, so the app can render the
-   tasks.
+2. The visible entries matched by that query. Task-list entries provide task
+   rows; label entries recursively provide the entries selected by their own
+   query; inaccessible entries provide placeholders.
 
-Once the label query is known, the route should ensure the matched ordinary list
-ids are loaded or watched using the existing list refresh path. Labels should not
+Once the label query is known, the route should ensure the matched accessible ids
+are loaded or watched using the existing document refresh path. Labels should not
 introduce a second watch system; they should ask the existing document watch
 machinery to load the ids selected by the query.
 
 ## Sharing Semantics
 
-Labels are private user metadata unless we deliberately add shared labels later.
+Labels should be shareable exactly like ordinary lists. A label id is just another
+document id in `visibleLists`, and the existing share request flow should work for
+labels as it does for task lists:
 
-For the first implementation:
+- Sharing a label grants access to the label document and its query action log.
+- Sharing a label does not automatically grant access to every list referenced by
+  the query.
+- If the recipient already has access to a referenced list, that list renders
+  normally inside the label view.
+- If the recipient does not have access to a referenced list, the label view
+  should show an inaccessible-list placeholder for that reference.
 
-- `create_label` is in the user's global action stream.
-- Label query actions are in `lists/{labelId}/actions`.
-- The label document should only be readable/writable by the user who created it.
-- Adding someone else's shared list to your label does not change that
-  collaborator's state.
+The same edit dialog sharing UI can be used for labels and ordinary lists because
+sharing is document-id based. The dialog can vary only the label/list membership
+controls shown for ordinary lists.
 
-If a shared list is revoked, the list id may still appear in an old label query
-action log. At render time, the compiled label matcher should only match ids that
-are currently present in `visibleLists` and have `listIdToType[id] === 'list'`.
-This avoids needing destructive cleanup actions when access changes.
+## Inaccessible List References
+
+An `id` predicate is a durable reference. It should not be deleted or hidden just
+because the current user cannot load that list today.
+
+When a label query references an id that the current user cannot access, render an
+entry named:
+
+```text
+Inaccessible List
+```
+
+If the client has historical metadata from a time when the user could access that
+list, the placeholder should include it, for example:
+
+```text
+Inaccessible List - Old List Name
+Inaccessible List - Old List Name (Owner Name)
+```
+
+To support this, the client should keep last-known list metadata separately from
+current visibility:
+
+```ts
+export interface LastKnownListInfo {
+	name?: string;
+	ownerUid?: string;
+	ownerEmail?: string;
+}
+
+export interface ListsState {
+	visibleLists: string[];
+	listIdToList: { [key: string]: string };
+	listIdToType: { [key: string]: ListDocumentType };
+	listIdToLastKnownInfo: { [id: string]: LastKnownListInfo };
+	listIdToTimestamp: { [key: string]: number };
+}
+```
+
+`delete_list` and `revoke_share` can remove a list id from `visibleLists` while
+leaving `listIdToLastKnownInfo[id]` intact. Query compilation should preserve
+inaccessible `id` references as displayable groups with no task rows, rather than
+filtering them out.
 
 ## Migration
 
@@ -354,7 +469,8 @@ listIdToType[id] ?? 'list'
 ```
 
 There is no `visibleLabels` migration because labels intentionally participate in
-`visibleLists`.
+`visibleLists`. Existing caches will also lack `listIdToLastKnownInfo`; initialize
+it from the currently known names where possible and otherwise to `{}`.
 
 ## Testing Plan
 
@@ -367,8 +483,12 @@ Unit tests:
 - Label reducer can replay `set_label_query` into a query state.
 - `add_label_predicate` is idempotent.
 - `remove_label_predicate` is idempotent.
-- Query compilation for `or` plus `id`/`is_id` matches the expected list ids.
-- Query compilation ignores ids that are not currently visible ordinary lists.
+- Query compilation for `or` plus `id` matches the expected list ids.
+- Built-in All, Starred, Today, By Date, and Completed views can be represented as
+  predefined query view specs over the same compiler primitives.
+- Query compilation preserves inaccessible `id` references as placeholder groups.
+- Revoking access removes the id from current visibility but preserves
+  last-known list metadata for inaccessible placeholders.
 
 Component or route tests:
 
@@ -377,8 +497,12 @@ Component or route tests:
   dispatching actions to the label document stream.
 - The sidebar displays labels from `visibleLists` and navigates labels to the
   label route.
-- The label route renders tasks from all matched ordinary lists and shows list
-  names.
+- The label route renders tasks from all matched accessible sources and shows
+  source names.
+- The label route shows `Inaccessible List` placeholders for referenced lists the
+  user cannot currently access.
+- Sharing a label shares the label document without implicitly sharing every list
+  referenced by the label query.
 
 Manual verification:
 
@@ -386,12 +510,13 @@ Manual verification:
 - Add list B to that label.
 - Open the label and confirm tasks from A and B appear.
 - Confirm the label appears at the top of the same sidebar list.
+- Share the label with another user and confirm accessible referenced lists render
+  while inaccessible references show placeholders.
 - Reorder the sidebar and confirm labels participate in the visible order once
   reordering is implemented for mixed document types.
 
 ## Open Questions
 
-- Should the predicate spelling be `type: 'id'` or `type: 'is_id'`?
 - Should `create_label` directly write the initial label-document action, or
   should the UI dispatch the global creation action and the initial query action
   as two explicit writes?
