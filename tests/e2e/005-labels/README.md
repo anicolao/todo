@@ -43,3 +43,22 @@ User opened the label and sees the source list as a contained group.
 
 ![label_opened](screenshots/004-label-opened.png)
 
+### Step 005: label_removed_from_list
+
+User removed the current list from the label.
+
+**Verifications:**
+- [x] Label checkbox stays unchecked
+
+![label_removed_from_list](screenshots/005-label-removed-from-list.png)
+
+### Step 006: label_empty_after_removal
+
+User opened the label and no longer sees the removed list.
+
+**Verifications:**
+- [x] URL is the label route
+- [x] Removed source list group is absent
+
+![label_empty_after_removal](screenshots/006-label-empty-after-removal.png)
+
