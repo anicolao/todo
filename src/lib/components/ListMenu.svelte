@@ -7,8 +7,8 @@
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
-	import { resolveLabelQuery } from './labels';
-	import { reorder_list } from './lists';
+	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
+	import { reorder_list, type ListsState } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
@@ -26,22 +26,76 @@
 	export let setActive: (name: string) => void;
 	export let openEditDialog: () => void;
 
+	function arraysEqual(a: string[], b: string[]) {
+		return a.length === b.length && a.every((value, index) => value === b[index]);
+	}
+
+	function resolveVisibleLabelEntries(labelId: string, lists: ListsState, labels: LabelsState) {
+		return resolveLabelQuery(labels.labelIdToLabel[labelId]?.query, lists, labels).filter(
+			(entry) => !entry.inaccessible
+		);
+	}
+
+	function buildLabelEntriesById(lists: ListsState, labels: LabelsState) {
+		return Object.fromEntries(
+			lists.visibleLists
+				.filter((listId) => lists.listIdToType[listId] === 'label')
+				.map((labelId) => [labelId, resolveVisibleLabelEntries(labelId, lists, labels)])
+		);
+	}
+
+	function findContainingLabelId(
+		listId: string,
+		lists: ListsState,
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
+	) {
+		return (
+			lists.visibleLists.find(
+				(candidateId) =>
+					lists.listIdToType[candidateId] === 'label' &&
+					labelEntriesById[candidateId]?.some((entry) => entry.id === listId)
+			) || ''
+		);
+	}
+
+	function buildHiddenListIds(
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] },
+		lists: ListsState
+	) {
+		const hiddenListIds = new Set<string>();
+		Object.values(labelEntriesById).forEach((entries) => {
+			entries.forEach((entry) => {
+				if (lists.listIdToType[entry.id] !== 'label') {
+					hiddenListIds.add(entry.id);
+				}
+			});
+		});
+		return hiddenListIds;
+	}
+
+	function buildDisplayItems(lists: ListsState, hiddenListIds: Set<string>) {
+		return lists.visibleLists.filter(
+			(listId) => lists.listIdToType[listId] === 'label' || !hiddenListIds.has(listId)
+		);
+	}
+
 	let items: string[] = [];
-	function updateItems() {
-		if (items !== $store.lists.visibleLists) {
+	function updateItems(displayItems: string[]) {
+		if (!arraysEqual(items, displayItems)) {
 			console.log('ListMenu.updateItems');
-			items = $store.lists.visibleLists;
+			items = displayItems;
 		}
 	}
-	$: if ($store.lists.visibleLists) {
-		updateItems();
-	}
 	$: activeLabelId = $page.url.searchParams.get('labelId') || '';
-	$: activeLabelEntries = resolveLabelQuery(
-		$store.labels.labelIdToLabel[activeLabelId]?.query,
-		$store.lists,
-		$store.labels
-	).filter((entry) => !entry.inaccessible);
+	$: pageListId = $page.url.searchParams.get('listId') || '';
+	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
+	$: expandedLabelId =
+		activeLabelId ||
+		(pageListId ? findContainingLabelId(pageListId, $store.lists, labelEntriesById) : '');
+	$: activeLabelEntries = expandedLabelId ? labelEntriesById[expandedLabelId] || [] : [];
+	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
+	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
+	$: updateItems(displayItems);
 	let dragTo: string;
 
 	let anchor: Element;
@@ -257,7 +311,7 @@
 				animate:flip={{ duration: 200 }}
 			>
 				<ListMenuItem {listId} {setActive} {openEditDialog} />
-				{#if listId === activeLabelId && activeLabelEntries.length > 0}
+				{#if listId === expandedLabelId && activeLabelEntries.length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
 						{#each activeLabelEntries as entry (entry.id)}
 							<div class="nested-list-item">
