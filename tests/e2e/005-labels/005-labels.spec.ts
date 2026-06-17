@@ -116,6 +116,43 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();
 
+	await helper.step('label_removal_draft_cancelled', {
+		description: 'User can draft removing the current list from the label and cancel it.',
+		verifications: [
+			{
+				spec: 'Label checkbox stays unchecked while the dialog is open',
+				check: async () => expect(page.getByLabel(`Include in ${labelName}`)).not.toBeChecked()
+			}
+		]
+	});
+
+	await page.getByRole('button', { name: 'Cancel' }).click();
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer').getByText(labelName).click();
+
+	await helper.step('label_unchanged_after_cancel', {
+		description: 'User cancelled the draft removal and the label still contains the source list.',
+		verifications: [
+			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
+			{
+				spec: 'Source list group is still visible',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
+			}
+		]
+	});
+
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer').getByText(listName).click();
+	await expect(page).toHaveURL(/lists\?listId=/);
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
+		force: true
+	});
+	await expect(page.getByText('Edit List')).toBeVisible();
+	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
+	await page.getByLabel(`Include in ${labelName}`).click();
+
 	await helper.step('label_removed_from_list', {
 		description: 'User removed the current list from the label.',
 		verifications: [
