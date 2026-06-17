@@ -105,5 +105,42 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer').getByText(listName).click();
+	await expect(page).toHaveURL(/lists\?listId=/);
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
+		force: true
+	});
+	await expect(page.getByText('Edit List')).toBeVisible();
+	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
+	await page.getByLabel(`Include in ${labelName}`).click();
+
+	await helper.step('label_removed_from_list', {
+		description: 'User removed the current list from the label.',
+		verifications: [
+			{
+				spec: 'Label checkbox stays unchecked',
+				check: async () => expect(page.getByLabel(`Include in ${labelName}`)).not.toBeChecked()
+			}
+		]
+	});
+
+	await page.getByRole('button', { name: 'Done' }).click();
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer').getByText(labelName).click();
+
+	await helper.step('label_empty_after_removal', {
+		description: 'User opened the label and no longer sees the removed list.',
+		verifications: [
+			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
+			{
+				spec: 'Removed source list group is absent',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Hide ${listName}` })).toHaveCount(0)
+			}
+		]
+	});
+
 	await helper.generateDocs();
 });

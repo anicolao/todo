@@ -257,6 +257,7 @@
 		const action = labelHasCurrentList(labelId)
 			? remove_label_predicate({ label_id: labelId, predicate })
 			: add_label_predicate({ label_id: labelId, predicate });
+		store.dispatch(action);
 		await dispatch('lists', labelId, uid, action);
 	}
 
