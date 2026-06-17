@@ -3,7 +3,7 @@ import { resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(async ({ request }, testInfo) => {
-	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only date picker baseline.');
+	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only date picker coverage.');
 
 	await resetEmulators(request);
 });
@@ -81,26 +81,22 @@ async function taskInputValues(page: Page) {
 }
 
 const openDialog = (page: Page) => page.locator('.mdc-dialog--open');
+const dateField = (page: Page) => openDialog(page).locator('.date-anchor input');
 
 /**
- * Baseline scenario for the EXISTING "Edit Task" date picker dialog.
+ * Scenario for the "Edit Task" date picker dialog.
  *
- * This test intentionally documents the current production behaviour (a checkbox
- * to enable a due date, a native date input, a repeat Select, and a numeric
- * "every" field) so that we have a reviewable baseline of screenshots before
- * redesigning the date picker. It should NOT be changed to assert on a new
- * design; a follow-up test will cover the improved dialog.
+ * The due date is chosen with a Material-styled calendar (MaterialDatePicker)
+ * that matches the rest of the app, replacing the browser-native date control.
+ * This walks the flow of setting a due date and repeat schedule on a task.
  */
-test('current date picker dialog behaviour', async ({ page }, testInfo) => {
+test('date picker dialog', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
 	helper.setMetadata(
-		'Date Picker Dialog (Baseline)',
-		'Documents the current "Edit Task" dialog used to set a due date and repeat schedule on a task. Captured before redesigning the date picker so the new design can be compared against this baseline.'
+		'Date Picker Dialog',
+		'Documents the "Edit Task" dialog used to set a due date and repeat schedule on a task. The due date is chosen with a Material-styled calendar that matches the rest of the app.'
 	);
 
-	// A fixed future date so the rendered chip is deterministic and is not
-	// collapsed to "Today" / "Tomorrow" / "Yesterday" by RepeatingDate.
-	const DUE_DATE = '2026-12-25';
 	const taskName = 'Buy a present';
 
 	await signIn(page);
@@ -120,9 +116,9 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 	// --- Open the Edit Task dialog ------------------------------------------
 	await taskRows(page).first().locator('span.details').click();
 
-	await helper.step('date_picker_opened', {
+	await helper.step('dialog_opened', {
 		description:
-			'The "Edit Task" dialog is open. The due date is initially disabled: the checkbox is unchecked and the date field is greyed out.',
+			'The "Edit Task" dialog is open. The due date is initially disabled: the checkbox is unchecked and the Material date field is greyed out.',
 		verifications: [
 			{
 				spec: 'Dialog title "Edit Task" is visible',
@@ -134,8 +130,8 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 					expect(openDialog(page).locator('input[type="checkbox"]').first()).not.toBeChecked()
 			},
 			{
-				spec: 'Date field is disabled',
-				check: async () => expect(openDialog(page).locator('input[type="date"]')).toBeDisabled()
+				spec: 'Material date field is disabled',
+				check: async () => expect(dateField(page)).toBeDisabled()
 			}
 		]
 	});
@@ -152,45 +148,55 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 					expect(openDialog(page).locator('input[type="checkbox"]').first()).toBeChecked()
 			},
 			{
-				spec: 'Date field is now enabled',
-				check: async () => expect(openDialog(page).locator('input[type="date"]')).toBeEnabled()
+				spec: 'Material date field is now enabled',
+				check: async () => expect(dateField(page)).toBeEnabled()
 			}
 		]
 	});
 
-	// --- Open the native date picker ----------------------------------------
-	const dateInput = openDialog(page).locator('input[type="date"]');
-	const dateBox = await dateInput.boundingBox();
-	// Click the calendar picker indicator at the right edge of the native input
-	// to open the browser's date picker GUI.
-	await dateInput.click({ position: { x: (dateBox?.width ?? 160) - 8, y: (dateBox?.height ?? 24) / 2 } });
+	// --- Open the Material calendar -----------------------------------------
+	await openDialog(page).getByRole('button', { name: 'calendar_today' }).click();
+	await expect(page.locator('.calendar')).toBeVisible();
 
-	await helper.step('date_picker_calendar_opened', {
+	await helper.step('calendar_opened', {
 		description:
-			'Clicking the calendar icon opens the browser-native date picker GUI used to choose the due date.',
-		verifications: []
+			'The Material-styled calendar popover opens, matching the app theme (month navigation, weekday headers, and a grid of selectable days).',
+		verifications: [
+			{
+				spec: 'Calendar is visible',
+				check: async () => expect(page.locator('.calendar')).toBeVisible()
+			},
+			{
+				spec: 'Days are selectable',
+				check: async () =>
+					expect(page.getByRole('button', { name: '20', exact: true })).toBeVisible()
+			}
+		]
 	});
 
 	// --- Pick a date ---------------------------------------------------------
-	await openDialog(page).locator('input[type="date"]').fill(DUE_DATE);
+	await page.getByRole('button', { name: '20', exact: true }).click();
+	await expect(page.locator('.calendar')).toBeHidden();
+	const pickedDate = await dateField(page).inputValue();
 
 	await helper.step('due_date_selected', {
-		description: 'A specific due date has been entered via the native date input.',
+		description:
+			'Choosing a day closes the calendar and shows the formatted due date in the field.',
 		verifications: [
 			{
-				spec: 'Date field holds the selected date',
-				check: async () => expect(openDialog(page).locator('input[type="date"]')).toHaveValue(DUE_DATE)
+				spec: 'Date field shows the selected date',
+				check: async () => expect(dateField(page)).not.toHaveValue('')
 			}
 		]
 	});
 
-	// --- Open the repeat dropdown -------------------------------------------
+	// --- Configure a repeat schedule ----------------------------------------
 	await openDialog(page).locator('.mdc-select__anchor').click();
 	await expect(page.getByRole('option', { name: 'Weekly', exact: true })).toBeVisible();
 
 	await helper.step('repeat_options_open', {
 		description:
-			'The repeat selector (a Material `Select`) is open, showing the available repeat schedules: Doesn\'t repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.',
+			"The repeat selector is open, showing the available schedules: Doesn't repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.",
 		verifications: [
 			{
 				spec: 'Weekly option is available',
@@ -200,7 +206,6 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 		]
 	});
 
-	// --- Choose a repeat schedule -------------------------------------------
 	await page.getByRole('option', { name: 'Weekly', exact: true }).click();
 	await openDialog(page).locator('input[type="number"]').fill('2');
 
@@ -214,13 +219,12 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 		]
 	});
 
-	// --- Save ----------------------------------------------------------------
+	// --- Save and reopen to confirm persistence -----------------------------
 	await page.getByRole('button', { name: 'Save' }).click();
 	await expect(page.getByText('Edit Task', { exact: true })).toBeHidden();
 
-	await helper.step('due_date_saved', {
-		description:
-			'After saving, the task shows its due date chip. The repeating task also gains the "complete forever" (highlight_off) control.',
+	await helper.step('saved', {
+		description: 'After saving, the task shows its due date chip.',
 		verifications: [
 			{
 				spec: 'A due date chip is shown on the task',
@@ -229,12 +233,11 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 		]
 	});
 
-	// --- Reopen to confirm persistence --------------------------------------
 	await taskRows(page).first().locator('span.details').click();
 
-	await helper.step('date_picker_reopened', {
+	await helper.step('reopened', {
 		description:
-			'Reopening the dialog shows the previously saved values: the due date is enabled, the date is preserved, and the repeat interval is retained.',
+			'Reopening the dialog shows the saved values: the due date is enabled and preserved, and the repeat interval is retained.',
 		verifications: [
 			{
 				spec: 'Due date checkbox is checked',
@@ -243,7 +246,7 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 			},
 			{
 				spec: 'Saved due date is preserved',
-				check: async () => expect(openDialog(page).locator('input[type="date"]')).toHaveValue(DUE_DATE)
+				check: async () => expect(dateField(page)).toHaveValue(pickedDate)
 			},
 			{
 				spec: 'Saved repeat interval is preserved',
