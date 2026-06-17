@@ -1,16 +1,12 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
-
-const projectId = 'todo-firebase-1a740';
+import { resetEmulators } from '../helpers/emulator';
 
 test.describe.configure({ mode: 'serial' });
 
 test.beforeEach(async ({ request }, testInfo) => {
 	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only drag regression coverage.');
 
-	await request.delete(
-		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
-	);
-	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
+	await resetEmulators(request);
 });
 
 async function signIn(page: Page) {
@@ -92,15 +88,13 @@ async function visibleTodoOrder(page: Page) {
 }
 
 async function visibleListMenuOrder(page: Page) {
-	return page
-		.locator('.mdc-drawer .listContainer .item:not(#ghost)')
-		.evaluateAll((items) =>
-			items.map((item) => {
-				const clone = item.cloneNode(true) as HTMLElement;
-				clone.querySelectorAll('button').forEach((button) => button.remove());
-				return clone.textContent?.trim() || '';
-			})
-		);
+	return page.locator('.mdc-drawer .listContainer .item:not(#ghost)').evaluateAll((items) =>
+		items.map((item) => {
+			const clone = item.cloneNode(true) as HTMLElement;
+			clone.querySelectorAll('button').forEach((button) => button.remove());
+			return clone.textContent?.trim() || '';
+		})
+	);
 }
 
 test('dragging a todo item to an off-screen list position autoscrolls the todo list', async ({
@@ -182,5 +176,7 @@ test('clicking a list in the sidebar navigates to that list', async ({ page }) =
 
 	// Verify we are now on List One
 	await expect(page).toHaveURL(new RegExp(`lists\\?listId=`));
-	await expect(page.locator('.mdc-top-app-bar__title').filter({ hasText: listName1 })).toBeVisible();
+	await expect(
+		page.locator('.mdc-top-app-bar__title').filter({ hasText: listName1 })
+	).toBeVisible();
 });
