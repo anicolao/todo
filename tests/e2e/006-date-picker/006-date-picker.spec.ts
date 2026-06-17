@@ -1,30 +1,93 @@
-import { test, expect } from '@playwright/test';
+import { expect, type ConsoleMessage, type Page, test } from '@playwright/test';
+import { resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
-// Emulator ports default to the standard Firebase ports used in CI, but can be
-// overridden locally (e.g. when those ports are already taken) via env vars.
-const FIRESTORE_PORT = process.env.E2E_FIRESTORE_PORT || '8080';
-const AUTH_PORT = process.env.E2E_AUTH_PORT || '9099';
+test.beforeEach(async ({ request }, testInfo) => {
+	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only date picker baseline.');
 
-test.beforeEach(async ({ request }) => {
-	// Ensure that the E2E tests start with a clean state in the emulator.
-	const projectId = 'todo-firebase-1a740';
-	await request.delete(
-		`http://127.0.0.1:${FIRESTORE_PORT}/emulator/v1/projects/${projectId}/databases/(default)/documents`
-	);
-	await request.delete(
-		`http://127.0.0.1:${AUTH_PORT}/emulator/v1/projects/${projectId}/accounts`
-	);
+	await resetEmulators(request);
 });
+
+async function signIn(page: Page) {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+	await expect(page.locator('.drawer-container')).toBeVisible();
+}
+
+async function ensureListMenuVisible(page: Page) {
+	const newList = page.getByLabel('New list');
+	if (!(await newList.isVisible())) {
+		await page.locator('button.material-icons').filter({ hasText: 'menu' }).click();
+	}
+	await expect(newList).toBeVisible();
+}
+
+async function closeModalDrawerIfOpen(page: Page, listName: string) {
+	const scrim = page.locator('.mdc-drawer-scrim').first();
+	if (await scrim.isVisible()) {
+		await page
+			.locator('.mdc-drawer .listContainer .item:not(#ghost)')
+			.filter({ hasText: listName })
+			.last()
+			.click();
+		await expect(scrim).not.toBeVisible();
+	}
+}
+
+async function createList(page: Page, listName: string) {
+	await ensureListMenuVisible(page);
+	// The list only becomes writable once its per-list action-log subscription is
+	// attached (logged as "... on <listId>"); wait for that before adding tasks.
+	const consoleMessages: string[] = [];
+	const onConsole = (message: ConsoleMessage) => consoleMessages.push(message.text());
+	const newList = page.getByLabel('New list');
+	page.on('console', onConsole);
+	try {
+		await newList.fill(listName);
+		await newList.press('Enter');
+		await expect(page).toHaveURL(/lists\/?\?listId=/);
+		const listId = new URL(page.url()).searchParams.get('listId');
+		await expect
+			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)))
+			.toBe(true);
+		await expect(
+			page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })
+		).toBeVisible();
+		await expect(page.getByLabel('New task')).toBeVisible();
+		await closeModalDrawerIfOpen(page, listName);
+	} finally {
+		page.off('console', onConsole);
+	}
+}
+
+function taskRows(page: Page) {
+	return page.locator('.app-content .listContainer .item:not(#ghost)');
+}
+
+async function createTask(page: Page, taskName: string) {
+	const newTask = page.getByLabel('New task');
+	await newTask.fill(taskName);
+	await newTask.blur();
+	await expect.poll(async () => taskInputValues(page)).toContain(taskName);
+	await expect(newTask).toHaveValue('');
+}
+
+async function taskInputValues(page: Page) {
+	return taskRows(page)
+		.locator('input.description')
+		.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+}
+
+const openDialog = (page: Page) => page.locator('.mdc-dialog--open');
 
 /**
  * Baseline scenario for the EXISTING "Edit Task" date picker dialog.
  *
  * This test intentionally documents the current production behaviour (a checkbox
- * to enable a due date, a native `<input type="date">`, a repeat <Select>, and a
- * numeric "every" field) so that we have a reviewable baseline of screenshots
- * before redesigning the date picker. It should NOT be changed to assert on a
- * new design; a follow-up test will cover the improved dialog.
+ * to enable a due date, a native date input, a repeat Select, and a numeric
+ * "every" field) so that we have a reviewable baseline of screenshots before
+ * redesigning the date picker. It should NOT be changed to assert on a new
+ * design; a follow-up test will cover the improved dialog.
  */
 test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
@@ -36,85 +99,24 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 	// A fixed future date so the rendered chip is deterministic and is not
 	// collapsed to "Today" / "Tomorrow" / "Yesterday" by RepeatingDate.
 	const DUE_DATE = '2026-12-25';
-
-	// --- Sign in -------------------------------------------------------------
-	await page.goto('/');
-	const signInButton = page.getByRole('button', { name: 'Sign In', exact: true });
-	await expect(signInButton).toBeVisible();
-	// On a freshly reset emulator the first sign-in can race with Firebase auth
-	// initialisation, so retry the click until the redirect to /profile lands.
-	await expect(async () => {
-		if (await signInButton.isVisible().catch(() => false)) {
-			await signInButton.click();
-		}
-		await expect(page).toHaveURL(/\/profile/, { timeout: 5000 });
-	}).toPass({ timeout: 45000 });
-
-	// Wait for the initial load (which shows a loading screen) to finish before
-	// interacting with the app shell.
-	await page
-		.locator('.loading-screen')
-		.waitFor({ state: 'detached', timeout: 30000 })
-		.catch(() => {});
-
-	// --- Create a list -------------------------------------------------------
-	await helper.step('list_setup', {
-		description: 'Reveal the "New list" field (opening the drawer on mobile layouts).',
-		verifications: [
-			{
-				spec: 'New list input is visible',
-				check: async () => {
-					const newListInput = page.getByLabel('New list');
-					if (!(await newListInput.isVisible())) {
-						const menuButton = page.locator('button.material-icons:has-text("menu")');
-						if (await menuButton.isVisible()) {
-							await menuButton.click();
-						}
-					}
-					await expect(newListInput).toBeVisible({ timeout: 30000 });
-				}
-			}
-		]
-	});
-
-	const listName = 'Date Picker List';
-	await page.getByLabel('New list').fill(listName);
-	await page.keyboard.press('Enter');
-	await expect(page).toHaveURL(/lists\?listId=/);
-
-	// --- Add a task ----------------------------------------------------------
-	// Wait for the newly created list's content (and its action-log
-	// subscription) to settle before adding an item, otherwise the item can be
-	// dispatched before the list is ready to render it.
 	const taskName = 'Buy a present';
-	const newTask = page.getByLabel('New task');
-	const descriptionInput = page.locator('input.description');
-	await expect(newTask).toBeVisible();
-	// A freshly created list only becomes writable once its "editors" document
-	// has been provisioned in Firestore; until then the create_item write is
-	// rejected and silently dropped. Retry adding the task (only when none is
-	// present, to avoid duplicates) until it actually renders.
-	await expect(async () => {
-		if ((await descriptionInput.count()) === 0) {
-			await newTask.click();
-			await newTask.fill(taskName);
-			await newTask.press('Enter');
-		}
-		await expect(descriptionInput.first()).toHaveValue(taskName, { timeout: 3000 });
-	}).toPass({ timeout: 30000 });
+
+	await signIn(page);
+	await createList(page, 'Date Picker List');
+	await createTask(page, taskName);
 
 	await helper.step('task_added', {
 		description: 'A task has been added to the list and is ready to be edited.',
 		verifications: [
 			{
-				spec: 'Task description input is present',
-				check: async () => expect(descriptionInput.first()).toHaveValue(taskName)
+				spec: 'Task is visible in the list',
+				check: async () => expect.poll(async () => taskInputValues(page)).toContain(taskName)
 			}
 		]
 	});
 
 	// --- Open the Edit Task dialog ------------------------------------------
-	await page.locator('span.details').first().click();
+	await taskRows(page).first().locator('span.details').click();
 
 	await helper.step('date_picker_opened', {
 		description:
@@ -127,18 +129,17 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 			{
 				spec: 'Due date checkbox is unchecked',
 				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="checkbox"]').first()).not.toBeChecked()
+					expect(openDialog(page).locator('input[type="checkbox"]').first()).not.toBeChecked()
 			},
 			{
 				spec: 'Date field is disabled',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="date"]')).toBeDisabled()
+				check: async () => expect(openDialog(page).locator('input[type="date"]')).toBeDisabled()
 			}
 		]
 	});
 
 	// --- Enable the due date -------------------------------------------------
-	await page.locator('.mdc-dialog--open input[type="checkbox"]').first().check();
+	await openDialog(page).locator('input[type="checkbox"]').first().check();
 
 	await helper.step('due_date_enabled', {
 		description: 'Checking the box enables the due date controls.',
@@ -146,32 +147,30 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 			{
 				spec: 'Due date checkbox is checked',
 				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="checkbox"]').first()).toBeChecked()
+					expect(openDialog(page).locator('input[type="checkbox"]').first()).toBeChecked()
 			},
 			{
 				spec: 'Date field is now enabled',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="date"]')).toBeEnabled()
+				check: async () => expect(openDialog(page).locator('input[type="date"]')).toBeEnabled()
 			}
 		]
 	});
 
 	// --- Pick a date ---------------------------------------------------------
-	await page.locator('.mdc-dialog--open input[type="date"]').fill(DUE_DATE);
+	await openDialog(page).locator('input[type="date"]').fill(DUE_DATE);
 
 	await helper.step('due_date_selected', {
 		description: 'A specific due date has been entered via the native date input.',
 		verifications: [
 			{
 				spec: 'Date field holds the selected date',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="date"]')).toHaveValue(DUE_DATE)
+				check: async () => expect(openDialog(page).locator('input[type="date"]')).toHaveValue(DUE_DATE)
 			}
 		]
 	});
 
 	// --- Open the repeat dropdown -------------------------------------------
-	await page.locator('.mdc-dialog--open .mdc-select__anchor').click();
+	await openDialog(page).locator('.mdc-select__anchor').click();
 	await expect(page.getByRole('option', { name: 'Weekly', exact: true })).toBeVisible();
 
 	await helper.step('repeat_options_open', {
@@ -188,15 +187,14 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 
 	// --- Choose a repeat schedule -------------------------------------------
 	await page.getByRole('option', { name: 'Weekly', exact: true }).click();
-	await page.locator('.mdc-dialog--open input[type="number"]').fill('2');
+	await openDialog(page).locator('input[type="number"]').fill('2');
 
 	await helper.step('repeat_configured', {
 		description: 'A "Weekly" repeat is selected and configured to recur every 2 weeks.',
 		verifications: [
 			{
 				spec: 'Repeat interval is set to 2',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="number"]')).toHaveValue('2')
+				check: async () => expect(openDialog(page).locator('input[type="number"]')).toHaveValue('2')
 			}
 		]
 	});
@@ -217,7 +215,7 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 	});
 
 	// --- Reopen to confirm persistence --------------------------------------
-	await page.locator('span.details').first().click();
+	await taskRows(page).first().locator('span.details').click();
 
 	await helper.step('date_picker_reopened', {
 		description:
@@ -226,17 +224,15 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 			{
 				spec: 'Due date checkbox is checked',
 				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="checkbox"]').first()).toBeChecked()
+					expect(openDialog(page).locator('input[type="checkbox"]').first()).toBeChecked()
 			},
 			{
 				spec: 'Saved due date is preserved',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="date"]')).toHaveValue(DUE_DATE)
+				check: async () => expect(openDialog(page).locator('input[type="date"]')).toHaveValue(DUE_DATE)
 			},
 			{
 				spec: 'Saved repeat interval is preserved',
-				check: async () =>
-					expect(page.locator('.mdc-dialog--open input[type="number"]')).toHaveValue('2')
+				check: async () => expect(openDialog(page).locator('input[type="number"]')).toHaveValue('2')
 			}
 		]
 	});
