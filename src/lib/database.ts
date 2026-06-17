@@ -155,6 +155,8 @@ export function load() {
 			console.log('src/lib/database.ts: load list data.');
 			let lastVisibleLists: string[] | undefined = undefined;
 			let lastCurrentListId: string | null = null;
+			let lastIncomingRequests: string[] | undefined = undefined;
+			let lastCompletedRequests: string[] | undefined = undefined;
 			let initialListsLoading: string[] | null | undefined = undefined;
 			let numberOfInitialLists = 0;
 			const activityStartTime = Math.floor(Date.now() / 1000);
@@ -483,7 +485,22 @@ export function load() {
 					}
 					if (initialListsLoading === null) {
 						watchPendingShareLists(state);
+						// A pending share can be opened before it is accepted. Once accepting it
+						// makes that route's list visible, attach the live listener after startup.
+						if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
+							loadList(currentListId);
+						}
 					}
+				}
+
+				if (
+					initialListsLoading === null &&
+					(state.requests.incomingRequests !== lastIncomingRequests ||
+						state.requests.completedRequests !== lastCompletedRequests)
+				) {
+					lastIncomingRequests = state.requests.incomingRequests;
+					lastCompletedRequests = state.requests.completedRequests;
+					watchPendingShareLists(state);
 				}
 
 				const currentListId = getCurrentListId();
@@ -524,6 +541,7 @@ export function load() {
 							let isFirstRequestsSnapshot = true;
 							unsubscribeActions = onSnapshot(q, (querySnapshot) => {
 								let changes = querySnapshot.docChanges();
+								const isStartupReplay = isFirstRequestsSnapshot;
 								if (isFirstRequestsSnapshot) {
 									logTime(
 										`Filtering ${changes.length} global requests on first call from time ${startTime}`
@@ -533,8 +551,17 @@ export function load() {
 									});
 									logTime(`... ${changes.length} global requests remaining.`);
 								}
-								handleDocChanges(changes, user, false);
-								if (isFirstRequestsSnapshot) {
+								try {
+									handleDocChanges(changes, user, false);
+								} catch (error) {
+									console.error(
+										isStartupReplay
+											? 'Error replaying initial global requests; continuing startup.'
+											: 'Error handling global requests.',
+										error
+									);
+								}
+								if (isStartupReplay) {
 									loadListActionsAtStartup(user);
 								}
 								isFirstRequestsSnapshot = false;
