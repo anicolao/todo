@@ -49,6 +49,7 @@ The active label opens like a folder in the sidebar.
 
 **Verifications:**
 - [x] Source list appears nested under the active label
+- [x] Source list is hidden from the top-level sidebar
 
 ![label_sidebar_folder_opened](screenshots/005-label-sidebar-folder-opened.png)
 
