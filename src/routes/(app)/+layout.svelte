@@ -200,9 +200,9 @@
 
 	let dialogOpen = false;
 	$: if ($store.ui.showEditDialog && !dialogOpen) {
-		dialogOpen = true;
+		beginEditDialog();
 	}
-	$: listName = '';
+	let listName = '';
 	$: if ($store.ui.title && !dialogOpen) {
 		if (listName !== $store.ui.title) listName = $store.ui.title;
 	}
@@ -211,57 +211,111 @@
 		(id: string) => $store.lists.listIdToType[id] === 'label'
 	);
 	$: showLabelControls = !!$store.ui.listId && currentDocumentType !== 'label';
+	type DraftLabel = { id: string; name: string };
 	let newLabelName = '';
+	let initialDialogLabelIds: string[] = [];
+	let selectedDialogLabelIds: string[] = [];
+	let draftCreatedLabels: DraftLabel[] = [];
 
 	function openEditDialog() {
 		store.dispatch(show_edit_dialog(true));
-		dialogOpen = true;
+		beginEditDialog();
 	}
 
 	function labelHasCurrentList(labelId: string) {
 		return queryHasId($store.labels.labelIdToLabel[labelId]?.query, $store.ui.listId);
 	}
 
-	async function createLabelForCurrentList() {
-		const uid = $store.auth.uid;
-		const currentListId = $store.ui.listId;
-		const name = newLabelName.trim();
-		if (!uid || !currentListId || name.length === 0) {
-			return;
-		}
-		const labelId = crypto.randomUUID();
-		await firebase.dispatch(create_label({ id: labelId, name }));
-		await createFirebaseListActions(labelId, $store.auth, name);
-		await dispatch(
-			'lists',
-			labelId,
-			uid,
-			set_label_query({
-				label_id: labelId,
-				query: {
-					type: 'or',
-					predicates: [{ type: 'id', id: currentListId }]
-				}
-			})
-		);
+	function getCurrentLabelIds() {
+		return visibleLabelIds.filter((labelId: string) => labelHasCurrentList(labelId));
+	}
+
+	function initializeDialogState() {
+		listName = $store.ui.title || '';
+		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
+		initialDialogLabelIds = getCurrentLabelIds();
+		selectedDialogLabelIds = [...initialDialogLabelIds];
+		draftCreatedLabels = [];
 		newLabelName = '';
 	}
 
-	async function toggleCurrentListLabel(labelId: string) {
-		const uid = $store.auth.uid;
-		const currentListId = $store.ui.listId;
-		if (!uid || !currentListId) {
-			return;
-		}
-		const predicate = { type: 'id' as const, id: currentListId };
-		const action = labelHasCurrentList(labelId)
-			? remove_label_predicate({ label_id: labelId, predicate })
-			: add_label_predicate({ label_id: labelId, predicate });
-		store.dispatch(action);
-		await dispatch('lists', labelId, uid, action);
+	function beginEditDialog() {
+		initializeDialogState();
+		dialogOpen = true;
 	}
 
-	function closeDialog() {
+	function dialogHasLabel(labelId: string) {
+		return selectedDialogLabelIds.indexOf(labelId) !== -1;
+	}
+
+	function setDialogLabel(labelId: string, selected: boolean) {
+		const selectedSet = new Set(selectedDialogLabelIds);
+		if (selected) {
+			selectedSet.add(labelId);
+		} else {
+			selectedSet.delete(labelId);
+		}
+		selectedDialogLabelIds = [...selectedSet];
+	}
+
+	function toggleDialogLabel(labelId: string) {
+		setDialogLabel(labelId, !dialogHasLabel(labelId));
+	}
+
+	function createLabelForCurrentList() {
+		const name = newLabelName.trim();
+		if (name.length === 0) {
+			return;
+		}
+		const labelId = crypto.randomUUID();
+		draftCreatedLabels = [...draftCreatedLabels, { id: labelId, name }];
+		setDialogLabel(labelId, true);
+		newLabelName = '';
+	}
+
+	async function commitLabelChanges(uid: string, currentListId: string) {
+		const selectedSet = new Set(selectedDialogLabelIds);
+		const initialSet = new Set(initialDialogLabelIds);
+		const draftLabelIds = new Set(draftCreatedLabels.map((label) => label.id));
+		const predicate = { type: 'id' as const, id: currentListId };
+
+		for (const labelId of initialDialogLabelIds) {
+			if (!selectedSet.has(labelId)) {
+				const action = remove_label_predicate({ label_id: labelId, predicate });
+				store.dispatch(action);
+				await dispatch('lists', labelId, uid, action);
+			}
+		}
+
+		for (const labelId of selectedDialogLabelIds) {
+			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
+				const action = add_label_predicate({ label_id: labelId, predicate });
+				store.dispatch(action);
+				await dispatch('lists', labelId, uid, action);
+			}
+		}
+
+		for (const label of draftCreatedLabels) {
+			if (!selectedSet.has(label.id)) {
+				continue;
+			}
+			const createAction = create_label({ id: label.id, name: label.name });
+			store.dispatch(createAction);
+			await firebase.dispatch(createAction);
+			await createFirebaseListActions(label.id, $store.auth, label.name);
+			const queryAction = set_label_query({
+				label_id: label.id,
+				query: {
+					type: 'or' as const,
+					predicates: [predicate]
+				}
+			});
+			store.dispatch(queryAction);
+			await dispatch('lists', label.id, uid, queryAction);
+		}
+	}
+
+	async function closeDialog() {
 		const uid = $store.auth.uid;
 		const id = $store.ui.listId;
 		const name = listName;
@@ -269,6 +323,9 @@
 			if (listName !== $store.ui.title) {
 				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
+			}
+			if (id) {
+				await commitLabelChanges(uid, id);
 			}
 			const previousShares: string[] = getSharedUsers()
 				.map((u: AuthState) => u.email || "")
@@ -307,6 +364,9 @@
 			}
 		}
 		selectedShareUsers = [];
+		initialDialogLabelIds = [];
+		selectedDialogLabelIds = [];
+		draftCreatedLabels = [];
 		store.dispatch(show_edit_dialog(false));
 		dialogOpen = false;
 	}
@@ -391,14 +451,7 @@
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
-	function initializeShareUsers() {
-		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
-	}
-
 	let selectedShareUsers: string[] = [];
-	$: if (dialogOpen) {
-		initializeShareUsers();
-	}
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
@@ -595,15 +648,25 @@
 													{#each visibleLabelIds as labelId (labelId)}
 														<div class="label-row">
 															<Checkbox
-																checked={labelHasCurrentList(labelId)}
+																checked={dialogHasLabel(labelId)}
 																input$aria-label={`Include in ${$store.lists.listIdToList[labelId]}`}
-																on:change={() => toggleCurrentListLabel(labelId)}
+																on:change={() => toggleDialogLabel(labelId)}
 															/>
 															<span>{$store.lists.listIdToList[labelId]}</span>
 														</div>
 													{/each}
 												</div>
 											{/if}
+											{#each draftCreatedLabels as label (label.id)}
+												<div class="label-row">
+													<Checkbox
+														checked={dialogHasLabel(label.id)}
+														input$aria-label={`Include in ${label.name}`}
+														on:change={() => toggleDialogLabel(label.id)}
+													/>
+													<span>{label.name}</span>
+												</div>
+											{/each}
 											<div class="new-label-row">
 												<Textfield bind:value={newLabelName} label="New label" />
 												<Button

@@ -43,16 +43,35 @@ User opened the label and sees the source list as a contained group.
 
 ![label_opened](screenshots/004-label-opened.png)
 
-### Step 005: label_removed_from_list
+### Step 005: label_removal_draft_cancelled
+
+User can draft removing the current list from the label and cancel it.
+
+**Verifications:**
+- [x] Label checkbox stays unchecked while the dialog is open
+
+![label_removal_draft_cancelled](screenshots/005-label-removal-draft-cancelled.png)
+
+### Step 006: label_unchanged_after_cancel
+
+User cancelled the draft removal and the label still contains the source list.
+
+**Verifications:**
+- [x] URL is the label route
+- [x] Source list group is still visible
+
+![label_unchanged_after_cancel](screenshots/006-label-unchanged-after-cancel.png)
+
+### Step 007: label_removed_from_list
 
 User removed the current list from the label.
 
 **Verifications:**
 - [x] Label checkbox stays unchecked
 
-![label_removed_from_list](screenshots/005-label-removed-from-list.png)
+![label_removed_from_list](screenshots/007-label-removed-from-list.png)
 
-### Step 006: label_empty_after_removal
+### Step 008: label_empty_after_removal
 
 User opened the label and no longer sees the removed list.
 
@@ -60,5 +79,5 @@ User opened the label and no longer sees the removed list.
 - [x] URL is the label route
 - [x] Removed source list group is absent
 
-![label_empty_after_removal](screenshots/006-label-empty-after-removal.png)
+![label_empty_after_removal](screenshots/008-label-empty-after-removal.png)
 
