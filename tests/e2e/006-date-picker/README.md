@@ -54,7 +54,7 @@ A specific due date has been entered via the native date input.
 
 ### Step 006: repeat_options_open
 
-The repeat <Select> is open, showing the available repeat schedules: Doesn't repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.
+The repeat selector (a Material `Select`) is open, showing the available repeat schedules: Doesn't repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.
 
 **Verifications:**
 - [x] Weekly option is available
