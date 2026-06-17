@@ -56,10 +56,18 @@ function sameQuery(a: LabelQuery, b: LabelQuery): boolean {
 		return a.id === b.id;
 	}
 	if (a.type === 'or' && b.type === 'or') {
-		return (
-			a.predicates.length === b.predicates.length &&
-			a.predicates.every((predicate, index) => sameQuery(predicate, b.predicates[index]))
-		);
+		if (a.predicates.length !== b.predicates.length) {
+			return false;
+		}
+		const remaining = [...b.predicates];
+		return a.predicates.every((predicate) => {
+			const index = remaining.findIndex((candidate) => sameQuery(predicate, candidate));
+			if (index === -1) {
+				return false;
+			}
+			remaining.splice(index, 1);
+			return true;
+		});
 	}
 	return false;
 }
