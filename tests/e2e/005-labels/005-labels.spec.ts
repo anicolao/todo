@@ -16,6 +16,17 @@ async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
 	}
 }
 
+async function openCurrentListEditDialog(page: import('@playwright/test').Page, listName: string) {
+	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
+	await openDrawerIfNeeded(page);
+	const drawer = page.locator('.mdc-drawer');
+	await expect(drawer.getByText(listName)).toBeVisible({ timeout: 10000 });
+	const editButton = drawer.getByRole('button', { name: 'Edit list' });
+	await expect(editButton).toBeVisible({ timeout: 10000 });
+	await editButton.click({ force: true });
+	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
+}
+
 test('create a label containing a list', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
 	helper.setMetadata(
@@ -44,11 +55,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 
-	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
-		force: true
-	});
-	await expect(page.getByText('Edit List')).toBeVisible();
+	await openCurrentListEditDialog(page, listName);
 
 	const labelName = 'Important Label';
 	await helper.step('label_creation_ui_available', {
@@ -108,11 +115,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	await openDrawerIfNeeded(page);
 	await page.locator('.mdc-drawer').getByText(listName).click();
 	await expect(page).toHaveURL(/lists\?listId=/);
-	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
-		force: true
-	});
-	await expect(page.getByText('Edit List')).toBeVisible();
+	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();
 
@@ -145,11 +148,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	await openDrawerIfNeeded(page);
 	await page.locator('.mdc-drawer').getByText(listName).click();
 	await expect(page).toHaveURL(/lists\?listId=/);
-	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
-		force: true
-	});
-	await expect(page.getByText('Edit List')).toBeVisible();
+	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();
 
