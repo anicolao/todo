@@ -30,6 +30,10 @@ export class TestStepHelper {
 		this.testInfo = testInfo;
 	}
 
+	usePage(page: Page) {
+		this.page = page;
+	}
+
 	setMetadata(name: string, description: string) {
 		this.scenarioName = name;
 		this.scenarioDescription = description;
