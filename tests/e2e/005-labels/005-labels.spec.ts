@@ -1,12 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(async ({ request }) => {
-	const projectId = 'todo-firebase-1a740';
-	await request.delete(
-		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
-	);
-	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
+	await resetEmulators(request);
 });
 
 async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
