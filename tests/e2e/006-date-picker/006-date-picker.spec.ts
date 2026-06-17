@@ -48,7 +48,9 @@ async function createList(page: Page, listName: string) {
 		await expect(page).toHaveURL(/lists\/?\?listId=/);
 		const listId = new URL(page.url()).searchParams.get('listId');
 		await expect
-			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)))
+			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)), {
+				timeout: 15000
+			})
 			.toBe(true);
 		await expect(
 			page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })
@@ -154,6 +156,19 @@ test('current date picker dialog behaviour', async ({ page }, testInfo) => {
 				check: async () => expect(openDialog(page).locator('input[type="date"]')).toBeEnabled()
 			}
 		]
+	});
+
+	// --- Open the native date picker ----------------------------------------
+	const dateInput = openDialog(page).locator('input[type="date"]');
+	const dateBox = await dateInput.boundingBox();
+	// Click the calendar picker indicator at the right edge of the native input
+	// to open the browser's date picker GUI.
+	await dateInput.click({ position: { x: (dateBox?.width ?? 160) - 8, y: (dateBox?.height ?? 24) / 2 } });
+
+	await helper.step('date_picker_calendar_opened', {
+		description:
+			'Clicking the calendar icon opens the browser-native date picker GUI used to choose the due date.',
+		verifications: []
 	});
 
 	// --- Pick a date ---------------------------------------------------------

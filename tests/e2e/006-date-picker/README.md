@@ -34,43 +34,49 @@ Checking the box enables the due date controls.
 
 ![due_date_enabled](screenshots/003-due-date-enabled.png)
 
-### Step 004: due_date_selected
+### Step 004: date_picker_calendar_opened
+
+Clicking the calendar icon opens the browser-native date picker GUI used to choose the due date.
+
+![date_picker_calendar_opened](screenshots/004-date-picker-calendar-opened.png)
+
+### Step 005: due_date_selected
 
 A specific due date has been entered via the native date input.
 
 **Verifications:**
 - [x] Date field holds the selected date
 
-![due_date_selected](screenshots/004-due-date-selected.png)
+![due_date_selected](screenshots/005-due-date-selected.png)
 
-### Step 005: repeat_options_open
+### Step 006: repeat_options_open
 
 The repeat selector (a Material `Select`) is open, showing the available repeat schedules: Doesn't repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.
 
 **Verifications:**
 - [x] Weekly option is available
 
-![repeat_options_open](screenshots/005-repeat-options-open.png)
+![repeat_options_open](screenshots/006-repeat-options-open.png)
 
-### Step 006: repeat_configured
+### Step 007: repeat_configured
 
 A "Weekly" repeat is selected and configured to recur every 2 weeks.
 
 **Verifications:**
 - [x] Repeat interval is set to 2
 
-![repeat_configured](screenshots/006-repeat-configured.png)
+![repeat_configured](screenshots/007-repeat-configured.png)
 
-### Step 007: due_date_saved
+### Step 008: due_date_saved
 
 After saving, the task shows its due date chip. The repeating task also gains the "complete forever" (highlight_off) control.
 
 **Verifications:**
 - [x] A due date chip is shown on the task
 
-![due_date_saved](screenshots/007-due-date-saved.png)
+![due_date_saved](screenshots/008-due-date-saved.png)
 
-### Step 008: date_picker_reopened
+### Step 009: date_picker_reopened
 
 Reopening the dialog shows the previously saved values: the due date is enabled, the date is preserved, and the repeat interval is retained.
 
@@ -79,5 +85,5 @@ Reopening the dialog shows the previously saved values: the due date is enabled,
 - [x] Saved due date is preserved
 - [x] Saved repeat interval is preserved
 
-![date_picker_reopened](screenshots/008-date-picker-reopened.png)
+![date_picker_reopened](screenshots/009-date-picker-reopened.png)
 
