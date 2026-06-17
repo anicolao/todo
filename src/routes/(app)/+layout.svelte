@@ -587,25 +587,32 @@
 								</Paper>
 								{#if showLabelControls}
 									<Paper variant="unelevated">
-										<Subtitle>Labels:</Subtitle>
-										{#each visibleLabelIds as labelId (labelId)}
-											<div class="label-row">
-												<Checkbox
-													checked={labelHasCurrentList(labelId)}
-													on:change={() => toggleCurrentListLabel(labelId)}
-												/>
-												<span>{$store.lists.listIdToList[labelId]}</span>
+										<section class="labels-editor" aria-labelledby="labels-editor-title">
+											<Subtitle id="labels-editor-title">Labels</Subtitle>
+											{#if visibleLabelIds.length > 0}
+												<div class="existing-labels">
+													{#each visibleLabelIds as labelId (labelId)}
+														<div class="label-row">
+															<Checkbox
+																checked={labelHasCurrentList(labelId)}
+																input$aria-label={`Include in ${$store.lists.listIdToList[labelId]}`}
+																on:change={() => toggleCurrentListLabel(labelId)}
+															/>
+															<span>{$store.lists.listIdToList[labelId]}</span>
+														</div>
+													{/each}
+												</div>
+											{/if}
+											<div class="new-label-row">
+												<Textfield bind:value={newLabelName} label="New label" />
+												<Button
+													on:click={createLabelForCurrentList}
+													disabled={newLabelName.trim().length === 0}
+												>
+													<Label>Create label</Label>
+												</Button>
 											</div>
-										{/each}
-										<div class="new-label-row">
-											<Textfield bind:value={newLabelName} label="New label" />
-											<Button
-												on:click={createLabelForCurrentList}
-												disabled={newLabelName.trim().length === 0}
-											>
-												<Label>Add</Label>
-											</Button>
-										</div>
+										</section>
 									</Paper>
 								{/if}
 							</div>
