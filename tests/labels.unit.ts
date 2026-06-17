@@ -130,6 +130,49 @@ describe('labels', () => {
 		expect(queryHasId(state.labelIdToLabel.label1.query, 'list1')).to.equal(false);
 	});
 
+	it('treats or predicates as equivalent regardless of predicate order', () => {
+		const orderedQuery: LabelQuery = {
+			type: 'or',
+			predicates: [
+				{
+					type: 'or',
+					predicates: [
+						{ type: 'id', id: 'list1' },
+						{ type: 'id', id: 'list2' }
+					]
+				}
+			]
+		};
+		const reorderedPredicate: LabelQuery = {
+			type: 'or',
+			predicates: [
+				{ type: 'id', id: 'list2' },
+				{ type: 'id', id: 'list1' }
+			]
+		};
+		let state = labels(initialState, set_label_query({ label_id: 'label1', query: orderedQuery }));
+
+		state = labels(
+			state,
+			add_label_predicate({ label_id: 'label1', predicate: reorderedPredicate })
+		);
+		let query = state.labelIdToLabel.label1.query;
+		expect(query.type).to.equal('or');
+		if (query.type === 'or') {
+			expect(query.predicates.length).to.equal(1);
+		}
+
+		state = labels(
+			state,
+			remove_label_predicate({ label_id: 'label1', predicate: reorderedPredicate })
+		);
+		query = state.labelIdToLabel.label1.query;
+		expect(query.type).to.equal('or');
+		if (query.type === 'or') {
+			expect(query.predicates.length).to.equal(0);
+		}
+	});
+
 	it('resolves accessible and inaccessible id predicates', () => {
 		const lists: ListsState = {
 			visibleLists: ['list1'],
