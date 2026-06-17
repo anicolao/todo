@@ -3,8 +3,8 @@
 	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import IconButton from '@smui/icon-button';
-	import { Item, Meta, Text } from '@smui/list';
+	import IconButton, { Icon } from '@smui/icon-button';
+	import { Item, Text } from '@smui/list';
 	import ListIcon from './ListIcon.svelte';
 	import SharedListIcon from './SharedListIcon.svelte';
 	import { accept_request, reject_request } from './requests';
@@ -19,6 +19,9 @@
 	export let setActive: (name: string) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
+	};
+	export let openEditDialog = () => {
+		store.dispatch(show_edit_dialog(true));
 	};
 
 	let isShared = false;
@@ -40,11 +43,14 @@
 		return () => {
 			const duration = new Date().getTime() - navigationTimeout;
 			if (duration < 600) {
-				setActive(`lists/?listId=${listId}`);
+				const route = $store.lists.listIdToType[listId] === 'label' ? 'labels' : 'lists';
+				const param = $store.lists.listIdToType[listId] === 'label' ? 'labelId' : 'listId';
+				setActive(`${route}/?${param}=${listId}`);
 			}
 		};
 	}
-	$: activated = pageListId === listId;
+	$: pageLabelId = $page.url.searchParams.get('labelId') || 'hmph';
+	$: activated = pageListId === listId || pageLabelId === listId;
 
 	function acceptPendingShare() {
 		return () => {
@@ -63,43 +69,103 @@
 		};
 	}
 
+	function stopEvent(e: Event) {
+		e.stopPropagation();
+	}
+
+	function handleOpenEditDialog(e: Event) {
+		e.stopPropagation();
+		openEditDialog();
+	}
+
 	let navigationTimeout = 0;
 </script>
 
 {#if listId}
-	<Item
-		on:touchstart={(e) => {
-			navigationTimeout = new Date().getTime();
-		}}
-		on:pointerdown={(e) => {
-			navigationTimeout = new Date().getTime();
-		}}
-		on:pointerup={gotoList(listId)}
-		{activated}
-		draggable="false"
-	>
-		{#if isShared}
-			<SharedListIcon />
-		{:else}
-			<ListIcon />
-		{/if}
-		<Text>{$store.lists.listIdToList[listId]}</Text>
+	<div class="list-menu-item">
+		<Item
+			on:touchstart={(e) => {
+				navigationTimeout = new Date().getTime();
+			}}
+			on:pointerdown={(e) => {
+				navigationTimeout = new Date().getTime();
+			}}
+			on:pointerup={gotoList(listId)}
+			{activated}
+			draggable="false"
+		>
+			{#if $store.lists.listIdToType[listId] === 'label'}
+				<Icon class="material-icons">label</Icon>
+			{:else if isShared}
+				<SharedListIcon />
+			{:else}
+				<ListIcon />
+			{/if}
+			<Text>{$store.lists.listIdToList[listId]}</Text>
+		</Item>
 		{#if activated}
-			<Meta
-				>{#if sharerId === ''}<IconButton
+			<div class="list-menu-actions">
+				{#if sharerId === ''}
+					<button
+						type="button"
+						aria-label="Edit list"
+						class="material-icons list-edit-button"
+						on:pointerdown={handleOpenEditDialog}
+						on:mousedown={handleOpenEditDialog}
+						on:pointerup|stopPropagation
+						on:click={handleOpenEditDialog}>edit</button
+					>
+				{:else}
+					<IconButton
 						class="material-icons"
-						on:click={() => store.dispatch(show_edit_dialog(true))}>edit</IconButton
-					>{:else}<div>
-						<IconButton class="material-icons" on:click={acceptPendingShare()}>check</IconButton
-						><IconButton class="material-icons" on:click={rejectPendingShare()}>close</IconButton>
-					</div>{/if}</Meta
-			>
+						on:pointerdown={stopEvent}
+						on:pointerup={stopEvent}
+						on:click={(e) => {
+							stopEvent(e);
+							acceptPendingShare()();
+						}}>check</IconButton
+					><IconButton
+						class="material-icons"
+						on:pointerdown={stopEvent}
+						on:pointerup={stopEvent}
+						on:click={(e) => {
+							stopEvent(e);
+							rejectPendingShare()();
+						}}>close</IconButton
+					>
+				{/if}
+			</div>
 		{/if}
-	</Item>
+	</div>
 {/if}
 
 <style>
-	div {
-		min-width: 96px; /* 2 x icon width. */
+	.list-menu-item {
+		align-items: stretch;
+		display: flex;
+		width: 100%;
+	}
+	.list-menu-item :global(.mdc-deprecated-list-item) {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+	.list-menu-actions {
+		align-items: center;
+		display: flex;
+		flex: 0 0 auto;
+		min-width: 48px;
+	}
+	.list-edit-button {
+		align-items: center;
+		background: transparent;
+		border: 0;
+		border-radius: 50%;
+		color: inherit;
+		cursor: pointer;
+		display: inline-flex;
+		height: 48px;
+		justify-content: center;
+		padding: 0;
+		width: 48px;
 	}
 </style>

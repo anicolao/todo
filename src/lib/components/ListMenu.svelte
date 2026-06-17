@@ -21,6 +21,7 @@
 	*/
 
 	export let setActive: (name: string) => void;
+	export let openEditDialog: () => void;
 
 	let items: string[] = [];
 	function updateItems() {
@@ -236,7 +237,7 @@
 		class={grabbed ? 'item haunting' : 'item'}
 		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
 	>
-		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
+		{#if grabbed}<ListMenuItem listId={grabbedItem} {openEditDialog} />{/if}
 	</div>
 	<List>
 		{#each items as listId, i (listId)}<div
@@ -246,7 +247,7 @@
 				data-id={listId}
 				animate:flip={{ duration: 200 }}
 			>
-				<ListMenuItem {listId} {setActive} />
+				<ListMenuItem {listId} {setActive} {openEditDialog} />
 			</div>{/each}</List
 	>
 </div>

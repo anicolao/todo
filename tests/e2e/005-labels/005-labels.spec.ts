@@ -1,0 +1,92 @@
+import { test, expect } from '@playwright/test';
+import { TestStepHelper } from '../helpers/test-step-helper';
+
+test.beforeEach(async ({ request }) => {
+	const projectId = 'todo-firebase-1a740';
+	await request.delete(
+		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
+	);
+	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
+});
+
+async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
+	const newListInput = page.getByLabel('New list');
+	if (!(await newListInput.isVisible())) {
+		const menuButton = page.locator('button.material-icons:has-text("menu")');
+		if (await menuButton.isVisible()) {
+			await menuButton.click();
+		}
+	}
+}
+
+test('create a label containing a list', async ({ page }, testInfo) => {
+	const helper = new TestStepHelper(page, testInfo);
+	helper.setMetadata(
+		'Labels',
+		'Verify that a user can create a label from the list edit dialog and see list tasks through that label.'
+	);
+
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+	await expect(page).toHaveURL(/\/profile/, { timeout: 10000 });
+	await openDrawerIfNeeded(page);
+
+	const listName = 'Label Source List';
+	await page.getByLabel('New list').fill(listName);
+	await page.keyboard.press('Enter');
+	await expect(page).toHaveURL(/lists\?listId=/);
+	await expect(page.getByRole('banner').getByText(listName)).toBeVisible();
+
+	await helper.step('source_list_created', {
+		description: 'User has created a source list.',
+		verifications: [
+			{
+				spec: 'Source list is visible',
+				check: async () => expect(page.getByRole('banner').getByText(listName)).toBeVisible()
+			}
+		]
+	});
+
+	await openDrawerIfNeeded(page);
+	await page.locator('.mdc-drawer button.material-icons:has-text("edit")').first().click({
+		force: true
+	});
+	await expect(page.getByText('Edit List')).toBeVisible();
+
+	const labelName = 'Important Label';
+	await page.getByLabel('New label').fill(labelName);
+	await page.getByRole('button', { name: 'Add' }).click();
+	await expect(page.getByLabel('New label')).toHaveValue('');
+	await page.getByRole('button', { name: 'Done' }).click();
+
+	await helper.step('label_created', {
+		description: 'User created a label containing the current list.',
+		verifications: [
+			{
+				spec: 'Label appears in the sidebar',
+				check: async () => {
+					await openDrawerIfNeeded(page);
+					await expect(page.locator('.mdc-drawer').getByText(labelName)).toBeVisible({
+						timeout: 10000
+					});
+				}
+			}
+		]
+	});
+
+	await page.locator('.mdc-drawer').getByText(labelName).click();
+
+	await helper.step('label_opened', {
+		description: 'User opened the label and sees the source list as a contained group.',
+		verifications: [
+			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
+			{
+				spec: 'Source list group name is visible',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
+			}
+		]
+	});
+
+	await helper.generateDocs();
+});

@@ -1,0 +1,34 @@
+# Scenario: Labels
+
+Verify that a user can create a label from the list edit dialog and see list tasks through that label.
+
+## Steps
+
+### Step 001: source_list_created
+
+User has created a source list.
+
+**Verifications:**
+- [x] Source list is visible
+
+![source_list_created](screenshots/001-source-list-created.png)
+
+### Step 002: label_created
+
+User created a label containing the current list.
+
+**Verifications:**
+- [x] Label appears in the sidebar
+
+![label_created](screenshots/002-label-created.png)
+
+### Step 003: label_opened
+
+User opened the label and sees the source list as a contained group.
+
+**Verifications:**
+- [x] URL is the label route
+- [x] Source list group name is visible
+
+![label_opened](screenshots/003-label-opened.png)
+

@@ -13,7 +13,14 @@
 	import type { TodoItem } from '$lib/components/items';
 	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
+		add_label_predicate,
+		queryHasId,
+		remove_label_predicate,
+		set_label_query
+	} from '$lib/components/labels';
+	import {
 		accept_pending_share,
+		create_label,
 		create_list,
 		delete_list,
 		rename_list,
@@ -35,7 +42,7 @@
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
-	import { load } from '$lib/database';
+	import { createFirebaseListActions, load } from '$lib/database';
 	import { set_current_url } from '$lib/components/UiSettings';
 
 	let count = 0;
@@ -191,10 +198,66 @@
 
 	$: updateDetailsDialog($store.ui.listId, $store.ui.itemId);
 
-	$: dialogOpen = $store.ui.showEditDialog;
+	let dialogOpen = false;
+	$: if ($store.ui.showEditDialog && !dialogOpen) {
+		dialogOpen = true;
+	}
 	$: listName = '';
 	$: if ($store.ui.title && !dialogOpen) {
 		if (listName !== $store.ui.title) listName = $store.ui.title;
+	}
+	$: currentDocumentType = $store.lists.listIdToType[$store.ui.listId];
+	$: visibleLabelIds = $store.lists.visibleLists.filter(
+		(id: string) => $store.lists.listIdToType[id] === 'label'
+	);
+	$: showLabelControls = !!$store.ui.listId && currentDocumentType !== 'label';
+	let newLabelName = '';
+
+	function openEditDialog() {
+		store.dispatch(show_edit_dialog(true));
+		dialogOpen = true;
+	}
+
+	function labelHasCurrentList(labelId: string) {
+		return queryHasId($store.labels.labelIdToLabel[labelId]?.query, $store.ui.listId);
+	}
+
+	async function createLabelForCurrentList() {
+		const uid = $store.auth.uid;
+		const currentListId = $store.ui.listId;
+		const name = newLabelName.trim();
+		if (!uid || !currentListId || name.length === 0) {
+			return;
+		}
+		const labelId = crypto.randomUUID();
+		await firebase.dispatch(create_label({ id: labelId, name }));
+		await createFirebaseListActions(labelId, $store.auth, name);
+		await dispatch(
+			'lists',
+			labelId,
+			uid,
+			set_label_query({
+				label_id: labelId,
+				query: {
+					type: 'or',
+					predicates: [{ type: 'id', id: currentListId }]
+				}
+			})
+		);
+		newLabelName = '';
+	}
+
+	async function toggleCurrentListLabel(labelId: string) {
+		const uid = $store.auth.uid;
+		const currentListId = $store.ui.listId;
+		if (!uid || !currentListId) {
+			return;
+		}
+		const predicate = { type: 'id' as const, id: currentListId };
+		const action = labelHasCurrentList(labelId)
+			? remove_label_predicate({ label_id: labelId, predicate })
+			: add_label_predicate({ label_id: labelId, predicate });
+		await dispatch('lists', labelId, uid, action);
 	}
 
 	function closeDialog() {
@@ -244,6 +307,7 @@
 		}
 		selectedShareUsers = [];
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 	}
 
 	function closeItemDetailsDialog() {
@@ -299,6 +363,7 @@
 
 	function cancelDialog() {
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 	}
 
 	function cancelItemDetailsDialog() {
@@ -313,6 +378,7 @@
 			dispatch('lists', id, uid, delete_list(id));
 		}
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 		const remainingLists = $store.lists.visibleLists.filter((x: string) => x !== id);
 		if (remainingLists.length == 0) {
 			setActive('profile');
@@ -418,7 +484,7 @@
 		>
 			<Content>
 				<FilterMenu {setActive} />
-				<ListMenu {setActive} />
+				<ListMenu {setActive} {openEditDialog} />
 				<div class="verticalspacer" />
 				<AcceptShare />
 				<Textfield
@@ -499,37 +565,62 @@
 						</Button>
 					</Actions>
 				</SgDialog>
-				<SgDialog
-					bind:open={dialogOpen}
-					{cancelDialog}
-					labelledby="editlist-dialog-title"
-					describedby="editlist-dialog-content"
-				>
-					<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-					<div class="editlist-dialog-title-div">
-						<Title id="editlist-dialog-title">Edit List</Title>
-					</div>
-					<Content id="editlist-dialog-content">
-						<div class="editlist-dialog-content-div">
-							<Paper variant="unelevated">
-								<Textfield bind:value={listName} label="Name" />
-							</Paper>
-							<Paper variant="unelevated"
-								><Subtitle>Share with:</Subtitle>
-								<ShareList bind:selected={selectedShareUsers} />
-							</Paper>
+				{#if dialogOpen}
+					<SgDialog
+						bind:open={dialogOpen}
+						{cancelDialog}
+						labelledby="editlist-dialog-title"
+						describedby="editlist-dialog-content"
+					>
+						<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
+						<div class="editlist-dialog-title-div">
+							<Title id="editlist-dialog-title">Edit List</Title>
 						</div>
-					</Content>
-					<Actions>
-						<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
-						<Button on:click={cancelDialog}>
-							<Label>Cancel</Label>
-						</Button>
-						<Button on:click={closeDialog}>
-							<Label>Done</Label>
-						</Button>
-					</Actions>
-				</SgDialog>
+						<Content id="editlist-dialog-content">
+							<div class="editlist-dialog-content-div">
+								<Paper variant="unelevated">
+									<Textfield bind:value={listName} label="Name" />
+								</Paper>
+								<Paper variant="unelevated"
+									><Subtitle>Share with:</Subtitle>
+									<ShareList bind:selected={selectedShareUsers} />
+								</Paper>
+								{#if showLabelControls}
+									<Paper variant="unelevated">
+										<Subtitle>Labels:</Subtitle>
+										{#each visibleLabelIds as labelId (labelId)}
+											<div class="label-row">
+												<Checkbox
+													checked={labelHasCurrentList(labelId)}
+													on:change={() => toggleCurrentListLabel(labelId)}
+												/>
+												<span>{$store.lists.listIdToList[labelId]}</span>
+											</div>
+										{/each}
+										<div class="new-label-row">
+											<Textfield bind:value={newLabelName} label="New label" />
+											<Button
+												on:click={createLabelForCurrentList}
+												disabled={newLabelName.trim().length === 0}
+											>
+												<Label>Add</Label>
+											</Button>
+										</div>
+									</Paper>
+								{/if}
+							</div>
+						</Content>
+						<Actions>
+							<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
+							<Button on:click={cancelDialog}>
+								<Label>Cancel</Label>
+							</Button>
+							<Button on:click={closeDialog}>
+								<Label>Done</Label>
+							</Button>
+						</Actions>
+					</SgDialog>
+				{/if}
 			</div>
 		</AppContent>
 	</div>
@@ -677,6 +768,18 @@
 
 	.editlist-dialog-title-div {
 		padding-top: 0.75em;
+	}
+	.label-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 2.5rem;
+	}
+	.new-label-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
 	}
 
 	* :global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {

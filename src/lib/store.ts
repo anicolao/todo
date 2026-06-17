@@ -1,5 +1,7 @@
 import { auth, type AuthState } from '$lib/components/auth';
 import { lists } from '$lib/components/lists';
+import { labels } from '$lib/components/labels';
+import { schemaVersion } from '$lib/components/schema';
 import { uiSettings } from '$lib/components/UiSettings';
 import { users } from '$lib/components/users';
 import { combineReducers, configureStore, createStore, type AnyAction } from '@reduxjs/toolkit';
@@ -85,10 +87,12 @@ function svelteStoreEnhancer(createStoreApi: (arg0: any, arg1: any) => any) {
 }
 
 const reducer = {
+	schemaVersion,
 	auth,
 	uiSettings,
 	ui,
 	lists,
+	labels,
 	items,
 	requests,
 	cache,
