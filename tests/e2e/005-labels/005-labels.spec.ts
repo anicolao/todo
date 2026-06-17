@@ -34,8 +34,10 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
 	await openDrawerIfNeeded(page);
 	const drawer = page.locator('.mdc-drawer');
-	await expect(drawer.locator('.nested-list-items')).toHaveCount(0, { timeout: 2000 });
-	const editButton = drawer.getByRole('button', { name: 'Edit list' });
+	const editButton = drawer
+		.locator('.list-menu-item')
+		.filter({ hasText: listName })
+		.getByRole('button', { name: 'Edit list' });
 	await expect(editButton).toBeVisible({ timeout: 10000 });
 	await editButton.dispatchEvent('pointerdown');
 	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
@@ -144,6 +146,17 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 					expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
 						timeout: 10000
 					})
+			},
+			{
+				spec: 'Source list is hidden from the top-level sidebar',
+				check: async () =>
+					expect(
+						page
+							.locator('.mdc-drawer .listContainer > .mdc-deprecated-list > .item > .list-menu-item')
+							.filter({
+								hasText: listName
+							})
+					).toHaveCount(0)
 			}
 		]
 	});
