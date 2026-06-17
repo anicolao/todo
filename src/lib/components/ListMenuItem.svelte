@@ -16,6 +16,7 @@
 	export let listId: string | undefined = undefined;
 	export let requestId = '';
 	export let sharerId = '';
+	export let nested = false;
 	export let setActive: (name: string) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
@@ -82,7 +83,7 @@
 </script>
 
 {#if listId}
-	<div class="list-menu-item">
+	<div class="list-menu-item" class:nested>
 		<Item
 			on:touchstart={(e) => {
 				navigationTimeout = new Date().getTime();
@@ -148,6 +149,13 @@
 	.list-menu-item :global(.mdc-deprecated-list-item) {
 		flex: 1 1 auto;
 		min-width: 0;
+	}
+	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
+		min-height: 40px;
+		padding-left: 48px;
+	}
+	.list-menu-item.nested :global(.mdc-deprecated-list-item__graphic) {
+		margin-right: 20px;
 	}
 	.list-menu-actions {
 		align-items: center;

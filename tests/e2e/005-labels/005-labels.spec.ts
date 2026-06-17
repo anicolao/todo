@@ -8,11 +8,25 @@ test.beforeEach(async ({ request }) => {
 
 async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
 	const newListInput = page.getByLabel('New list');
-	if (!(await newListInput.isVisible())) {
+	const drawer = page.locator('.mdc-drawer');
+	const drawerIsModal = await drawer.evaluate((element) =>
+		element.classList.contains('mdc-drawer--modal')
+	);
+	const drawerBox = await drawer.boundingBox();
+	const drawerIsOpen = !drawerIsModal || (drawerBox !== null && drawerBox.x >= -1);
+	if (!drawerIsOpen) {
 		const menuButton = page.locator('button.material-icons:has-text("menu")');
 		if (await menuButton.isVisible()) {
 			await menuButton.click();
 		}
+		await expect(drawer).toHaveClass(/mdc-drawer--open/, { timeout: 10000 });
+		await expect
+			.poll(async () => {
+				const box = await drawer.boundingBox();
+				return box ? Math.round(box.x) : -999;
+			})
+			.toBeGreaterThanOrEqual(0);
+		await expect(newListInput).toBeVisible({ timeout: 10000 });
 	}
 }
 
@@ -20,11 +34,19 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
 	await openDrawerIfNeeded(page);
 	const drawer = page.locator('.mdc-drawer');
-	await expect(drawer.getByText(listName)).toBeVisible({ timeout: 10000 });
+	await expect(drawer.locator('.nested-list-items')).toHaveCount(0, { timeout: 2000 });
 	const editButton = drawer.getByRole('button', { name: 'Edit list' });
 	await expect(editButton).toBeVisible({ timeout: 10000 });
 	await editButton.dispatchEvent('pointerdown');
 	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
+}
+
+async function openNestedListFromActiveLabel(page: import('@playwright/test').Page, listName: string) {
+	await openDrawerIfNeeded(page);
+	const nestedList = page.locator('.nested-list-item').getByText(listName);
+	await expect(nestedList).toBeVisible({ timeout: 10000 });
+	await nestedList.click();
+	await expect(page).toHaveURL(/lists\?listId=/);
 }
 
 test('create a label containing a list', async ({ page }, testInfo) => {
@@ -113,8 +135,19 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	});
 
 	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer').getByText(listName).click();
-	await expect(page).toHaveURL(/lists\?listId=/);
+	await helper.step('label_sidebar_folder_opened', {
+		description: 'The active label opens like a folder in the sidebar.',
+		verifications: [
+			{
+				spec: 'Source list appears nested under the active label',
+				check: async () =>
+					expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
+						timeout: 10000
+					})
+			}
+		]
+	});
+	await openNestedListFromActiveLabel(page, listName);
 	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();
@@ -145,9 +178,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 
-	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer').getByText(listName).click();
-	await expect(page).toHaveURL(/lists\?listId=/);
+	await openNestedListFromActiveLabel(page, listName);
 	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();

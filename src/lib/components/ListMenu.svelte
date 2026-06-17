@@ -1,10 +1,13 @@
 <script lang="ts">
 	console.log('ListMenu.svelte');
+	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
+	import { resolveLabelQuery } from './labels';
 	import { reorder_list } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
@@ -33,6 +36,12 @@
 	$: if ($store.lists.visibleLists) {
 		updateItems();
 	}
+	$: activeLabelId = $page.url.searchParams.get('labelId') || '';
+	$: activeLabelEntries = resolveLabelQuery(
+		$store.labels.labelIdToLabel[activeLabelId]?.query,
+		$store.lists,
+		$store.labels
+	).filter((entry) => !entry.inaccessible);
 	let dragTo: string;
 
 	let anchor: Element;
@@ -248,6 +257,15 @@
 				animate:flip={{ duration: 200 }}
 			>
 				<ListMenuItem {listId} {setActive} {openEditDialog} />
+				{#if listId === activeLabelId && activeLabelEntries.length > 0}
+					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
+						{#each activeLabelEntries as entry (entry.id)}
+							<div class="nested-list-item">
+								<ListMenuItem listId={entry.id} {setActive} {openEditDialog} nested />
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>{/each}</List
 	>
 </div>
@@ -275,6 +293,16 @@
 
 	.item:not(#grabbed):not(#ghost) {
 		z-index: 10;
+	}
+
+	.nested-list-items {
+		border-left: 2px solid rgba(0, 0, 0, 0.12);
+		margin-left: 28px;
+		overflow: hidden;
+	}
+
+	.nested-list-item {
+		min-height: 40px;
 	}
 
 	#grabbed {
