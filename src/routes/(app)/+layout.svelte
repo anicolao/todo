@@ -7,6 +7,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
+	import MaterialDatePicker from '$lib/components/MaterialDatePicker.svelte';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import type { AuthState } from '$lib/components/auth';
 	import type { TodoItem } from '$lib/components/items';
@@ -464,51 +465,31 @@
 						<Title id="itemdetails-dialog-title">Edit Task</Title>
 					</div>
 					<Content id="itemdetails-dialog-content">
-						<div class="task-details">
+						<Paper style="width=100%;">
 							<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
-
-							<section class="due-section">
-								<div class="due-toggle">
-									<Checkbox bind:checked={useDueDate} />
-									<button
-										type="button"
-										class="due-toggle-label"
-										on:click={() => (useDueDate = !useDueDate)}>Set a due date</button
-									>
-								</div>
-
-								<div class="due-fields" class:due-fields--disabled={!useDueDate}>
-									<Textfield
-										type="date"
-										bind:value={dueDateStr}
-										disabled={!useDueDate}
-										label="Due date"
-										style="width: 100%;"
-									/>
-									<Select
-										key={(x) => x.substr(0, 3)}
-										bind:value={repeatValue}
-										label="Repeat"
-										disabled={!useDueDate}
-										style="width: 100%;"
-									>
-										{#each repeatKind as value}
-											<Option {value}>{value}</Option>
-										{/each}
-									</Select>
-									{#if useDueDate && repeatKind.indexOf(repeatValue) !== 0}
-										<Textfield
-											bind:value={repeatEvery}
-											label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
-											type="number"
-											input$step="1"
-											input$min="1"
-											style="width: 100%;"
-										/>
-									{/if}
-								</div>
-							</section>
-						</div>
+							<Checkbox bind:checked={useDueDate} />
+							<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
+							<br />
+							<Select
+								key={(x) => x.substr(0, 3)}
+								bind:value={repeatValue}
+								label="Repeat"
+								disabled={!useDueDate}
+								style="padding-left: 2.75em;"
+							>
+								{#each repeatKind as value}
+									<Option {value}>{value}</Option>
+								{/each}
+							</Select>
+							<Textfield
+								bind:value={repeatEvery}
+								label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
+								type="number"
+								input$step="1"
+								disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+								style="width: 6em;"
+							/>
+						</Paper>
 					</Content>
 					<Actions>
 						<Button on:click={cancelItemDetailsDialog}>
@@ -709,54 +690,6 @@
 
 	* :global(#itemdetails-dialog-content .mdc-deprecated-list-item) {
 		height: 2.25em;
-	}
-
-	.itemdetails-title-div {
-		padding-top: 0.75em;
-		padding-left: 0.25rem;
-	}
-
-	.task-details {
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
-		min-width: 20rem;
-		max-width: 24rem;
-		padding: 0.25rem 0.25rem 0.5rem;
-	}
-
-	.due-section {
-		display: flex;
-		flex-direction: column;
-		gap: 0.85rem;
-		padding-top: 0.85rem;
-		border-top: 1px solid rgba(0, 0, 0, 0.08);
-	}
-
-	.due-toggle {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.due-toggle-label {
-		padding: 0;
-		border: none;
-		background: none;
-		font: inherit;
-		color: inherit;
-		cursor: pointer;
-	}
-
-	.due-fields {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		transition: opacity 0.15s ease;
-	}
-
-	.due-fields--disabled {
-		opacity: 0.5;
 	}
 
 	.backdrop {
