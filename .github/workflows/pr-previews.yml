@@ -30,13 +30,14 @@ jobs:
           EVENT_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             pr_number="$EVENT_PR_NUMBER"
             head_ref="$EVENT_HEAD_REF"
             head_sha="$EVENT_HEAD_SHA"
           else
-            pr_metadata="$(gh pr view "$INPUT_PR_NUMBER" --json number,headRefName,headRefOid --jq '[.number, .headRefName, .headRefOid] | @tsv')"
+            pr_metadata="$(gh pr view "$INPUT_PR_NUMBER" --repo "$REPOSITORY" --json number,headRefName,headRefOid --jq '[.number, .headRefName, .headRefOid] | @tsv')"
             pr_number="$(printf '%s' "$pr_metadata" | cut -f 1)"
             head_ref="$(printf '%s' "$pr_metadata" | cut -f 2)"
             head_sha="$(printf '%s' "$pr_metadata" | cut -f 3)"
@@ -60,7 +61,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            gh pr comment ${{ steps.preview.outputs.pr_number }} --body "⚠️ The \`FIREBASE_SERVICE_ACCOUNT\` secret is missing. PR Previews cannot be deployed. Please follow the instructions in \`docs/PR_HOSTING_SETUP.md\` to set it up."
+            gh pr comment ${{ steps.preview.outputs.pr_number }} --repo ${{ github.repository }} --body "⚠️ The \`FIREBASE_SERVICE_ACCOUNT\` secret is missing. PR Previews cannot be deployed. Please follow the instructions in \`docs/PR_HOSTING_SETUP.md\` to set it up."
             echo "Secret is missing. Failing the job."
             exit 1
           fi
@@ -89,8 +90,9 @@ jobs:
           PR_NUMBER: ${{ steps.preview.outputs.pr_number }}
           HEAD_SHA: ${{ steps.preview.outputs.head_sha }}
           PREVIEW_URL: ${{ steps.deploy.outputs.details_url }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           short_sha="$(printf '%s' "$HEAD_SHA" | cut -c 1-7)"
-          gh pr comment "$PR_NUMBER" --body "Visit the preview URL for this PR (manually refreshed for commit \`$short_sha\`):
+          gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body "Visit the preview URL for this PR (manually refreshed for commit \`$short_sha\`):
 
           [$PREVIEW_URL]($PREVIEW_URL)"
