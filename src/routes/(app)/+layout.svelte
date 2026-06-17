@@ -13,9 +13,8 @@
 	import type { TodoItem } from '$lib/components/items';
 	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
-		add_label_predicate,
 		queryHasId,
-		remove_label_predicate,
+		setQueryIdMembership,
 		set_label_query
 	} from '$lib/components/labels';
 	import {
@@ -279,20 +278,27 @@
 		const draftLabelIds = new Set(draftCreatedLabels.map((label) => label.id));
 		const predicate = { type: 'id' as const, id: currentListId };
 
+		const changedExistingLabelIds = new Set<string>();
 		for (const labelId of initialDialogLabelIds) {
 			if (!selectedSet.has(labelId)) {
-				const action = remove_label_predicate({ label_id: labelId, predicate });
-				store.dispatch(action);
-				await dispatch('lists', labelId, uid, action);
+				changedExistingLabelIds.add(labelId);
+			}
+		}
+		for (const labelId of selectedDialogLabelIds) {
+			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
+				changedExistingLabelIds.add(labelId);
 			}
 		}
 
-		for (const labelId of selectedDialogLabelIds) {
-			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
-				const action = add_label_predicate({ label_id: labelId, predicate });
-				store.dispatch(action);
-				await dispatch('lists', labelId, uid, action);
-			}
+		for (const labelId of changedExistingLabelIds) {
+			const query = setQueryIdMembership(
+				$store.labels.labelIdToLabel[labelId]?.query,
+				currentListId,
+				selectedSet.has(labelId)
+			);
+			const action = set_label_query({ label_id: labelId, query });
+			store.dispatch(action);
+			await dispatch('lists', labelId, uid, action);
 		}
 
 		for (const label of draftCreatedLabels) {
