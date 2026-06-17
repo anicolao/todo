@@ -8,8 +8,12 @@ const FIREBASE_CLIENT_ID =
 const FIREBASE_CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
 const projectId = process.env.FIREBASE_PROJECT_ID || 'todo-firebase-1a740';
 const databaseId = process.env.FIRESTORE_DATABASE_ID || '(default)';
+const firestoreEmulatorHost = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').replace(
+	/^https?:\/\//,
+	''
+);
 const firestoreBase = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents`;
-const emulatorBase = `http://127.0.0.1:8080/v1/projects/${projectId}/databases/${databaseId}/documents`;
+const emulatorBase = `http://${firestoreEmulatorHost}/v1/projects/${projectId}/databases/${databaseId}/documents`;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function readFirebaseCliTokens() {

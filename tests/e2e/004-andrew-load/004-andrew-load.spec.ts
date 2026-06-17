@@ -2,8 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+	authEmulatorOrigin,
+	emulatorProjectId,
+	resetAuthEmulator,
+	resetFirestoreEmulator
+} from '../helpers/emulator';
 
-const projectId = 'todo-firebase-1a740';
 const backupPath = process.env.ANDREW_LOAD_BACKUP;
 const maxLoadMs = Number(process.env.ANDREW_LOAD_MAX_MS || 120000);
 const shouldResetFirestore = process.env.ANDREW_LOAD_RESET_FIRESTORE === 'true';
@@ -32,12 +37,9 @@ test.beforeEach(async ({ request }, testInfo) => {
 	}
 
 	if (shouldResetFirestore) {
-		await request.delete(
-			`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`,
-			{ timeout: 180000 }
-		);
+		await resetFirestoreEmulator(request, { timeout: 180000 });
 	}
-	await request.delete(`http://127.0.0.1:9099/emulator/v1/projects/${projectId}/accounts`);
+	await resetAuthEmulator(request);
 
 	if (shouldSeedFirestore) {
 		execFileSync(process.execPath, ['scripts/firestore-copy.mjs', 'seed', resolvedBackupPath], {
@@ -47,7 +49,7 @@ test.beforeEach(async ({ request }, testInfo) => {
 	}
 
 	const response = await request.post(
-		`http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:batchCreate?key=fake-api-key`,
+		`${authEmulatorOrigin}/identitytoolkit.googleapis.com/v1/projects/${emulatorProjectId}/accounts:batchCreate?key=fake-api-key`,
 		{
 			headers: {
 				authorization: 'Bearer owner'

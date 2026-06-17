@@ -23,11 +23,12 @@ import { Capacitor } from '@capacitor/core';
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 
 // This config is repeated in static/firebase-config.js
+const firebaseProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'todo-firebase-1a740';
 const firebaseConfig = {
 	apiKey: 'AIzaSyC7mMXhf0noyZ-0LTJwyRJLpJlX6b-7MqQ',
-	authDomain: 'todo-firebase-1a740.firebaseapp.com',
-	projectId: 'todo-firebase-1a740',
-	storageBucket: 'todo-firebase-1a740.appspot.com',
+	authDomain: `${firebaseProjectId}.firebaseapp.com`,
+	projectId: firebaseProjectId,
+	storageBucket: `${firebaseProjectId}.appspot.com`,
 	messagingSenderId: '847898271389',
 	appId: '1:847898271389:web:d386e542429c9bd9033e74',
 	measurementId: 'G-TM8YJTC4SX'
@@ -96,11 +97,14 @@ const useFirestoreEmulator =
 const useAuthEmulator = useFirebaseEmulator || import.meta.env.VITE_USE_AUTH_EMULATOR === 'true';
 
 if (useFirestoreEmulator) {
-	connectFirestoreEmulator(firebase.firestore, '127.0.0.1', 8080);
+	const firestoreEmulatorHost = import.meta.env.VITE_FIRESTORE_EMULATOR_HOST || '127.0.0.1';
+	const firestoreEmulatorPort = Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT || 8080);
+	connectFirestoreEmulator(firebase.firestore, firestoreEmulatorHost, firestoreEmulatorPort);
 }
 
 if (useAuthEmulator) {
-	connectAuthEmulator(firebase.auth, 'http://127.0.0.1:9099');
+	const authEmulatorUrl = import.meta.env.VITE_AUTH_EMULATOR_URL || 'http://127.0.0.1:9099';
+	connectAuthEmulator(firebase.auth, authEmulatorUrl);
 }
 
 if (import.meta.env.VITE_DISABLE_FIRESTORE_PERSISTENCE !== 'true') {

@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { resetFirestoreEmulator } from '../helpers/emulator';
 
 test.beforeEach(async ({ request }) => {
 	// Ensure that the E2E tests start with a clean state in the emulator.
-	const projectId = 'todo-firebase-1a740';
-	await request.delete(
-		`http://127.0.0.1:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`
-	);
+	await resetFirestoreEmulator(request);
 });
 
 test('login page verification', async ({ page }, testInfo) => {

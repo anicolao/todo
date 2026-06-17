@@ -1,24 +1,39 @@
 import { devices, type PlaywrightTestConfig } from '@playwright/test';
 
+const appPort = process.env.E2E_APP_PORT || '4173';
+const firebaseConfig = process.env.E2E_FIREBASE_CONFIG || 'firebase.json';
+const firebaseProjectId = process.env.E2E_FIREBASE_PROJECT_ID || 'todo-firebase-1a740';
+const firestoreEmulatorHost = process.env.E2E_FIRESTORE_EMULATOR_HOST || '127.0.0.1';
+const firestoreEmulatorPort = process.env.E2E_FIRESTORE_EMULATOR_PORT || '8080';
+const authEmulatorHost = process.env.E2E_AUTH_EMULATOR_HOST || '127.0.0.1';
+const authEmulatorPort = process.env.E2E_AUTH_EMULATOR_PORT || '9099';
+const reuseExistingServer = process.env.E2E_ISOLATED !== 'true';
+const shellArg = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+
 const config: PlaywrightTestConfig = {
 	webServer: [
 		{
-			command: 'npm run build && npm run preview -- --host 127.0.0.1',
-			url: 'http://127.0.0.1:4173',
+			command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${appPort}`,
+			url: `http://127.0.0.1:${appPort}`,
 			env: {
 				VITE_USE_FIREBASE_EMULATOR: 'true',
+				VITE_FIREBASE_PROJECT_ID: firebaseProjectId,
+				VITE_FIRESTORE_EMULATOR_HOST: firestoreEmulatorHost,
+				VITE_FIRESTORE_EMULATOR_PORT: firestoreEmulatorPort,
+				VITE_AUTH_EMULATOR_URL: `http://${authEmulatorHost}:${authEmulatorPort}`,
 				VITE_TEST_LOGIN_EMAIL: process.env.VITE_TEST_LOGIN_EMAIL || '',
 				VITE_TEST_LOGIN_PASSWORD: process.env.VITE_TEST_LOGIN_PASSWORD || '',
 				VITE_TEST_LOGIN_NAME: process.env.VITE_TEST_LOGIN_NAME || ''
 			},
-			reuseExistingServer: true,
+			reuseExistingServer,
 			timeout: 120000
 		},
 		{
-			command:
-				'npx firebase emulators:start --only firestore,auth --project todo-firebase-1a740 --non-interactive',
-			url: 'http://127.0.0.1:9099',
-			reuseExistingServer: true,
+			command: `npx firebase emulators:start --config ${shellArg(
+				firebaseConfig
+			)} --only firestore,auth --project ${shellArg(firebaseProjectId)} --non-interactive`,
+			url: `http://${authEmulatorHost}:${authEmulatorPort}`,
+			reuseExistingServer,
 			timeout: 120000
 		}
 	],
@@ -26,7 +41,7 @@ const config: PlaywrightTestConfig = {
 	timeout: 60000,
 	workers: process.env.CI ? 1 : undefined,
 	use: {
-		baseURL: 'http://127.0.0.1:4173',
+		baseURL: `http://127.0.0.1:${appPort}`,
 		trace: 'on-first-retry'
 	},
 	reporter: process.env.CI ? 'html' : 'list',
