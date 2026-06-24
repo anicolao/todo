@@ -66,43 +66,52 @@ The active label opens like a folder in the sidebar.
 
 ![label_sidebar_folder_opened](screenshots/006-label-sidebar-folder-opened.png)
 
-### Step 007: pinned_label_stays_open_after_nested_navigation
+### Step 007: active_unpinned_label_collapsed
+
+The selected label collapses when it is not pinned and no current child list keeps it open.
+
+**Verifications:**
+- [x] Nested source list is hidden
+
+![active_unpinned_label_collapsed](screenshots/007-active-unpinned-label-collapsed.png)
+
+### Step 008: pinned_label_stays_open_after_nested_navigation
 
 The pinned label stays expanded after navigating to a list inside it.
 
 **Verifications:**
 - [x] Nested source list remains visible
 
-![pinned_label_stays_open_after_nested_navigation](screenshots/007-pinned-label-stays-open-after-nested-navigation.png)
+![pinned_label_stays_open_after_nested_navigation](screenshots/008-pinned-label-stays-open-after-nested-navigation.png)
 
-### Step 008: unpinned_label_collapses_after_navigation_away
+### Step 009: unpinned_label_collapses_after_navigation_away
 
 An unpinned label collapses after the user navigates away from its nested list.
 
 **Verifications:**
 - [x] Unpinned label is still expanded while viewing its nested list
 
-![unpinned_label_collapses_after_navigation_away](screenshots/008-unpinned-label-collapses-after-navigation-away.png)
+![unpinned_label_collapses_after_navigation_away](screenshots/009-unpinned-label-collapses-after-navigation-away.png)
 
-### Step 009: unpinned_label_collapsed_after_navigation_away
+### Step 010: unpinned_label_collapsed_after_navigation_away
 
 The unpinned label collapsed after the user navigated away from its nested list.
 
 **Verifications:**
 - [x] Nested source list is no longer shown in the drawer
 
-![unpinned_label_collapsed_after_navigation_away](screenshots/009-unpinned-label-collapsed-after-navigation-away.png)
+![unpinned_label_collapsed_after_navigation_away](screenshots/010-unpinned-label-collapsed-after-navigation-away.png)
 
-### Step 010: label_removal_draft_cancelled
+### Step 011: label_removal_draft_cancelled
 
 User can draft removing the current list from the label and cancel it.
 
 **Verifications:**
 - [x] Label checkbox stays unchecked while the dialog is open
 
-![label_removal_draft_cancelled](screenshots/010-label-removal-draft-cancelled.png)
+![label_removal_draft_cancelled](screenshots/011-label-removal-draft-cancelled.png)
 
-### Step 011: label_unchanged_after_cancel
+### Step 012: label_unchanged_after_cancel
 
 User cancelled the draft removal and the label still contains the source list.
 
@@ -110,18 +119,18 @@ User cancelled the draft removal and the label still contains the source list.
 - [x] URL is the label route
 - [x] Source list group is still visible
 
-![label_unchanged_after_cancel](screenshots/011-label-unchanged-after-cancel.png)
+![label_unchanged_after_cancel](screenshots/012-label-unchanged-after-cancel.png)
 
-### Step 012: label_removed_from_list
+### Step 013: label_removed_from_list
 
 User removed the current list from the label.
 
 **Verifications:**
 - [x] Label checkbox stays unchecked
 
-![label_removed_from_list](screenshots/012-label-removed-from-list.png)
+![label_removed_from_list](screenshots/013-label-removed-from-list.png)
 
-### Step 013: label_empty_after_removal
+### Step 014: label_empty_after_removal
 
 User opened the label and no longer sees the removed list.
 
@@ -129,5 +138,5 @@ User opened the label and no longer sees the removed list.
 - [x] URL is the label route
 - [x] Removed source list group is absent
 
-![label_empty_after_removal](screenshots/013-label-empty-after-removal.png)
+![label_empty_after_removal](screenshots/014-label-empty-after-removal.png)
 
