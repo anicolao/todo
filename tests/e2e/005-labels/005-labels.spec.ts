@@ -49,6 +49,7 @@ async function openNestedListFromActiveLabel(page: import('@playwright/test').Pa
 	await openDrawerIfNeeded(page);
 	const nestedList = page.locator('.nested-list-item').getByText(listName);
 	await expect(nestedList).toBeVisible({ timeout: 10000 });
+	await page.waitForTimeout(650);
 	await nestedList.click();
 	await expect(page).toHaveURL(/lists\?listId=/);
 }
