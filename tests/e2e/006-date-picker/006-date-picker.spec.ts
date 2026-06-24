@@ -190,6 +190,32 @@ test('date picker dialog', async ({ page }, testInfo) => {
 		]
 	});
 
+	// Reopen the calendar on the same month and confirm the chosen day is
+	// highlighted. This guards the bug where the selection only repainted after
+	// navigating months (the highlight must update reactively with the value).
+	await openDialog(page).getByRole('button', { name: 'calendar_today' }).click();
+	await expect(page.locator('.calendar')).toBeVisible();
+
+	await helper.step('selection_highlighted', {
+		description:
+			'Reopening the calendar shows the chosen day filled in the theme colour, updated reactively without needing to change months.',
+		verifications: [
+			{
+				spec: 'Exactly one day is highlighted as selected',
+				check: async () => expect(page.locator('.calendar-day.selected')).toHaveCount(1)
+			},
+			{
+				spec: 'The highlighted day is the one that was chosen',
+				check: async () => expect(page.locator('.calendar-day.selected')).toHaveText('20')
+			}
+		]
+	});
+
+	// Re-click the highlighted day to dismiss the calendar (Escape would close
+	// the whole dialog), leaving the dialog open for the rest of the flow.
+	await page.getByRole('button', { name: '20', exact: true }).click();
+	await expect(page.locator('.calendar')).toBeHidden();
+
 	// --- Configure a repeat schedule ----------------------------------------
 	await openDialog(page).locator('.mdc-select__anchor').click();
 	await expect(page.getByRole('option', { name: 'Weekly', exact: true })).toBeVisible();

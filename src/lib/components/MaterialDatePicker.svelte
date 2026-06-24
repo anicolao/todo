@@ -99,9 +99,10 @@
 	}
 
 	const today = todayParts();
-	const isSelected = (d: number) =>
-		!!selected && selected.y === viewY && selected.m === viewM && selected.d === d;
-	const isToday = (d: number) => today.y === viewY && today.m === viewM && today.d === d;
+	// Derived reactively (not via a called function) so the highlighted day and
+	// today marker repaint immediately when `value` or the viewed month changes.
+	$: selectedDay = selected && selected.y === viewY && selected.m === viewM ? selected.d : null;
+	$: todayDay = today.y === viewY && today.m === viewM ? today.d : null;
 </script>
 
 <div class="mdc-menu-surface--anchor date-anchor" bind:this={anchorEl}>
@@ -135,14 +136,14 @@
 					<span class="calendar-weekday" aria-hidden="true">{weekday}</span>
 				{/each}
 			</div>
-			<div class="calendar-grid">
+			<div class="calendar-grid calendar-days">
 				{#each days as day, i}
 					<button
 						type="button"
 						class="calendar-day"
 						style={i === 0 ? `grid-column-start: ${firstDow + 1}` : ''}
-						class:selected={isSelected(day)}
-						class:today={isToday(day)}
+						class:selected={day === selectedDay}
+						class:today={day === todayDay}
 						on:click={() => selectDay(day)}>{day}</button
 					>
 				{/each}
@@ -179,6 +180,12 @@
 		grid-template-columns: repeat(7, 2.25rem);
 		justify-content: center;
 		gap: 2px;
+	}
+
+	/* Always reserve six week rows so the calendar (and the dialog) keeps a
+	   constant height across months, keeping the prev/next buttons fixed. */
+	.calendar-days {
+		grid-template-rows: repeat(6, 2.25rem);
 	}
 
 	.calendar-weekday {

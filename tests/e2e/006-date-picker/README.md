@@ -53,34 +53,44 @@ Choosing a day closes the calendar and shows the formatted due date in the field
 
 ![due_date_selected](screenshots/005-due-date-selected.png)
 
-### Step 006: repeat_options_open
+### Step 006: selection_highlighted
+
+Reopening the calendar shows the chosen day filled in the theme colour, updated reactively without needing to change months.
+
+**Verifications:**
+- [x] Exactly one day is highlighted as selected
+- [x] The highlighted day is the one that was chosen
+
+![selection_highlighted](screenshots/006-selection-highlighted.png)
+
+### Step 007: repeat_options_open
 
 The repeat selector is open, showing the available schedules: Doesn't repeat, Daily, Weekly, Monthly, Yearly, and Every Weekday.
 
 **Verifications:**
 - [x] Weekly option is available
 
-![repeat_options_open](screenshots/006-repeat-options-open.png)
+![repeat_options_open](screenshots/007-repeat-options-open.png)
 
-### Step 007: repeat_configured
+### Step 008: repeat_configured
 
 A "Weekly" repeat is selected and configured to recur every 2 weeks.
 
 **Verifications:**
 - [x] Repeat interval is set to 2
 
-![repeat_configured](screenshots/007-repeat-configured.png)
+![repeat_configured](screenshots/008-repeat-configured.png)
 
-### Step 008: saved
+### Step 009: saved
 
 After saving, the task shows its due date chip.
 
 **Verifications:**
 - [x] A due date chip is shown on the task
 
-![saved](screenshots/008-saved.png)
+![saved](screenshots/009-saved.png)
 
-### Step 009: reopened
+### Step 010: reopened
 
 Reopening the dialog shows the saved values: the due date is enabled and preserved, and the repeat interval is retained.
 
@@ -89,5 +99,5 @@ Reopening the dialog shows the saved values: the due date is enabled and preserv
 - [x] Saved due date is preserved
 - [x] Saved repeat interval is preserved
 
-![reopened](screenshots/009-reopened.png)
+![reopened](screenshots/010-reopened.png)
 
