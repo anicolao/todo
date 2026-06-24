@@ -290,25 +290,11 @@ export function load() {
 				writeCacheNow().catch(console.error);
 				store.dispatch(
 					set_loading_status({
-						loadingPercentage: 100,
-						loadingStatus: 'Done',
-						loadingListIndex: numberOfInitialLists,
-						loadingListTotal: numberOfInitialLists,
+						loadingStatus: '',
+						loadingListName: '',
 						loadingActionIndex: 0,
 						loadingActionTotal: 0
 					})
-				);
-				window.setTimeout(
-					() =>
-						store.dispatch(
-							set_loading_status({
-								loadingStatus: '',
-								loadingListName: '',
-								loadingActionIndex: 0,
-								loadingActionTotal: 0
-							})
-						),
-					2000
 				);
 				initialListsLoading = null;
 				watchPendingShareLists(store.getState());
