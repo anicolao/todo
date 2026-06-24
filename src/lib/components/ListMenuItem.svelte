@@ -17,10 +17,14 @@
 	export let requestId = '';
 	export let sharerId = '';
 	export let nested = false;
+	export let labelExpanded = false;
+	export let labelPinned = false;
 	export let setActive: (name: string, keepDrawerOpen?: boolean) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
 	};
+	export let pinLabel: (listId: string) => void = () => {};
+	export let onTogglePinnedLabel: (listId: string) => void = () => {};
 	export let openEditDialog = () => {
 		store.dispatch(show_edit_dialog(true));
 	};
@@ -45,9 +49,13 @@
 			const duration = new Date().getTime() - navigationTimeout;
 			if (duration < 600) {
 				const isLabel = $store.lists.listIdToType[listId] === 'label';
+				if (isLabel && !labelPinned && !activated) {
+					pinLabel(listId);
+					return;
+				}
 				const route = isLabel ? 'labels' : 'lists';
 				const param = isLabel ? 'labelId' : 'listId';
-				setActive(`${route}/?${param}=${listId}`, isLabel && !activated);
+				setActive(`${route}/?${param}=${listId}`);
 			}
 		};
 	}
@@ -80,6 +88,13 @@
 		openEditDialog();
 	}
 
+	function handleTogglePinnedLabel(e: Event) {
+		e.stopPropagation();
+		if (listId) {
+			onTogglePinnedLabel(listId);
+		}
+	}
+
 	let navigationTimeout = 0;
 </script>
 
@@ -105,6 +120,21 @@
 			{/if}
 			<Text>{$store.lists.listIdToList[listId]}</Text>
 		</Item>
+		{#if $store.lists.listIdToType[listId] === 'label' && labelExpanded}
+			<div class="list-menu-actions">
+				<button
+					type="button"
+					aria-label={`${labelPinned ? 'Unpin' : 'Pin'} label ${$store.lists.listIdToList[listId]}`}
+					title={`${labelPinned ? 'Unpin' : 'Pin'} label`}
+					class:unpinned={!labelPinned}
+					class="material-icons list-pin-button"
+					on:pointerdown={stopEvent}
+					on:mousedown={stopEvent}
+					on:pointerup|stopPropagation
+					on:click={handleTogglePinnedLabel}>push_pin</button
+				>
+			</div>
+		{/if}
 		{#if activated}
 			<div class="list-menu-actions">
 				{#if sharerId === ''}
@@ -176,5 +206,21 @@
 		justify-content: center;
 		padding: 0;
 		width: 48px;
+	}
+	.list-pin-button {
+		align-items: center;
+		background: transparent;
+		border: 0;
+		border-radius: 50%;
+		color: inherit;
+		cursor: pointer;
+		display: inline-flex;
+		height: 48px;
+		justify-content: center;
+		padding: 0;
+		width: 48px;
+	}
+	.list-pin-button.unpinned {
+		opacity: 0.45;
 	}
 </style>

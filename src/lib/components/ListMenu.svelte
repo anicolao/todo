@@ -79,6 +79,40 @@
 		);
 	}
 
+	function buildExpandedLabelIds(
+		pinnedLabelIds: string[],
+		activeLabelId: string,
+		pageListId: string,
+		lists: ListsState,
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
+	) {
+		const expandedLabelIds = new Set(pinnedLabelIds);
+		if (activeLabelId) {
+			expandedLabelIds.add(activeLabelId);
+		}
+		if (pageListId) {
+			const containingLabelId = findContainingLabelId(pageListId, lists, labelEntriesById);
+			if (containingLabelId) {
+				expandedLabelIds.add(containingLabelId);
+			}
+		}
+		return expandedLabelIds;
+	}
+
+	function pinLabel(labelId: string) {
+		if (!pinnedLabelIds.includes(labelId)) {
+			pinnedLabelIds = [...pinnedLabelIds, labelId];
+		}
+	}
+
+	function togglePinnedLabel(labelId: string) {
+		if (pinnedLabelIds.includes(labelId)) {
+			pinnedLabelIds = pinnedLabelIds.filter((id) => id !== labelId);
+		} else {
+			pinLabel(labelId);
+		}
+	}
+
 	let items: string[] = [];
 	function updateItems(displayItems: string[]) {
 		if (!arraysEqual(items, displayItems)) {
@@ -86,13 +120,17 @@
 			items = displayItems;
 		}
 	}
+	let pinnedLabelIds: string[] = [];
 	$: activeLabelId = $page.url.searchParams.get('labelId') || '';
 	$: pageListId = $page.url.searchParams.get('listId') || '';
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
-	$: expandedLabelId =
-		activeLabelId ||
-		(pageListId ? findContainingLabelId(pageListId, $store.lists, labelEntriesById) : '');
-	$: activeLabelEntries = expandedLabelId ? labelEntriesById[expandedLabelId] || [] : [];
+	$: expandedLabelIds = buildExpandedLabelIds(
+		pinnedLabelIds,
+		activeLabelId,
+		pageListId,
+		$store.lists,
+		labelEntriesById
+	);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
 	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
 	$: updateItems(displayItems);
@@ -310,10 +348,18 @@
 				data-id={listId}
 				animate:flip={{ duration: 200 }}
 			>
-				<ListMenuItem {listId} {setActive} {openEditDialog} />
-				{#if listId === expandedLabelId && activeLabelEntries.length > 0}
+				<ListMenuItem
+					{listId}
+					{setActive}
+					{openEditDialog}
+					labelExpanded={expandedLabelIds.has(listId)}
+					labelPinned={pinnedLabelIds.includes(listId)}
+					{pinLabel}
+					onTogglePinnedLabel={togglePinnedLabel}
+				/>
+				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
-						{#each activeLabelEntries as entry (entry.id)}
+						{#each labelEntriesById[listId] || [] as entry (entry.id)}
 							<div class="nested-list-item">
 								<ListMenuItem listId={entry.id} {setActive} {openEditDialog} nested />
 							</div>
