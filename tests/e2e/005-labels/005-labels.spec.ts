@@ -51,6 +51,33 @@ async function openNestedListFromActiveLabel(page: import('@playwright/test').Pa
 	await expect(page).toHaveURL(/lists\?listId=/);
 }
 
+async function expectDrawerOpen(page: import('@playwright/test').Page) {
+	const drawer = page.locator('.mdc-drawer');
+	await expect
+		.poll(async () => {
+			const isModal = await drawer.evaluate((element) =>
+				element.classList.contains('mdc-drawer--modal')
+			);
+			const box = await drawer.boundingBox();
+			return !isModal || (box !== null && Math.round(box.x) >= 0);
+		})
+		.toBe(true);
+}
+
+async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
+	const drawer = page.locator('.mdc-drawer');
+	const isModal = await drawer.evaluate((element) => element.classList.contains('mdc-drawer--modal'));
+	if (!isModal) {
+		return;
+	}
+	await expect
+		.poll(async () => {
+			const box = await drawer.boundingBox();
+			return box ? Math.round(box.x) : 0;
+		})
+		.toBeLessThan(0);
+}
+
 test('create a label containing a list', async ({ page }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
 	helper.setMetadata(
@@ -129,9 +156,24 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		verifications: [
 			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
 			{
+				spec: 'Drawer remains open so the user can choose a nested list',
+				check: async () => expectDrawerOpen(page)
+			},
+			{
 				spec: 'Source list group name is visible',
 				check: async () =>
 					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
+			}
+		]
+	});
+
+	await page.locator('.mdc-drawer').getByText(labelName).click();
+	await helper.step('active_label_tap_dismisses_drawer', {
+		description: 'Tapping the already-active label dismisses the mobile drawer.',
+		verifications: [
+			{
+				spec: 'Mobile drawer is dismissed',
+				check: async () => expectMobileDrawerClosed(page)
 			}
 		]
 	});

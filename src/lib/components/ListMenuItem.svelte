@@ -17,7 +17,7 @@
 	export let requestId = '';
 	export let sharerId = '';
 	export let nested = false;
-	export let setActive: (name: string) => void = (name: string) => {
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
 	};
@@ -44,9 +44,10 @@
 		return () => {
 			const duration = new Date().getTime() - navigationTimeout;
 			if (duration < 600) {
-				const route = $store.lists.listIdToType[listId] === 'label' ? 'labels' : 'lists';
-				const param = $store.lists.listIdToType[listId] === 'label' ? 'labelId' : 'listId';
-				setActive(`${route}/?${param}=${listId}`);
+				const isLabel = $store.lists.listIdToType[listId] === 'label';
+				const route = isLabel ? 'labels' : 'lists';
+				const param = isLabel ? 'labelId' : 'listId';
+				setActive(`${route}/?${param}=${listId}`, isLabel && !activated);
 			}
 		};
 	}
