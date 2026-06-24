@@ -58,10 +58,38 @@ async function clickDrawerLabel(page: import('@playwright/test').Page, labelName
 	await page.locator('.mdc-drawer .list-menu-item').filter({ hasText: labelName }).first().click();
 }
 
+function drawerTopLevelItem(page: import('@playwright/test').Page, name: string) {
+	return page
+		.locator('.mdc-drawer .listContainer > .mdc-deprecated-list > .item')
+		.filter({ has: page.locator('.list-menu-item').getByText(name, { exact: true }) })
+		.first();
+}
+
 async function expectNestedListVisible(page: import('@playwright/test').Page, listName: string) {
 	await expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
 		timeout: 10000
 	});
+}
+
+async function expectNestedListVisibleUnderLabel(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	listName: string
+) {
+	await expect(drawerTopLevelItem(page, labelName).locator('.nested-list-item').getByText(listName))
+		.toBeVisible({
+			timeout: 10000
+		});
+}
+
+async function expectNestedListHiddenUnderLabel(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	listName: string
+) {
+	await expect(
+		drawerTopLevelItem(page, labelName).locator('.nested-list-item').getByText(listName)
+	).toHaveCount(0);
 }
 
 async function expectDrawerOpen(page: import('@playwright/test').Page) {
@@ -339,4 +367,57 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	});
 
 	await helper.generateDocs();
+});
+
+test('active list expands every containing label', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+	await expect(page).toHaveURL(/\/profile/, { timeout: 10000 });
+	await openDrawerIfNeeded(page);
+
+	const listA = 'Overlap List A';
+	const listB = 'Overlap List B';
+	const labelA = 'Label A';
+	const labelB = 'Label B';
+	const labelAB = 'Label AB';
+
+	await page.getByLabel('New list').fill(listA);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
+	await openCurrentListEditDialog(page, listA);
+	await page.getByLabel('New label').fill(labelA);
+	await page.getByRole('button', { name: 'Create label' }).click();
+	await expect(page.getByLabel('New label')).toHaveValue('');
+	await page.getByLabel('New label').fill(labelAB);
+	await page.getByRole('button', { name: 'Create label' }).click();
+	await expect(page.getByLabel('New label')).toHaveValue('');
+	await page.getByRole('button', { name: 'Done' }).click();
+	await openDrawerIfNeeded(page);
+	await expect(drawerTopLevelItem(page, labelA)).toBeVisible({ timeout: 10000 });
+	await expect(drawerTopLevelItem(page, labelAB)).toBeVisible({ timeout: 10000 });
+
+	await openDrawerIfNeeded(page);
+	await page.getByLabel('New list').fill(listB);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listB)).toBeVisible({ timeout: 10000 });
+	await openCurrentListEditDialog(page, listB);
+	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeVisible({ timeout: 10000 });
+	await page.getByLabel('New label').fill(labelB);
+	await page.getByRole('button', { name: 'Create label' }).click();
+	await expect(page.getByLabel('New label')).toHaveValue('');
+	await page.getByLabel(`Include in ${labelAB}`).click();
+	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeChecked();
+	await page.getByRole('button', { name: 'Done' }).click();
+
+	await openDrawerIfNeeded(page);
+	await expectNestedListVisibleUnderLabel(page, labelB, listB);
+	await expectNestedListVisibleUnderLabel(page, labelAB, listB);
+	await expectNestedListHiddenUnderLabel(page, labelA, listA);
+
+	await drawerTopLevelItem(page, labelAB).locator('.nested-list-item').getByText(listA).click();
+	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
+	await openDrawerIfNeeded(page);
+	await expectNestedListVisibleUnderLabel(page, labelA, listA);
+	await expectNestedListVisibleUnderLabel(page, labelAB, listA);
+	await expectNestedListHiddenUnderLabel(page, labelB, listB);
 });
