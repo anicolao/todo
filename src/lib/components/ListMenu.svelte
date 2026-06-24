@@ -23,7 +23,7 @@
 	) => () => TransitionConfig;
 	*/
 
-	export let setActive: (name: string) => void;
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void;
 	export let openEditDialog: () => void;
 
 	function arraysEqual(a: string[], b: string[]) {

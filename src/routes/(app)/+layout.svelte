@@ -64,9 +64,9 @@
 	let topAppBar;
 
 	let active: string;
-	function setActive(name: string) {
+	function setActive(name: string, keepDrawerOpen = false) {
 		console.log('setActive ' + name);
-		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
+		drawerOpen = keepDrawerOpen || width > MOBILE_LAYOUT_WIDTH;
 		active = name;
 		firebase.dispatch(set_current_url('/' + name));
 		goto('/' + name);
