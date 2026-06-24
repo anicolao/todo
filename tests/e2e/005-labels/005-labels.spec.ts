@@ -31,7 +31,9 @@ async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
 }
 
 async function openCurrentListEditDialog(page: import('@playwright/test').Page, listName: string) {
-	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
+	await expect(page.getByRole('banner').getByText(listName, { exact: true })).toBeVisible({
+		timeout: 10000
+	});
 	await openDrawerIfNeeded(page);
 	const drawer = page.locator('.mdc-drawer');
 	const editButton = drawer
@@ -49,6 +51,16 @@ async function openNestedListFromActiveLabel(page: import('@playwright/test').Pa
 	await expect(nestedList).toBeVisible({ timeout: 10000 });
 	await nestedList.click();
 	await expect(page).toHaveURL(/lists\?listId=/);
+}
+
+async function clickDrawerLabel(page: import('@playwright/test').Page, labelName: string) {
+	await page.locator('.mdc-drawer .list-menu-item').filter({ hasText: labelName }).first().click();
+}
+
+async function expectNestedListVisible(page: import('@playwright/test').Page, listName: string) {
+	await expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
+		timeout: 10000
+	});
 }
 
 async function expectDrawerOpen(page: import('@playwright/test').Page) {
@@ -149,31 +161,41 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 
-	await page.locator('.mdc-drawer').getByText(labelName).click();
+	await clickDrawerLabel(page, labelName);
 
-	await helper.step('label_opened', {
-		description: 'User opened the label and sees the source list as a contained group.',
+	await helper.step('label_pinned_and_expanded', {
+		description: 'User tapped a collapsed label and it expanded as a pinned folder.',
 		verifications: [
-			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
+			{ spec: 'User remains on the source list', check: async () => expect(page).toHaveURL(/lists/) },
 			{
 				spec: 'Drawer remains open so the user can choose a nested list',
 				check: async () => expectDrawerOpen(page)
 			},
 			{
-				spec: 'Source list group name is visible',
+				spec: 'Source list appears nested under the pinned label',
+				check: async () => expectNestedListVisible(page, listName)
+			},
+			{
+				spec: 'Pinned label can be unpinned',
 				check: async () =>
-					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
+					expect(page.getByRole('button', { name: `Unpin label ${labelName}` })).toBeVisible()
 			}
 		]
 	});
 
-	await page.locator('.mdc-drawer').getByText(labelName).click();
-	await helper.step('active_label_tap_dismisses_drawer', {
-		description: 'Tapping the already-active label dismisses the mobile drawer.',
+	await clickDrawerLabel(page, labelName);
+	await helper.step('expanded_label_tap_selects_label', {
+		description: 'User tapped an already-expanded label to select the label view.',
 		verifications: [
+			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
 			{
-				spec: 'Mobile drawer is dismissed',
+				spec: 'Mobile drawer is dismissed after selecting the label',
 				check: async () => expectMobileDrawerClosed(page)
+			},
+			{
+				spec: 'Source list group name is visible',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
 			}
 		]
 	});
@@ -184,10 +206,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		verifications: [
 			{
 				spec: 'Source list appears nested under the active label',
-				check: async () =>
-					expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
-						timeout: 10000
-					})
+				check: async () => expectNestedListVisible(page, listName)
 			},
 			{
 				spec: 'Source list is hidden from the top-level sidebar',
@@ -203,6 +222,45 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 	await openNestedListFromActiveLabel(page, listName);
+
+	await openDrawerIfNeeded(page);
+	await helper.step('pinned_label_stays_open_after_nested_navigation', {
+		description: 'The pinned label stays expanded after navigating to a list inside it.',
+		verifications: [
+			{
+				spec: 'Nested source list remains visible',
+				check: async () => expectNestedListVisible(page, listName)
+			}
+		]
+	});
+
+	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
+	await helper.step('unpinned_label_collapses_after_navigation_away', {
+		description: 'An unpinned label collapses after the user navigates away from its nested list.',
+		verifications: [
+			{
+				spec: 'Unpinned label is still expanded while viewing its nested list',
+				check: async () => expectNestedListVisible(page, listName)
+			}
+		]
+	});
+
+	await page.goto('/profile');
+	await openDrawerIfNeeded(page);
+	await helper.step('unpinned_label_collapsed_after_navigation_away', {
+		description: 'The unpinned label collapsed after the user navigated away from its nested list.',
+		verifications: [
+			{
+				spec: 'Nested source list is no longer shown in the drawer',
+				check: async () => expect(page.locator('.nested-list-item').getByText(listName)).toHaveCount(0)
+			}
+		]
+	});
+
+	await clickDrawerLabel(page, labelName);
+	await clickDrawerLabel(page, labelName);
+	await openNestedListFromActiveLabel(page, listName);
+
 	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
 	await page.getByLabel(`Include in ${labelName}`).click();
@@ -219,7 +277,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 
 	await page.getByRole('button', { name: 'Cancel' }).click();
 	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer').getByText(labelName).click();
+	await clickDrawerLabel(page, labelName);
 
 	await helper.step('label_unchanged_after_cancel', {
 		description: 'User cancelled the draft removal and the label still contains the source list.',
@@ -250,7 +308,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 
 	await page.getByRole('button', { name: 'Done' }).click();
 	await openDrawerIfNeeded(page);
-	await page.locator('.mdc-drawer').getByText(labelName).click();
+	await clickDrawerLabel(page, labelName);
 
 	await helper.step('label_empty_after_removal', {
 		description: 'User opened the label and no longer sees the removed list.',
