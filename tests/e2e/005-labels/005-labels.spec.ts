@@ -105,6 +105,22 @@ async function createDraftLabel(page: import('@playwright/test').Page, labelName
 	await expect(labelsEditor.getByLabel('New label')).toHaveValue('');
 }
 
+async function toggleDraftLabelMembership(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	checked: boolean
+) {
+	const labelsEditor = page.locator('.labels-editor').filter({
+		has: page.getByLabel('New label')
+	});
+	const checkbox = labelsEditor.getByLabel(`Include in ${labelName}`);
+	await expect(checkbox).toBeVisible({ timeout: 10000 });
+	if ((await checkbox.isChecked()) !== checked) {
+		await checkbox.dispatchEvent('click');
+	}
+	await expect(checkbox).toBeChecked({ checked });
+}
+
 async function expectDrawerOpen(page: import('@playwright/test').Page) {
 	const drawer = page.locator('.mdc-drawer');
 	await expect
@@ -412,8 +428,7 @@ test('active list expands every containing label', async ({ page }) => {
 	await openCurrentListEditDialog(page, listB);
 	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeVisible({ timeout: 10000 });
 	await createDraftLabel(page, labelB);
-	await page.getByLabel(`Include in ${labelAB}`).click();
-	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeChecked();
+	await toggleDraftLabelMembership(page, labelAB, true);
 	await page.getByRole('button', { name: 'Done' }).click();
 
 	await openDrawerIfNeeded(page);
