@@ -1,11 +1,14 @@
 <script lang="ts">
 	console.log('ListMenu.svelte');
+	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
-	import { reorder_list } from './lists';
+	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
+	import { reorder_list, type ListsState } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
@@ -20,18 +23,108 @@
 	) => () => TransitionConfig;
 	*/
 
-	export let setActive: (name: string) => void;
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void;
+	export let openEditDialog: () => void;
 
-	let items: string[] = [];
-	function updateItems() {
-		if (items !== $store.lists.visibleLists) {
-			console.log('ListMenu.updateItems');
-			items = $store.lists.visibleLists;
+	function arraysEqual(a: string[], b: string[]) {
+		return a.length === b.length && a.every((value, index) => value === b[index]);
+	}
+
+	function resolveVisibleLabelEntries(labelId: string, lists: ListsState, labels: LabelsState) {
+		return resolveLabelQuery(labels.labelIdToLabel[labelId]?.query, lists, labels).filter(
+			(entry) => !entry.inaccessible
+		);
+	}
+
+	function buildLabelEntriesById(lists: ListsState, labels: LabelsState) {
+		return Object.fromEntries(
+			lists.visibleLists
+				.filter((listId) => lists.listIdToType[listId] === 'label')
+				.map((labelId) => [labelId, resolveVisibleLabelEntries(labelId, lists, labels)])
+		);
+	}
+
+	function findContainingLabelIds(
+		listId: string,
+		lists: ListsState,
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
+	) {
+		return lists.visibleLists.filter(
+			(candidateId) =>
+				lists.listIdToType[candidateId] === 'label' &&
+				labelEntriesById[candidateId]?.some((entry) => entry.id === listId)
+		);
+	}
+
+	function buildHiddenListIds(
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] },
+		lists: ListsState
+	) {
+		const hiddenListIds = new Set<string>();
+		Object.values(labelEntriesById).forEach((entries) => {
+			entries.forEach((entry) => {
+				if (lists.listIdToType[entry.id] !== 'label') {
+					hiddenListIds.add(entry.id);
+				}
+			});
+		});
+		return hiddenListIds;
+	}
+
+	function buildDisplayItems(lists: ListsState, hiddenListIds: Set<string>) {
+		return lists.visibleLists.filter(
+			(listId) => lists.listIdToType[listId] === 'label' || !hiddenListIds.has(listId)
+		);
+	}
+
+	function buildExpandedLabelIds(
+		pinnedLabelIds: string[],
+		pageListId: string,
+		lists: ListsState,
+		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
+	) {
+		const expandedLabelIds = new Set(pinnedLabelIds);
+		if (pageListId) {
+			findContainingLabelIds(pageListId, lists, labelEntriesById).forEach((labelId) =>
+				expandedLabelIds.add(labelId)
+			);
+		}
+		return expandedLabelIds;
+	}
+
+	function pinLabel(labelId: string) {
+		if (!pinnedLabelIds.includes(labelId)) {
+			pinnedLabelIds = [...pinnedLabelIds, labelId];
 		}
 	}
-	$: if ($store.lists.visibleLists) {
-		updateItems();
+
+	function togglePinnedLabel(labelId: string) {
+		if (pinnedLabelIds.includes(labelId)) {
+			pinnedLabelIds = pinnedLabelIds.filter((id) => id !== labelId);
+		} else {
+			pinLabel(labelId);
+		}
 	}
+
+	let items: string[] = [];
+	function updateItems(displayItems: string[]) {
+		if (!arraysEqual(items, displayItems)) {
+			console.log('ListMenu.updateItems');
+			items = displayItems;
+		}
+	}
+	let pinnedLabelIds: string[] = [];
+	$: pageListId = $page.url.searchParams.get('listId') || '';
+	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
+	$: expandedLabelIds = buildExpandedLabelIds(
+		pinnedLabelIds,
+		pageListId,
+		$store.lists,
+		labelEntriesById
+	);
+	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
+	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
+	$: updateItems(displayItems);
 	let dragTo: string;
 
 	let anchor: Element;
@@ -236,7 +329,7 @@
 		class={grabbed ? 'item haunting' : 'item'}
 		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
 	>
-		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
+		{#if grabbed}<ListMenuItem listId={grabbedItem} {openEditDialog} />{/if}
 	</div>
 	<List>
 		{#each items as listId, i (listId)}<div
@@ -246,7 +339,24 @@
 				data-id={listId}
 				animate:flip={{ duration: 200 }}
 			>
-				<ListMenuItem {listId} {setActive} />
+				<ListMenuItem
+					{listId}
+					{setActive}
+					{openEditDialog}
+					labelExpanded={expandedLabelIds.has(listId)}
+					labelPinned={pinnedLabelIds.includes(listId)}
+					{pinLabel}
+					onTogglePinnedLabel={togglePinnedLabel}
+				/>
+				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
+					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
+						{#each labelEntriesById[listId] || [] as entry (entry.id)}
+							<div class="nested-list-item">
+								<ListMenuItem listId={entry.id} {setActive} {openEditDialog} nested />
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>{/each}</List
 	>
 </div>
@@ -274,6 +384,16 @@
 
 	.item:not(#grabbed):not(#ghost) {
 		z-index: 10;
+	}
+
+	.nested-list-items {
+		border-left: 2px solid rgba(0, 0, 0, 0.12);
+		margin-left: 28px;
+		overflow: hidden;
+	}
+
+	.nested-list-item {
+		min-height: 40px;
 	}
 
 	#grabbed {

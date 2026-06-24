@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import List, { Item } from '@smui/list';
 
-	export let setActive: (name: string) => void;
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void;
 
 	$: pagePath = $page.url.pathname;
 </script>
