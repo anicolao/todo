@@ -49,7 +49,7 @@
 			// A real drag captures the pointer on the container, so this pointerup
 			// only fires for taps — navigate regardless of how long the press was.
 			const isLabel = $store.lists.listIdToType[listId] === 'label';
-			if (isLabel && !labelPinned && !activated) {
+			if (isLabel && !labelPinned && (!activated || !labelExpanded)) {
 				pinLabel(listId);
 				return;
 			}
