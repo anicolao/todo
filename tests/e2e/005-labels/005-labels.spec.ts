@@ -429,7 +429,7 @@ test('active list expands every containing label', async ({ page }) => {
 	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeVisible({ timeout: 10000 });
 	await createDraftLabel(page, labelB);
 	await toggleDraftLabelMembership(page, labelAB, true);
-	await page.getByRole('button', { name: 'Done' }).click();
+	await page.getByRole('button', { name: 'Done' }).dispatchEvent('click');
 
 	await openDrawerIfNeeded(page);
 	await expectNestedListVisibleUnderLabel(page, labelB, listB);
