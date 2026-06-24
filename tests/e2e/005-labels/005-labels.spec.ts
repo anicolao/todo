@@ -95,10 +95,14 @@ async function expectNestedListHiddenUnderLabel(
 }
 
 async function createDraftLabel(page: import('@playwright/test').Page, labelName: string) {
-	await page.getByLabel('New label').fill(labelName);
-	await expect(page.getByRole('button', { name: 'Create label' })).toBeEnabled();
-	await page.getByRole('button', { name: 'Create label' }).dispatchEvent('click');
-	await expect(page.getByLabel('New label')).toHaveValue('');
+	const labelsEditor = page.locator('.labels-editor').filter({
+		has: page.getByLabel('New label')
+	});
+	await expect(labelsEditor).toBeVisible({ timeout: 10000 });
+	await labelsEditor.getByLabel('New label').fill(labelName);
+	await expect(labelsEditor.getByRole('button', { name: 'Create label' })).toBeEnabled();
+	await labelsEditor.getByRole('button', { name: 'Create label' }).dispatchEvent('click');
+	await expect(labelsEditor.getByLabel('New label')).toHaveValue('');
 }
 
 async function expectDrawerOpen(page: import('@playwright/test').Page) {
