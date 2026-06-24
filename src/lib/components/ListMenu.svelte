@@ -44,17 +44,15 @@
 		);
 	}
 
-	function findContainingLabelId(
+	function findContainingLabelIds(
 		listId: string,
 		lists: ListsState,
 		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
 	) {
-		return (
-			lists.visibleLists.find(
-				(candidateId) =>
-					lists.listIdToType[candidateId] === 'label' &&
-					labelEntriesById[candidateId]?.some((entry) => entry.id === listId)
-			) || ''
+		return lists.visibleLists.filter(
+			(candidateId) =>
+				lists.listIdToType[candidateId] === 'label' &&
+				labelEntriesById[candidateId]?.some((entry) => entry.id === listId)
 		);
 	}
 
@@ -87,10 +85,9 @@
 	) {
 		const expandedLabelIds = new Set(pinnedLabelIds);
 		if (pageListId) {
-			const containingLabelId = findContainingLabelId(pageListId, lists, labelEntriesById);
-			if (containingLabelId) {
-				expandedLabelIds.add(containingLabelId);
-			}
+			findContainingLabelIds(pageListId, lists, labelEntriesById).forEach((labelId) =>
+				expandedLabelIds.add(labelId)
+			);
 		}
 		return expandedLabelIds;
 	}
