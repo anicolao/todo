@@ -68,7 +68,6 @@
 
 {#if listId}
 	<Item
-		href="javascript:void(0)"
 		on:touchstart={(e) => {
 			navigationTimeout = new Date().getTime();
 		}}
