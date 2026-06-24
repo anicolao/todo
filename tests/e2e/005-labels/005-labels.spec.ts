@@ -222,6 +222,20 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 			}
 		]
 	});
+
+	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
+	await helper.step('active_unpinned_label_collapsed', {
+		description: 'The selected label collapses when it is not pinned and no current child list keeps it open.',
+		verifications: [
+			{
+				spec: 'Nested source list is hidden',
+				check: async () => expect(page.locator('.nested-list-item').getByText(listName)).toHaveCount(0)
+			}
+		]
+	});
+
+	await clickDrawerLabel(page, labelName);
+	await expectNestedListVisible(page, listName);
 	await openNestedListFromActiveLabel(page, listName);
 
 	await openDrawerIfNeeded(page);

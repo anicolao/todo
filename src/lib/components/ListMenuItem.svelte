@@ -49,7 +49,7 @@
 			const duration = new Date().getTime() - navigationTimeout;
 			if (duration < 600) {
 				const isLabel = $store.lists.listIdToType[listId] === 'label';
-				if (isLabel && !labelPinned && !activated) {
+				if (isLabel && !labelPinned && (!activated || !labelExpanded)) {
 					pinLabel(listId);
 					return;
 				}

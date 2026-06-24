@@ -81,15 +81,11 @@
 
 	function buildExpandedLabelIds(
 		pinnedLabelIds: string[],
-		activeLabelId: string,
 		pageListId: string,
 		lists: ListsState,
 		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
 	) {
 		const expandedLabelIds = new Set(pinnedLabelIds);
-		if (activeLabelId) {
-			expandedLabelIds.add(activeLabelId);
-		}
 		if (pageListId) {
 			const containingLabelId = findContainingLabelId(pageListId, lists, labelEntriesById);
 			if (containingLabelId) {
@@ -121,12 +117,10 @@
 		}
 	}
 	let pinnedLabelIds: string[] = [];
-	$: activeLabelId = $page.url.searchParams.get('labelId') || '';
 	$: pageListId = $page.url.searchParams.get('listId') || '';
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
 	$: expandedLabelIds = buildExpandedLabelIds(
 		pinnedLabelIds,
-		activeLabelId,
 		pageListId,
 		$store.lists,
 		labelEntriesById
