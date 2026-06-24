@@ -47,10 +47,12 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 
 async function openNestedListFromActiveLabel(page: import('@playwright/test').Page, listName: string) {
 	await openDrawerIfNeeded(page);
-	const nestedList = page.locator('.nested-list-item').getByText(listName);
+	const nestedList = page.locator('.nested-list-item').filter({
+		has: page.getByText(listName, { exact: true })
+	});
 	await expect(nestedList).toBeVisible({ timeout: 10000 });
 	await page.waitForTimeout(650);
-	await nestedList.click();
+	await nestedList.locator('.mdc-deprecated-list-item').click();
 	await expect(page).toHaveURL(/lists\?listId=/);
 }
 
@@ -415,7 +417,11 @@ test('active list expands every containing label', async ({ page }) => {
 	await expectNestedListVisibleUnderLabel(page, labelAB, listB);
 	await expectNestedListHiddenUnderLabel(page, labelA, listA);
 
-	await drawerTopLevelItem(page, labelAB).locator('.nested-list-item').getByText(listA).click();
+	await drawerTopLevelItem(page, labelAB)
+		.locator('.nested-list-item')
+		.filter({ has: page.getByText(listA, { exact: true }) })
+		.locator('.mdc-deprecated-list-item')
+		.click();
 	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
 	await openDrawerIfNeeded(page);
 	await expectNestedListVisibleUnderLabel(page, labelA, listA);
