@@ -92,6 +92,13 @@ async function expectNestedListHiddenUnderLabel(
 	).toHaveCount(0);
 }
 
+async function createDraftLabel(page: import('@playwright/test').Page, labelName: string) {
+	await page.getByLabel('New label').fill(labelName);
+	await expect(page.getByRole('button', { name: 'Create label' })).toBeEnabled();
+	await page.getByRole('button', { name: 'Create label' }).dispatchEvent('click');
+	await expect(page.getByLabel('New label')).toHaveValue('');
+}
+
 async function expectDrawerOpen(page: import('@playwright/test').Page) {
 	const drawer = page.locator('.mdc-drawer');
 	await expect
@@ -385,12 +392,8 @@ test('active list expands every containing label', async ({ page }) => {
 	await page.keyboard.press('Enter');
 	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
 	await openCurrentListEditDialog(page, listA);
-	await page.getByLabel('New label').fill(labelA);
-	await page.getByRole('button', { name: 'Create label' }).click();
-	await expect(page.getByLabel('New label')).toHaveValue('');
-	await page.getByLabel('New label').fill(labelAB);
-	await page.getByRole('button', { name: 'Create label' }).click();
-	await expect(page.getByLabel('New label')).toHaveValue('');
+	await createDraftLabel(page, labelA);
+	await createDraftLabel(page, labelAB);
 	await page.getByRole('button', { name: 'Done' }).click();
 	await openDrawerIfNeeded(page);
 	await expect(drawerTopLevelItem(page, labelA)).toBeVisible({ timeout: 10000 });
@@ -402,9 +405,7 @@ test('active list expands every containing label', async ({ page }) => {
 	await expect(page.getByRole('banner').getByText(listB)).toBeVisible({ timeout: 10000 });
 	await openCurrentListEditDialog(page, listB);
 	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeVisible({ timeout: 10000 });
-	await page.getByLabel('New label').fill(labelB);
-	await page.getByRole('button', { name: 'Create label' }).click();
-	await expect(page.getByLabel('New label')).toHaveValue('');
+	await createDraftLabel(page, labelB);
 	await page.getByLabel(`Include in ${labelAB}`).click();
 	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeChecked();
 	await page.getByRole('button', { name: 'Done' }).click();
