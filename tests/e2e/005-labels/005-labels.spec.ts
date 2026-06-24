@@ -260,6 +260,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 
 	await clickDrawerLabel(page, labelName);
 	await clickDrawerLabel(page, labelName);
+	await expectMobileDrawerClosed(page);
 	await openNestedListFromActiveLabel(page, listName);
 
 	await openCurrentListEditDialog(page, listName);
