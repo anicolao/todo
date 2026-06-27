@@ -6,7 +6,6 @@
 	import { flip } from 'svelte/animate';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { reorder_list } from './lists';
-	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
 	/*
@@ -151,7 +150,12 @@
 
 	let target: HTMLElement | null | undefined = null;
 	let pointerX = 0;
-	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
+	let startX = 0;
+	let startY = 0;
+	let dragArmed = false;
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+	const DRAG_THRESHOLD = 8; // px the pointer must move before a drag begins
+	const TOUCH_HOLD_MS = 400; // long-press before a touch can start a drag
 	let container: Element | undefined = undefined;
 	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
 		if (grabbed) {
@@ -159,22 +163,35 @@
 		}
 	});
 
+	// A press that never turned into a drag (a tap, or a touch scroll) must be
+	// abandoned without grabbing, so the tap reaches the list item's navigation.
+	function cancelPendingDrag() {
+		if (holdTimer) {
+			clearTimeout(holdTimer);
+			holdTimer = undefined;
+		}
+		target = null;
+		dragArmed = false;
+	}
+
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			const pointerId = e.pointerId;
-			const clientY = e.clientY;
-			const currentTarget = e.currentTarget as HTMLElement;
-			pointerX = e.clientX;
 			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
-			if (target) {
-				window.setTimeout(() => {
-					if (target) {
-						currentTarget.setPointerCapture(pointerId);
-						grab(clientY, target);
-					} else {
-						// console.log('onPointerDown no grab');
-					}
-				}, 100 + touchTimeout);
+			if (!target) {
+				return;
+			}
+			startX = e.clientX;
+			startY = e.clientY;
+			pointerX = e.clientX;
+			// Mouse/pen: a drag may begin as soon as the pointer moves far enough.
+			// Touch: only after a long press, so quick swipes scroll and taps tap.
+			if (e.pointerType === 'touch') {
+				dragArmed = false;
+				holdTimer = setTimeout(() => {
+					dragArmed = true;
+				}, TOUCH_HOLD_MS);
+			} else {
+				dragArmed = true;
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
@@ -183,17 +200,43 @@
 				pointerX = e.clientX;
 				drag(e.clientY);
 				updateDragTarget(e.clientX, e.clientY);
+				return;
+			}
+			if (!target) {
+				return;
+			}
+			const movedFar = Math.hypot(e.clientX - startX, e.clientY - startY) > DRAG_THRESHOLD;
+			if (!dragArmed) {
+				// Moving before the long press arms a drag means the user is
+				// scrolling; abandon the pending drag so the list scrolls normally.
+				if (movedFar) {
+					cancelPendingDrag();
+				}
+				return;
+			}
+			if (movedFar) {
+				// A real drag: capture the pointer now (so autoscroll keeps getting
+				// events) and pick the item up. Capturing only here means a plain
+				// tap is never hijacked and still navigates.
+				(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+				if (holdTimer) {
+					clearTimeout(holdTimer);
+					holdTimer = undefined;
+				}
+				grab(e.clientY, target);
+				pointerX = e.clientX;
+				updateDragTarget(e.clientX, e.clientY);
+				e.preventDefault();
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
-			release();
+			if (grabbed) {
+				release();
+			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
-			target = null;
-		},
-		onTouchStart: (e: TouchEvent) => {
-			touchTimeout = 400;
+			cancelPendingDrag();
 		},
 		onTouchMove: (e: TouchEvent) => {
 			if (grabbed) {
@@ -205,15 +248,21 @@
 				updateDragTarget(x, y);
 			}
 		},
-		onTouchEnd: (e: TouchEvent) => {
-			release();
-			target = null;
+		onTouchEnd: () => {
+			if (grabbed) {
+				release();
+			}
+			cancelPendingDrag();
 		},
 		onPointerCancel: (e: PointerEvent) => {
+			if (grabbed) {
+				autoScroller.stop();
+				grabbed = null;
+			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
-			target = null;
+			cancelPendingDrag();
 		}
 	};
 </script>
@@ -227,7 +276,6 @@
 	on:pointermove={containerDragHandlers.onPointerMove}
 	on:pointerup={containerDragHandlers.onPointerUp}
 	on:pointercancel={containerDragHandlers.onPointerCancel}
-	on:touchstart={containerDragHandlers.onTouchStart}
 	on:touchmove|nonpassive={containerDragHandlers.onTouchMove}
 	on:touchend={containerDragHandlers.onTouchEnd}
 >

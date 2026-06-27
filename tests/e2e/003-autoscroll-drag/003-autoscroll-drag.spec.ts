@@ -73,6 +73,9 @@ async function dragVisibleRowTowardTopOfViewport(
 
 	await page.mouse.move(startX, startY);
 	await page.mouse.down();
+	// A drag now starts on movement (not on a bare press), so nudge past the
+	// drag threshold to pick the row up before dragging it toward the top.
+	await page.mouse.move(startX, startY + 12, { steps: 2 });
 	await expect(row).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
 	await page.mouse.move(startX, topDragY, { steps: 20 });
 	await page.waitForTimeout(2000);

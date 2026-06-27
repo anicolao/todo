@@ -6,7 +6,6 @@
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
 	import ItemDisplay from './ItemDisplay.svelte';
-	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
 	export let listIdMatcher: (listId: string) => boolean = () => true;
@@ -243,78 +242,121 @@
 
 	let target: HTMLElement | null | undefined = null;
 	let pointerX = 0;
-	let touchTimeout = Capacitor.isNativePlatform() ? 400 : 0;
+	let startX = 0;
+	let startY = 0;
+	let dragArmed = false;
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+	const DRAG_THRESHOLD = 8; // px the pointer must move before a drag begins
+	const TOUCH_HOLD_MS = 400; // long-press before a touch can start a drag
 	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
 		if (grabbed) {
 			updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
 		}
 	});
 
+	// A press that never turned into a drag (a tap, or a touch scroll) must be
+	// abandoned without grabbing, so the tap reaches the item's own controls.
+	function cancelPendingDrag() {
+		if (holdTimer) {
+			clearTimeout(holdTimer);
+			holdTimer = undefined;
+		}
+		target = null;
+		dragArmed = false;
+	}
+
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			if (dragEnabled) {
-				const pointerId = e.pointerId;
-				const clientY = e.clientY;
-				const currentTarget = e.currentTarget as HTMLElement;
-				pointerX = e.clientX;
-				target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
-				if (target) {
-					window.setTimeout(() => {
-						if (target) {
-							currentTarget.setPointerCapture(pointerId);
-							grab(clientY, target);
-						} else {
-							// console.log('onPointerDown no grab');
-						}
-					}, 100 + touchTimeout);
-				}
+			if (!dragEnabled) {
+				return;
+			}
+			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
+			if (!target) {
+				return;
+			}
+			startX = e.clientX;
+			startY = e.clientY;
+			pointerX = e.clientX;
+			// Mouse/pen: a drag may begin as soon as the pointer moves far enough.
+			// Touch: only after a long press, so quick swipes scroll and taps tap.
+			if (e.pointerType === 'touch') {
+				dragArmed = false;
+				holdTimer = setTimeout(() => {
+					dragArmed = true;
+				}, TOUCH_HOLD_MS);
+			} else {
+				dragArmed = true;
 			}
 		},
 		onPointerMove: (e: PointerEvent) => {
-			if (dragEnabled) {
-				// Prevent text selection while dragging by preventing this default.
+			if (grabbed) {
 				e.preventDefault();
-
-				if (grabbed) {
-					pointerX = e.clientX;
-					drag(e.clientY);
-					updateDragTarget(e.clientX, e.clientY);
+				pointerX = e.clientX;
+				drag(e.clientY);
+				updateDragTarget(e.clientX, e.clientY);
+				return;
+			}
+			if (!dragEnabled || !target) {
+				return;
+			}
+			const movedFar = Math.hypot(e.clientX - startX, e.clientY - startY) > DRAG_THRESHOLD;
+			if (!dragArmed) {
+				// Moving before the long press arms a drag means the user is
+				// scrolling; abandon the pending drag so the list scrolls normally.
+				if (movedFar) {
+					cancelPendingDrag();
 				}
+				return;
+			}
+			if (movedFar) {
+				// A real drag: capture the pointer now (so autoscroll keeps getting
+				// events) and pick the item up. Capturing only here means a plain
+				// tap is never hijacked and still reaches the row's controls.
+				(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+				if (holdTimer) {
+					clearTimeout(holdTimer);
+					holdTimer = undefined;
+				}
+				grab(e.clientY, target);
+				pointerX = e.clientX;
+				updateDragTarget(e.clientX, e.clientY);
+				e.preventDefault();
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
-			if (dragEnabled) {
+			if (grabbed) {
 				release();
 			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
-			target = null;
-		},
-		onTouchStart: (e: TouchEvent) => {
-			touchTimeout = 400;
+			cancelPendingDrag();
 		},
 		onTouchMove: (e: TouchEvent) => {
-			if (dragEnabled && grabbed) {
-					e.preventDefault();
-					const x = e.touches[0].clientX;
-					const y = e.touches[0].clientY;
-					pointerX = x;
-					drag(y);
-					updateDragTarget(x, y);
-				}
-			},
-		onTouchEnd: (e: TouchEvent) => {
-			if (dragEnabled) {
+			if (grabbed) {
+				e.preventDefault();
+				const x = e.touches[0].clientX;
+				const y = e.touches[0].clientY;
+				pointerX = x;
+				drag(y);
+				updateDragTarget(x, y);
+			}
+		},
+		onTouchEnd: () => {
+			if (grabbed) {
 				release();
 			}
-			target = null;
+			cancelPendingDrag();
 		},
 		onPointerCancel: (e: PointerEvent) => {
+			if (grabbed) {
+				autoScroller.stop();
+				grabbed = null;
+			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
-			target = null;
+			cancelPendingDrag();
 		}
 	};
 
@@ -343,7 +385,6 @@
 			on:pointermove={containerDragHandlers.onPointerMove}
 			on:pointerup={containerDragHandlers.onPointerUp}
 			on:pointercancel={containerDragHandlers.onPointerCancel}
-			on:touchstart={containerDragHandlers.onTouchStart}
 			on:touchmove|nonpassive={containerDragHandlers.onTouchMove}
 			on:touchend={containerDragHandlers.onTouchEnd}
 		>
