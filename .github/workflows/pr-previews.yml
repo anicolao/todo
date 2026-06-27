@@ -82,6 +82,11 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: todo-firebase-1a740
           channelId: ${{ steps.preview.outputs.channel_id }}
+          # Use a newer firebase-tools than the action bundles: the older one
+          # hit a "premature close" on the channel-release HTTP call, retried it
+          # non-idempotently, and then failed with FAILED_PRECONDITION
+          # ("...is the current active version").
+          firebaseToolsVersion: latest
 
       - name: Comment manual preview URL
         if: ${{ github.event_name == 'workflow_dispatch' }}
