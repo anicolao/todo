@@ -38,10 +38,9 @@
 
 	function gotoList(listId: string) {
 		return () => {
-			const duration = new Date().getTime() - navigationTimeout;
-			if (duration < 600) {
-				setActive(`lists/?listId=${listId}`);
-			}
+			// A real drag captures the pointer on the container, so this pointerup
+			// only fires for taps — navigate regardless of how long the press was.
+			setActive(`lists/?listId=${listId}`);
 		};
 	}
 	$: activated = pageListId === listId;
@@ -63,21 +62,10 @@
 		};
 	}
 
-	let navigationTimeout = 0;
 </script>
 
 {#if listId}
-	<Item
-		on:touchstart={(e) => {
-			navigationTimeout = new Date().getTime();
-		}}
-		on:pointerdown={(e) => {
-			navigationTimeout = new Date().getTime();
-		}}
-		on:pointerup={gotoList(listId)}
-		{activated}
-		draggable="false"
-	>
+	<Item on:pointerup={gotoList(listId)} {activated} draggable="false">
 		{#if isShared}
 			<SharedListIcon />
 		{:else}

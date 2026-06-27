@@ -66,10 +66,11 @@ test('pressing and holding a list navigates instead of dragging', async ({ page 
 	// Creating B navigated to it; confirm the starting point.
 	await expect(page).toHaveURL(new RegExp(`listId=${listB}`));
 
-	// Press and hold List A for well over the old ~100ms drag timer, then release
-	// without moving. With the old behaviour this picked the row up and the tap
-	// was swallowed; now it must navigate.
-	await pressHoldRelease(page, drawerRow(page, 'Tap List A'), 300);
+	// Press and hold List A well past both the old ~100ms drag timer and the old
+	// 600ms navigation cutoff, then release without moving. The old behaviour
+	// either swallowed the tap (drag) or ignored it (too slow); now it must
+	// navigate regardless of how long the press was.
+	await pressHoldRelease(page, drawerRow(page, 'Tap List A'), 800);
 
 	await helper.step('held_tap_navigates', {
 		description:
