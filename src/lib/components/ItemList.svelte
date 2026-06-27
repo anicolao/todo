@@ -267,9 +267,10 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			if (!dragEnabled) {
-				return;
-			}
+			// Always arm here; whether a drag is actually allowed (dragEnabled) is
+			// re-checked at grab time. Bailing out now would lose the gesture,
+			// because focus/blur (which toggles dragEnabled) only settles after
+			// pointerdown — so the press after editing any row could never drag.
 			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
 			if (!target) {
 				return;
@@ -296,7 +297,7 @@
 				updateDragTarget(e.clientX, e.clientY);
 				return;
 			}
-			if (!dragEnabled || !target) {
+			if (!target) {
 				return;
 			}
 			const movedFar = Math.hypot(e.clientX - startX, e.clientY - startY) > DRAG_THRESHOLD;
@@ -306,6 +307,12 @@
 				if (movedFar) {
 					cancelPendingDrag();
 				}
+				return;
+			}
+			if (movedFar && !dragEnabled) {
+				// This row is being edited: let the pointer drive text selection in
+				// its input rather than reordering, and abandon the pending drag.
+				cancelPendingDrag();
 				return;
 			}
 			if (movedFar) {

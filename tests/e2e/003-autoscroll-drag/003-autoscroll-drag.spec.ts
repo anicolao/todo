@@ -183,3 +183,33 @@ test('clicking a list in the sidebar navigates to that list', async ({ page }) =
 		page.locator('.mdc-top-app-bar__title').filter({ hasText: listName1 })
 	).toBeVisible();
 });
+
+test('a task still picks up for a drag after another task was edited', async ({ page }) => {
+	await signIn(page);
+
+	const listName = `Edit then drag ${Date.now()}`;
+	await createList(page, listName);
+	await createTodoItems(page, ['Edit-drag A', 'Edit-drag B', 'Edit-drag C']);
+
+	// Edit the first task: focusing its input makes the app disable dragging
+	// while editing (after ~900ms) so text can be selected without reordering.
+	await todoInputs(page).first().click();
+	await page.waitForTimeout(1100);
+
+	// Now drag the second task. Before the fix, the press right after editing
+	// bailed out of pointerdown (dragEnabled was momentarily false) and never
+	// armed a drag, so no row could be dragged after touching any task. It must
+	// now pick the row up.
+	const row = todoRows(page).nth(1);
+	const box = await row.boundingBox();
+	if (!box) {
+		throw new Error('Cannot drag a row without a bounding box.');
+	}
+	const centerX = box.x + box.width / 2;
+	const centerY = box.y + box.height / 2;
+	await page.mouse.move(centerX, centerY);
+	await page.mouse.down();
+	await page.mouse.move(centerX, centerY + 12, { steps: 2 });
+	await expect(row).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
+	await page.mouse.up();
+});
