@@ -4,7 +4,8 @@
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
-	import { flip } from 'svelte/animate';
+	import { flip, type AnimationConfig } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
 	import {
@@ -109,6 +110,13 @@
 	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
+
+	function flipWhileDragging(
+		node: Element,
+		positions: { from: DOMRect; to: DOMRect }
+	): AnimationConfig {
+		return grabbed ? flip(node, positions, { duration: 200 }) : { duration: 0 };
+	}
 
 	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
 	let offsetY = 0; // negative y distance from top of grabbed element to pointer
@@ -362,7 +370,7 @@
 				class="item"
 				data-index={i}
 				data-id={listId}
-				animate:flip={{ duration: grabbed ? 200 : 0 }}
+				animate:flipWhileDragging
 			>
 				<ListMenuItem
 					{listId}
@@ -373,7 +381,7 @@
 					onTogglePinnedLabel={togglePinnedLabel}
 				/>
 				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
-					<div class="nested-list-items">
+					<div class="nested-list-items" transition:slide={{ duration: 200 }}>
 						{#each labelEntriesById[listId] || [] as entry (entry.id)}
 							<div class="nested-list-item">
 								<ListMenuItem

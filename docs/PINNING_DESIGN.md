@@ -237,14 +237,16 @@ The control behavior is:
 
 ## Animation
 
-Label expansion and collapse must be immediate. They must not use transitions or
-animate top-level label rows: expansion changes layout and combining a height
-transition with row FLIP animations causes overlapping and restartable motion.
+Label expansion slides the nested contents down, and collapse slides those
+contents up and away. This is one short, bidirectional transition on the nested
+contents container; the top-level label row itself does not animate.
 
-The existing FLIP animation may still be used while the user is actively
-dragging to reorder sidebar entries. Outside an active drag, URL changes, pin
-changes, membership updates, reloads, and synchronization updates must not
-animate sidebar rows or defer adding or removing nested label content.
+The existing FLIP animation is used only while the user is actively dragging to
+reorder sidebar entries. Outside an active drag, URL changes, pin changes,
+membership updates, reloads, and synchronization updates must not animate
+top-level sidebar rows. In particular, the contents slide and row FLIP must not
+run together: both changing the same layout caused overlapping, restartable
+motion.
 
 ## Lifecycle Cases
 
