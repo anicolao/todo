@@ -82,9 +82,11 @@ async function startSidebarAnimationCapture(page: import('@playwright/test').Pag
 		document.querySelector('.listContainer')?.addEventListener('animationstart', (event) => {
 			const target = event.target;
 			if (target instanceof HTMLElement) {
-				animationTargets.push(
-					target.classList.contains('nested-list-items') ? 'nested-list-items' : target.className
-				);
+				if (target.classList.contains('nested-list-items')) {
+					animationTargets.push('nested-list-items');
+				} else if (target.classList.contains('item')) {
+					animationTargets.push('item');
+				}
 			}
 		});
 	});
@@ -100,6 +102,7 @@ async function expectOneNestedContentsAnimation(page: import('@playwright/test')
 			)
 		)
 		.toBe(1);
+	await page.waitForTimeout(300);
 	const animationTargets = await page.evaluate(
 		() =>
 			(window as typeof window & { sidebarAnimationTargets?: string[] }).sidebarAnimationTargets ||
