@@ -5,7 +5,6 @@
 	import { store } from '$lib/store';
 	import List from '@smui/list';
 	import { flip } from 'svelte/animate';
-	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
 	import {
@@ -363,7 +362,7 @@
 				class="item"
 				data-index={i}
 				data-id={listId}
-				animate:flip={{ duration: 200 }}
+				animate:flip={{ duration: grabbed ? 200 : 0 }}
 			>
 				<ListMenuItem
 					{listId}
@@ -374,7 +373,7 @@
 					onTogglePinnedLabel={togglePinnedLabel}
 				/>
 				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
-					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
+					<div class="nested-list-items">
 						{#each labelEntriesById[listId] || [] as entry (entry.id)}
 							<div class="nested-list-item">
 								<ListMenuItem

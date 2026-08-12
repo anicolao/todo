@@ -235,6 +235,17 @@ The control behavior is:
 - Activating the pin button must stop propagation so it never selects the label
   view accidentally.
 
+## Animation
+
+Label expansion and collapse must be immediate. They must not use transitions or
+animate top-level label rows: expansion changes layout and combining a height
+transition with row FLIP animations causes overlapping and restartable motion.
+
+The existing FLIP animation may still be used while the user is actively
+dragging to reorder sidebar entries. Outside an active drag, URL changes, pin
+changes, membership updates, reloads, and synchronization updates must not
+animate sidebar rows or defer adding or removing nested label content.
+
 ## Lifecycle Cases
 
 ### New label
