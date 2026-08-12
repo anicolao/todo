@@ -100,9 +100,23 @@ describe('label sidebar expansion', () => {
 		expect([...expanded]).to.deep.equal([]);
 	});
 
-	it('combines route, persisted pin, and unpin-preserved expansion', () => {
-		const expanded = buildExpandedLabelIds(['label-a'], new Set(['label-b']), ['label-c']);
+	it('combines route-derived expansion and persisted pins', () => {
+		const expanded = buildExpandedLabelIds(['label-a'], new Set(['label-b']));
 
-		expect([...expanded]).to.deep.equal(['label-a', 'label-b', 'label-c']);
+		expect([...expanded]).to.deep.equal(['label-a', 'label-b']);
+	});
+
+	it('collapses a pinned-only label when its pin is removed', () => {
+		const beforeUnpin = buildExpandedLabelIds(['label-a'], new Set());
+		const afterUnpin = buildExpandedLabelIds([], new Set());
+
+		expect([...beforeUnpin]).to.deep.equal(['label-a']);
+		expect([...afterUnpin]).to.deep.equal([]);
+	});
+
+	it('keeps a route-expanded label open when its pin is removed', () => {
+		const afterUnpin = buildExpandedLabelIds([], new Set(['label-a']));
+
+		expect([...afterUnpin]).to.deep.equal(['label-a']);
 	});
 });

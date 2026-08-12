@@ -45,8 +45,7 @@ export function buildRouteExpandedLabelIds(
 
 export function buildExpandedLabelIds(
 	pinnedLabelIds: string[],
-	routeExpandedLabelIds: Set<string>,
-	unpinPreservedLabelIds: string[]
+	routeExpandedLabelIds: Set<string>
 ) {
-	return new Set([...pinnedLabelIds, ...routeExpandedLabelIds, ...unpinPreservedLabelIds]);
+	return new Set([...pinnedLabelIds, ...routeExpandedLabelIds]);
 }

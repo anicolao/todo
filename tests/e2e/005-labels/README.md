@@ -84,26 +84,26 @@ The explicit pin survives reload and unrelated navigation.
 
 ![pinned_label_persists](screenshots/008-pinned-label-persists.png)
 
-### Step 009: unpin_keeps_label_open
+### Step 009: unpin_collapses_pinned_only_label
 
-Unpinning changes only persistence and does not collapse the label.
+Unpinning on an unrelated route collapses a label that was open only because it was pinned.
 
 **Verifications:**
 - [x] Current route is unchanged
-- [x] Label remains expanded immediately after unpinning
-- [x] Control changes back to Pin
+- [x] Nested source list is no longer shown
+- [x] Collapsed label has no pin control
 
-![unpin_keeps_label_open](screenshots/009-unpin-keeps-label-open.png)
+![unpin_collapses_pinned_only_label](screenshots/009-unpin-collapses-pinned-only-label.png)
 
-### Step 010: unpinned_label_closes_on_next_navigation
+### Step 010: unpinned_label_stays_closed_after_navigation
 
-The next URL navigation recalculates expansion and closes the unpinned label.
+Subsequent navigation continues to derive the unpinned label as closed.
 
 **Verifications:**
 - [x] Nested source list is no longer shown
 - [x] Closed label again has no pin control
 
-![unpinned_label_closes_on_next_navigation](screenshots/010-unpinned-label-closes-on-next-navigation.png)
+![unpinned_label_stays_closed_after_navigation](screenshots/010-unpinned-label-stays-closed-after-navigation.png)
 
 ### Step 011: nested_navigation_records_via
 
