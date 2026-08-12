@@ -93,11 +93,7 @@ async function expectTasksVisible(page: Page, taskNames: string[]) {
 
 async function openEditListDialog(page: Page) {
 	await ensureListMenuVisible(page);
-	await page
-		.locator('.mdc-drawer button.material-icons')
-		.filter({ hasText: 'edit' })
-		.first()
-		.click();
+	await page.locator('.mdc-drawer').getByRole('button', { name: 'Edit list' }).first().click();
 	await expect(page.getByText('Edit List')).toBeVisible();
 }
 

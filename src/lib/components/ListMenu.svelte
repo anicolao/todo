@@ -426,7 +426,7 @@
 
 	.nested-list-items {
 		border-left: 2px solid rgba(0, 0, 0, 0.12);
-		margin-left: 16px;
+		margin-left: 8px;
 		overflow: hidden;
 	}
 
