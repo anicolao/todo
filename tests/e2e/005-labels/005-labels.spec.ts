@@ -18,8 +18,9 @@ async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
 	const drawerIsModal = await drawer.evaluate((element) =>
 		element.classList.contains('mdc-drawer--modal')
 	);
-	const drawerBox = await drawer.boundingBox();
-	const drawerIsOpen = !drawerIsModal || (drawerBox !== null && drawerBox.x >= -1);
+	const drawerIsOpen =
+		!drawerIsModal ||
+		(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--open')));
 	if (!drawerIsOpen) {
 		const menuButton = page.locator('button.material-icons:has-text("menu")');
 		if (await menuButton.isVisible()) {
@@ -175,12 +176,7 @@ async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
 	if (!isModal) {
 		return;
 	}
-	await expect
-		.poll(async () => {
-			const box = await drawer.boundingBox();
-			return box ? Math.round(box.x) : 0;
-		})
-		.toBeLessThan(0);
+	await expect(drawer).not.toHaveClass(/mdc-drawer--open/);
 }
 
 async function expectPersistedGlobalAction(
