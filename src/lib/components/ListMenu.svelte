@@ -69,12 +69,13 @@
 
 	function togglePinnedLabel(labelId: string) {
 		if ($store.lists.pinnedLabelIds.includes(labelId)) {
-			if (!unpinPreservedLabelIds.includes(labelId)) {
-				unpinPreservedLabelIds = [...unpinPreservedLabelIds, labelId];
-			}
-			firebase.dispatch(unpin_label({ id: labelId }));
+			const action = unpin_label({ id: labelId });
+			store.dispatch(action);
+			firebase.dispatch(action);
 		} else {
-			firebase.dispatch(pin_label({ id: labelId }));
+			const action = pin_label({ id: labelId });
+			store.dispatch(action);
+			firebase.dispatch(action);
 		}
 	}
 
@@ -85,16 +86,9 @@
 			items = displayItems;
 		}
 	}
-	let unpinPreservedLabelIds: string[] = [];
-	let previousRouteKey = '';
 	$: pageListId = $page.url.searchParams.get('listId') || '';
 	$: pageLabelId = $page.url.searchParams.get('labelId') || '';
 	$: viaLabelId = $page.url.searchParams.get('via') || '';
-	$: routeKey = `${$page.url.pathname}?${$page.url.searchParams.toString()}`;
-	$: if (routeKey !== previousRouteKey) {
-		previousRouteKey = routeKey;
-		unpinPreservedLabelIds = [];
-	}
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
 	$: routeExpandedLabelIds = buildRouteExpandedLabelIds(
 		$page.url.pathname,
@@ -104,11 +98,7 @@
 		$store.lists,
 		labelEntriesById
 	);
-	$: expandedLabelIds = buildExpandedLabelIds(
-		$store.lists.pinnedLabelIds,
-		routeExpandedLabelIds,
-		unpinPreservedLabelIds
-	);
+	$: expandedLabelIds = buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
 	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
 	$: updateItems(displayItems);

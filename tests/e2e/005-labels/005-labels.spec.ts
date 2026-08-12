@@ -382,21 +382,22 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	const profileRoute = page.url();
 	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
 	await expectPersistedGlobalAction(request, 'unpin_label', labelId);
-	await helper.step('unpin_keeps_label_open', {
-		description: 'Unpinning changes only persistence and does not collapse the label.',
+	await helper.step('unpin_collapses_pinned_only_label', {
+		description:
+			'Unpinning on an unrelated route collapses a label that was open only because it was pinned.',
 		verifications: [
 			{
 				spec: 'Current route is unchanged',
 				check: async () => expect(page).toHaveURL(profileRoute)
 			},
 			{
-				spec: 'Label remains expanded immediately after unpinning',
-				check: async () => expectNestedListVisibleUnderLabel(page, labelName, listName)
+				spec: 'Nested source list is no longer shown',
+				check: async () => expectNestedListHiddenUnderLabel(page, labelName, listName)
 			},
 			{
-				spec: 'Control changes back to Pin',
+				spec: 'Collapsed label has no pin control',
 				check: async () =>
-					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toBeVisible()
+					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toHaveCount(0)
 			}
 		]
 	});
@@ -407,8 +408,8 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 		.click();
 	await expect(page).toHaveURL(/\/search$/);
 	await openDrawerIfNeeded(page);
-	await helper.step('unpinned_label_closes_on_next_navigation', {
-		description: 'The next URL navigation recalculates expansion and closes the unpinned label.',
+	await helper.step('unpinned_label_stays_closed_after_navigation', {
+		description: 'Subsequent navigation continues to derive the unpinned label as closed.',
 		verifications: [
 			{
 				spec: 'Nested source list is no longer shown',

@@ -20,7 +20,8 @@ The following requirements are the starting point for this design:
 3. Pinning is a separate, explicit action performed through a pin control.
 4. Pinning is persisted per user.
 5. Unpinning is also a separate, explicit action. It persists the unpinned state
-   without changing whether the label is currently expanded.
+   and immediately recalculates expansion from the current URL and remaining
+   pins.
 6. The pin control is available only while a label is expanded. Closed labels do
    not show pin controls.
 7. List navigation records an explicit parent-label context as
@@ -39,9 +40,10 @@ The following requirements are the starting point for this design:
 - **Via label:** the label id in a list route's optional `via` query parameter.
   It identifies the label through which the user navigated to that list.
 
-Selection, expansion, and pinning are independent state. Pinning or unpinning a
-label must not select it, navigate away from the current view, or toggle its
-current expansion state.
+Selection, expansion, and pinning are separate concepts. Pinning or unpinning a
+label must not select it or navigate away from the current view. Expansion is
+always derived from the current URL and persisted pins, so unpinning collapses a
+label when the URL does not independently require it to be open.
 
 ## State Model
 
@@ -76,8 +78,8 @@ older IndexedDB caches are discarded and rebuilt from the action logs.
 
 ### Route-derived expansion
 
-Unpinned expansion should normally be derived from the current URL rather than
-stored in an ambiguous session-only “context” variable:
+Unpinned expansion is derived from the current URL rather than stored in an
+ambiguous session-only “context” variable:
 
 ```text
 /labels?labelId=Y         -> expand Y
@@ -94,14 +96,11 @@ label membership changes.
 The effective expanded set is:
 
 ```text
-pinnedLabelIds UNION routeExpandedLabelIds UNION unpinPreservedLabelIds
+pinnedLabelIds UNION routeExpandedLabelIds
 ```
 
-`unpinPreservedLabelIds` is a narrow transient exception needed to keep
-unpinning independent from expansion. If a label was open only because it was
-pinned, unpinning adds it to this set so it does not collapse as a side effect.
-This set is cleared on the next URL navigation. It is not persisted and does not
-need to be encoded in browser history.
+There is no session-only expanded-label state. The same URL and persisted pin
+state must always produce the same expanded set.
 
 The current implementation derives some expansion from membership and silently
 adds pin state when a row is clicked. That model should be replaced with
@@ -162,14 +161,13 @@ Clicking the active pin control should:
 
 1. Dispatch `unpin_label({ id })` to the user's global action stream.
 2. Remove the label only from persisted pin state.
-3. Preserve its current expansion through the route-derived state or, if the
-   route does not require it to be open, `unpinPreservedLabelIds`.
+3. Recalculate expansion from the current URL and remaining persisted pins.
 4. Leave the current route and selected content unchanged.
 5. Keep the drawer open.
 
-After unpinning, the label remains open on the current URL. On the next
-navigation, expansion is recalculated from persisted pins and the destination
-URL. Closing the label is not part of the unpin action.
+After unpinning, the label remains open only if the current URL requires it. For
+example, unpinning the selected label on `/labels?labelId=Y` leaves it open,
+while unpinning label `Y` on `/profile` collapses it immediately.
 
 ## Navigation Behavior
 
@@ -182,7 +180,7 @@ state needs to be inferred.
 | Closed, unpinned label Y  | Click label row                          | Y opens, unpinned                                             | `/labels?labelId=Y`     |
 | Open, unpinned label Y    | Click label row                          | Y remains open, unpinned                                      | `/labels?labelId=Y`     |
 | Open, unpinned label Y    | Click Pin                                | Y remains open, pinned                                        | Current URL unchanged   |
-| Open, pinned label Y      | Click Unpin                              | Y remains open, unpinned                                      | Current URL unchanged   |
+| Open, pinned label Y      | Click Unpin                              | Y follows the current URL; it closes if open only due to pin  | Current URL unchanged   |
 | Open label Y containing X | Click nested list X                      | Y remains open; other unpinned parents of X close             | `/lists?listId=X&via=Y` |
 | Any route                 | Open list X without `via`                | Every visible label containing X opens                        | `/lists?listId=X`       |
 | Any route                 | Open label Z                             | Z and all pinned labels open; unrelated unpinned labels close | `/labels?labelId=Z`     |
@@ -236,8 +234,6 @@ The control behavior is:
 - Ensure the row and pin button are separate keyboard targets.
 - Activating the pin button must stop propagation so it never selects the label
   view accidentally.
-- Focus should remain on the pin control after pinning or unpinning; neither
-  action removes the expanded child region.
 
 ## Lifecycle Cases
 
@@ -306,8 +302,10 @@ shared label through their own global action streams.
   labels.
 - Closed labels do not render a pin control.
 - Pinning an open label keeps it open without navigating.
-- Unpinning keeps the label open without navigating away.
-- After unpinning, the next navigation recalculates expansion from pins and URL.
+- Unpinning keeps the current route and selected content unchanged.
+- Unpinning immediately recalculates expansion from pins and the current URL.
+- A label open only because it was pinned collapses immediately when unpinned.
+- A route-expanded label remains open when unpinned.
 - A nested-list click adds the correct `via` label to the list URL.
 - A valid `via` expands only that unpinned parent label.
 - A missing `via` expands every visible label containing the selected list.
