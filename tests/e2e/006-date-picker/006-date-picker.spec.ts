@@ -83,6 +83,15 @@ async function taskInputValues(page: Page) {
 const openDialog = (page: Page) => page.locator('.mdc-dialog--open');
 const dateField = (page: Page) => openDialog(page).locator('.date-anchor input');
 
+async function openTaskDetailsDialog(page: Page) {
+	const details = taskRows(page).first().locator('span.details');
+	await expect(details).toBeVisible({ timeout: 10000 });
+	await expect(async () => {
+		await details.click();
+		await expect(openDialog(page)).toBeVisible({ timeout: 1000 });
+	}).toPass({ timeout: 10000 });
+}
+
 /**
  * Scenario for the "Edit Task" date picker dialog.
  *
@@ -114,7 +123,7 @@ test('date picker dialog', async ({ page }, testInfo) => {
 	});
 
 	// --- Open the Edit Task dialog ------------------------------------------
-	await taskRows(page).first().locator('span.details').click();
+	await openTaskDetailsDialog(page);
 
 	await helper.step('dialog_opened', {
 		description:
@@ -259,7 +268,7 @@ test('date picker dialog', async ({ page }, testInfo) => {
 		]
 	});
 
-	await taskRows(page).first().locator('span.details').click();
+	await openTaskDetailsDialog(page);
 
 	await helper.step('reopened', {
 		description:
