@@ -356,6 +356,11 @@ Labels participate in `visibleLists`; they are not shown from a separate
 `visibleLabels` structure and should not be segregated into a different sidebar
 section.
 
+Label folder expansion and persisted pinning are specified separately in
+[`PINNING_DESIGN.md`](PINNING_DESIGN.md). That design is approved. Clicking a
+label row expands the folder and loads the label view in one action, while
+pinning is a separate, explicit, per-user persisted action.
+
 For the first implementation, new labels should be inserted at the top of
 `visibleLists`. Existing list reordering behavior can move labels and lists
 together once the drag code knows how to render both document types. If that is
@@ -368,6 +373,11 @@ Clicking a visible id should route based on `listIdToType[id]`:
 list  -> /lists?listId=ID
 label -> /labels?labelId=ID
 ```
+
+When a list is selected from inside label `LABEL_ID`, its route should preserve
+that explicit sidebar context as `/lists?listId=ID&via=LABEL_ID`. Direct list
+routes without `via` expand every visible label containing the list, as specified
+in [`PINNING_DESIGN.md`](PINNING_DESIGN.md).
 
 The sidebar row should use the renderer implied by `listIdToType[id]`. This is a
 display distinction, not a separate ordering or sharing model.

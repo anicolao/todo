@@ -179,7 +179,8 @@ describe('labels', () => {
 			listIdToList: { list1: 'Work' },
 			listIdToType: { list1: 'list' },
 			listIdToLastKnownInfo: { missing1: { name: 'Old Shared List', ownerEmail: 'a@example.com' } },
-			listIdToTimestamp: {}
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
 		};
 		const labelState = labels(
 			initialState,
