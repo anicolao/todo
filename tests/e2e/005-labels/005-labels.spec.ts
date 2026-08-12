@@ -74,6 +74,40 @@ async function clickDrawerLabel(page: import('@playwright/test').Page, labelName
 	await page.locator('.mdc-drawer .list-menu-item').filter({ hasText: labelName }).first().click();
 }
 
+async function startSidebarAnimationCapture(page: import('@playwright/test').Page) {
+	await page.evaluate(() => {
+		const animationTargets: string[] = [];
+		(window as typeof window & { sidebarAnimationTargets?: string[] }).sidebarAnimationTargets =
+			animationTargets;
+		document.querySelector('.listContainer')?.addEventListener('animationstart', (event) => {
+			const target = event.target;
+			if (target instanceof HTMLElement) {
+				animationTargets.push(
+					target.classList.contains('nested-list-items') ? 'nested-list-items' : target.className
+				);
+			}
+		});
+	});
+}
+
+async function expectOneNestedContentsAnimation(page: import('@playwright/test').Page) {
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					(window as typeof window & { sidebarAnimationTargets?: string[] }).sidebarAnimationTargets
+						?.length || 0
+			)
+		)
+		.toBe(1);
+	const animationTargets = await page.evaluate(
+		() =>
+			(window as typeof window & { sidebarAnimationTargets?: string[] }).sidebarAnimationTargets ||
+			[]
+	);
+	expect(animationTargets).toEqual(['nested-list-items']);
+}
+
 function drawerTopLevelItem(page: import('@playwright/test').Page, name: string) {
 	return page
 		.locator('.mdc-drawer .listContainer > .mdc-deprecated-list > .item')
@@ -300,8 +334,10 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 		]
 	});
 
+	await startSidebarAnimationCapture(page);
 	await clickDrawerLabel(page, labelName);
 	await expect(page).toHaveURL(/labels\?labelId=/);
+	await expectOneNestedContentsAnimation(page);
 	const labelId = new URL(page.url()).searchParams.get('labelId');
 	if (!labelId) {
 		throw new Error('Label route did not include labelId');
@@ -380,8 +416,10 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	});
 
 	const profileRoute = page.url();
+	await startSidebarAnimationCapture(page);
 	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
 	await expectPersistedGlobalAction(request, 'unpin_label', labelId);
+	await expectOneNestedContentsAnimation(page);
 	await helper.step('unpin_collapses_pinned_only_label', {
 		description:
 			'Unpinning on an unrelated route collapses a label that was open only because it was pinned.',
