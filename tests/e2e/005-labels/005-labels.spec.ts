@@ -159,6 +159,29 @@ async function expectNestedListVisibleUnderLabel(
 	});
 }
 
+async function expectNestedListSnugUnderLabel(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	listName: string
+) {
+	const labelRow = drawerTopLevelItem(page, labelName);
+	const labelIcon = labelRow.locator('img[src="/new/label.svg"]');
+	const nestedIcon = labelRow
+		.locator('.nested-list-item')
+		.filter({ has: page.getByText(listName, { exact: true }) })
+		.locator('img[src="/new/list.svg"]');
+	await expect(labelIcon).toBeVisible();
+	await expect(nestedIcon).toBeVisible();
+	const labelBox = await labelIcon.boundingBox();
+	const nestedBox = await nestedIcon.boundingBox();
+	expect(labelBox).not.toBeNull();
+	expect(nestedBox).not.toBeNull();
+	if (labelBox && nestedBox) {
+		expect(nestedBox.x - labelBox.x).toBeGreaterThanOrEqual(0);
+		expect(nestedBox.x - labelBox.x).toBeLessThanOrEqual(16);
+	}
+}
+
 async function expectNestedListHiddenUnderLabel(
 	page: import('@playwright/test').Page,
 	labelName: string,
@@ -397,6 +420,10 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 			{
 				spec: 'Source list appears nested under the selected label',
 				check: async () => expectNestedListVisibleUnderLabel(page, labelName, listName)
+			},
+			{
+				spec: 'Nested list uses the new assets without excessive indentation',
+				check: async () => expectNestedListSnugUnderLabel(page, labelName, listName)
 			},
 			{
 				spec: 'Open label offers a separate Pin action',

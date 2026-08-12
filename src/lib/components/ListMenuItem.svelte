@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
-	import IconButton, { Icon } from '@smui/icon-button';
+	import IconButton from '@smui/icon-button';
 	import { Item, Text } from '@smui/list';
 	import ListIcon from './ListIcon.svelte';
 	import SharedListIcon from './SharedListIcon.svelte';
@@ -103,7 +103,7 @@
 			aria-expanded={$store.lists.listIdToType[listId] === 'label' ? labelExpanded : undefined}
 		>
 			{#if $store.lists.listIdToType[listId] === 'label'}
-				<Icon class="material-icons">label</Icon>
+				<img class="sidebar-row-icon" src="/new/label.svg" alt="" />
 			{:else if isShared}
 				<SharedListIcon />
 			{:else}
@@ -117,12 +117,12 @@
 					type="button"
 					aria-label={`${labelPinned ? 'Unpin' : 'Pin'} label ${$store.lists.listIdToList[listId]}`}
 					title={`${labelPinned ? 'Unpin' : 'Pin'} label`}
-					class:unpinned={!labelPinned}
-					class="material-icons list-pin-button"
+					class="list-pin-button"
 					on:pointerdown={stopEvent}
 					on:mousedown={stopEvent}
 					on:pointerup|stopPropagation
-					on:click={handleTogglePinnedLabel}>push_pin</button
+					on:click={handleTogglePinnedLabel}
+					><img src={labelPinned ? '/new/unpin.svg' : '/new/pin.svg'} alt="" /></button
 				>
 			</div>
 		{/if}
@@ -132,11 +132,11 @@
 					<button
 						type="button"
 						aria-label="Edit list"
-						class="material-icons list-edit-button"
+						class="list-edit-button"
 						on:pointerdown={handleOpenEditDialog}
 						on:mousedown={handleOpenEditDialog}
 						on:pointerup|stopPropagation
-						on:click={handleOpenEditDialog}>edit</button
+						on:click={handleOpenEditDialog}><img src="/new/edit.svg" alt="" /></button
 					>
 				{:else}
 					<IconButton
@@ -174,10 +174,11 @@
 	}
 	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
 		min-height: 40px;
-		padding-left: 48px;
+		padding-left: 8px;
 	}
-	.list-menu-item.nested :global(.mdc-deprecated-list-item__graphic) {
-		margin-right: 20px;
+	.sidebar-row-icon {
+		display: block;
+		flex: 0 0 auto;
 	}
 	.list-menu-actions {
 		align-items: center;
@@ -211,7 +212,10 @@
 		padding: 0;
 		width: 48px;
 	}
-	.list-pin-button.unpinned {
-		opacity: 0.45;
+	.list-edit-button img,
+	.list-pin-button img {
+		display: block;
+		height: 20px;
+		width: 30px;
 	}
 </style>
