@@ -114,7 +114,10 @@
 		checkForNewlyCreatedList();
 	}
 
-	$: itemDetailsOpen = $store.ui.showItemDetailsDialog;
+	let itemDetailsOpen = false;
+	$: if ($store.ui.showItemDetailsDialog && !itemDetailsOpen) {
+		itemDetailsOpen = true;
+	}
 	$: itemDescription = '';
 	let dueDate = new Date(0);
 	let dueDateStr = '';
@@ -420,6 +423,8 @@
 			}
 		}
 		previousDialogItem = undefined;
+		store.dispatch(show_item_detail_dialog(false));
+		itemDetailsOpen = false;
 	}
 
 	function cancelDialog() {
@@ -430,6 +435,7 @@
 	function cancelItemDetailsDialog() {
 		previousDialogItem = undefined;
 		store.dispatch(show_item_detail_dialog(false));
+		itemDetailsOpen = false;
 	}
 
 	function deleteList() {
@@ -570,51 +576,58 @@
 		<AppContent class="app-content">
 			<div class="backdrop" style:background-image={bgStyle}>
 				<slot />
-				<SgDialog
-					bind:open={itemDetailsOpen}
-					cancelDialog={cancelItemDetailsDialog}
-					labelledby="itemdetails-dialog-title"
-					describedby="itemdetails-dialog-content"
-				>
-					<div class="itemdetails-title-div">
-						<Title id="itemdetails-dialog-title">Edit Task</Title>
-					</div>
-					<Content id="itemdetails-dialog-content">
-						<Paper style="width=100%;">
-							<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
-							<Checkbox bind:checked={useDueDate} />
-							<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
-							<br />
-							<Select
-								key={(x) => x.substr(0, 3)}
-								bind:value={repeatValue}
-								label="Repeat"
-								disabled={!useDueDate}
-								style="padding-left: 2.75em;"
-							>
-								{#each repeatKind as value}
-									<Option {value}>{value}</Option>
-								{/each}
-							</Select>
-							<Textfield
-								bind:value={repeatEvery}
-								label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
-								type="number"
-								input$step="1"
-								disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
-								style="width: 6em;"
-							/>
-						</Paper>
-					</Content>
-					<Actions>
-						<Button on:click={cancelItemDetailsDialog}>
-							<Label>Cancel</Label>
-						</Button>
-						<Button on:click={closeItemDetailsDialog}>
-							<Label>Save</Label>
-						</Button>
-					</Actions>
-				</SgDialog>
+				{#if itemDetailsOpen}
+					<SgDialog
+						bind:open={itemDetailsOpen}
+						cancelDialog={cancelItemDetailsDialog}
+						labelledby="itemdetails-dialog-title"
+						describedby="itemdetails-dialog-content"
+					>
+						<div class="itemdetails-title-div">
+							<Title id="itemdetails-dialog-title">Edit Task</Title>
+						</div>
+						<Content id="itemdetails-dialog-content">
+							<Paper style="width=100%;">
+								<Textfield
+									textarea
+									bind:value={itemDescription}
+									label="Task"
+									style="width: 100%;"
+								/>
+								<Checkbox bind:checked={useDueDate} />
+								<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
+								<br />
+								<Select
+									key={(x) => x.substr(0, 3)}
+									bind:value={repeatValue}
+									label="Repeat"
+									disabled={!useDueDate}
+									style="padding-left: 2.75em;"
+								>
+									{#each repeatKind as value}
+										<Option {value}>{value}</Option>
+									{/each}
+								</Select>
+								<Textfield
+									bind:value={repeatEvery}
+									label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
+									type="number"
+									input$step="1"
+									disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+									style="width: 6em;"
+								/>
+							</Paper>
+						</Content>
+						<Actions>
+							<Button on:click={cancelItemDetailsDialog}>
+								<Label>Cancel</Label>
+							</Button>
+							<Button on:click={closeItemDetailsDialog}>
+								<Label>Save</Label>
+							</Button>
+						</Actions>
+					</SgDialog>
+				{/if}
 				{#if dialogOpen}
 					<SgDialog
 						bind:open={dialogOpen}

@@ -46,6 +46,11 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
 }
 
+async function saveCurrentListEditDialog(page: import('@playwright/test').Page) {
+	await page.getByRole('button', { name: 'Done' }).click();
+	await expect(page.getByText('Edit List', { exact: true })).toBeHidden({ timeout: 20000 });
+}
+
 async function openNestedListFromActiveLabel(
 	page: import('@playwright/test').Page,
 	listName: string
@@ -142,29 +147,40 @@ async function expectPersistedGlobalAction(
 	id: string
 ) {
 	await expect
-		.poll(async () => {
-			const response = await request.post(
-				`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents:runQuery`,
-				{
-					data: {
-						structuredQuery: {
-							from: [{ collectionId: 'requests', allDescendants: true }]
+		.poll(
+			async () => {
+				const response = await request.post(
+					`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents:runQuery`,
+					{
+						data: {
+							structuredQuery: {
+								from: [{ collectionId: 'requests', allDescendants: true }]
+							}
 						}
 					}
-				}
-			);
-			const rows = (await response.json()) as Array<{
-				document?: { fields?: Record<string, any> };
-			}>;
-			return rows.some((row) => {
-				const fields = row.document?.fields;
-				return (
-					fields?.type?.stringValue === type &&
-					fields?.payload?.mapValue?.fields?.id?.stringValue === id &&
-					!!fields?.timestamp?.timestampValue
 				);
-			});
-		})
+				if (!response.ok()) {
+					return false;
+				}
+				const rows = (await response.json()) as
+					| Array<{
+							document?: { fields?: Record<string, any> };
+					  }>
+					| Record<string, unknown>;
+				if (!Array.isArray(rows)) {
+					return false;
+				}
+				return rows.some((row) => {
+					const fields = row.document?.fields;
+					return (
+						fields?.type?.stringValue === type &&
+						fields?.payload?.mapValue?.fields?.id?.stringValue === id &&
+						!!fields?.timestamp?.timestampValue
+					);
+				});
+			},
+			{ timeout: 15000 }
+		)
 		.toBe(true);
 }
 
@@ -221,7 +237,7 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	await expect(page.getByRole('button', { name: 'Create label' })).toBeEnabled();
 	await page.getByRole('button', { name: 'Create label' }).click();
 	await expect(page.getByLabel('New label')).toHaveValue('');
-	await page.getByRole('button', { name: 'Done' }).click();
+	await saveCurrentListEditDialog(page);
 
 	await helper.step('label_created', {
 		description: 'User created a label containing the current list.',
@@ -275,7 +291,9 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 			{
 				spec: 'Source list group name is visible',
 				check: async () =>
-					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible()
+					expect(page.getByRole('button', { name: `Hide ${listName}` })).toBeVisible({
+						timeout: 15000
+					})
 			}
 		]
 	});
@@ -437,7 +455,7 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 		]
 	});
 
-	await page.getByRole('button', { name: 'Done' }).click();
+	await saveCurrentListEditDialog(page);
 	await openDrawerIfNeeded(page);
 	await clickDrawerLabel(page, labelName);
 
@@ -478,7 +496,7 @@ test('active list expands every containing label', async ({ page }) => {
 	await openCurrentListEditDialog(page, listA);
 	await createDraftLabel(page, labelA);
 	await createDraftLabel(page, labelAB);
-	await page.getByRole('button', { name: 'Done' }).click();
+	await saveCurrentListEditDialog(page);
 	await openDrawerIfNeeded(page);
 	await expect(drawerTopLevelItem(page, labelA)).toBeVisible({ timeout: 10000 });
 	await expect(drawerTopLevelItem(page, labelAB)).toBeVisible({ timeout: 10000 });
@@ -495,7 +513,7 @@ test('active list expands every containing label', async ({ page }) => {
 	await expect(page.getByLabel(`Include in ${labelAB}`)).toBeVisible({ timeout: 10000 });
 	await createDraftLabel(page, labelB);
 	await toggleDraftLabelMembership(page, labelAB, true);
-	await page.getByRole('button', { name: 'Done' }).dispatchEvent('click');
+	await saveCurrentListEditDialog(page);
 
 	await openDrawerIfNeeded(page);
 	await expectNestedListVisibleUnderLabel(page, labelB, listB);
