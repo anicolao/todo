@@ -382,6 +382,10 @@ in [`PINNING_DESIGN.md`](PINNING_DESIGN.md).
 The sidebar row should use the renderer implied by `listIdToType[id]`. This is a
 display distinction, not a separate ordering or sharing model.
 
+Sidebar rows use the coordinated assets in `static/new`. Lists nested under an
+expanded label retain only a small visual inset beside the label guide; they
+must not compound the guide offset with the ordinary list-row padding.
+
 ## List Edit Dialog UI
 
 The list edit dialog should add a "Labels" section below sharing. It should be
