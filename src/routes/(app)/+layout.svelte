@@ -695,7 +695,7 @@
 							<Button on:click={cancelDialog}>
 								<Label>Cancel</Label>
 							</Button>
-							<Button on:click={closeDialog}>
+							<Button action="" on:click={closeDialog}>
 								<Label>Done</Label>
 							</Button>
 						</Actions>

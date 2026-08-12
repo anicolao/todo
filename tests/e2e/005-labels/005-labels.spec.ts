@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
-import { emulatorProjectId, firestoreEmulatorOrigin, resetEmulators } from '../helpers/emulator';
+import {
+	authEmulatorOrigin,
+	emulatorProjectId,
+	firestoreEmulatorOrigin,
+	resetEmulators
+} from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(async ({ request }) => {
@@ -146,15 +151,39 @@ async function expectPersistedGlobalAction(
 	type: 'pin_label' | 'unpin_label',
 	id: string
 ) {
+	const authResponse = await request.post(
+		`${authEmulatorOrigin}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,
+		{
+			data: {
+				email: process.env.VITE_TEST_LOGIN_EMAIL || 'test@example.com',
+				password: process.env.VITE_TEST_LOGIN_PASSWORD || 'password',
+				returnSecureToken: true
+			}
+		}
+	);
+	expect(authResponse.ok()).toBe(true);
+	const { idToken, localId } = (await authResponse.json()) as {
+		idToken: string;
+		localId: string;
+	};
+
 	await expect
 		.poll(
 			async () => {
 				const response = await request.post(
 					`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents:runQuery`,
 					{
+						headers: { Authorization: `Bearer ${idToken}` },
 						data: {
 							structuredQuery: {
-								from: [{ collectionId: 'requests', allDescendants: true }]
+								from: [{ collectionId: 'requests', allDescendants: true }],
+								where: {
+									fieldFilter: {
+										field: { fieldPath: 'target' },
+										op: 'EQUAL',
+										value: { stringValue: localId }
+									}
+								}
 							}
 						}
 					}
