@@ -9,9 +9,11 @@ import {
 	delete_list,
 	initialState,
 	lists,
+	pin_label,
 	rename_list,
 	reorder_list,
 	revoke_share,
+	unpin_label,
 	type ListsState
 } from '$lib/components/lists';
 
@@ -38,6 +40,39 @@ describe('lists', () => {
 		expect(state.visibleLists[1]).to.equal('id1');
 		expect(state.listIdToList.label1).to.equal('Important');
 		expect(state.listIdToType.label1).to.equal('label');
+	});
+
+	it('pins and unpins labels idempotently', () => {
+		let state = lists(initialState, create_label({ id: 'label1', name: 'Important' }));
+
+		state = lists(state, pin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal(['label1']);
+		state = lists(state, pin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal(['label1']);
+
+		state = lists(state, unpin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal([]);
+		state = lists(state, unpin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal([]);
+	});
+
+	it('does not pin ordinary lists', () => {
+		const state = createList(initialState, 'list1', 'Ordinary List');
+		const nextState = lists(state, pin_label({ id: 'list1' }));
+
+		expect(nextState).to.equal(state);
+		expect(nextState.pinnedLabelIds).to.deep.equal([]);
+	});
+
+	it('does not pin labels that are not visible', () => {
+		const state: ListsState = {
+			...initialState,
+			listIdToType: { hidden: 'label' }
+		};
+		const nextState = lists(state, pin_label({ id: 'hidden' }));
+
+		expect(nextState).to.equal(state);
+		expect(nextState.pinnedLabelIds).to.deep.equal([]);
 	});
 
 	it('can create a new list that is first', () => {
@@ -102,7 +137,8 @@ describe('lists', () => {
 			listIdToList: { a: 'A', b: 'B' },
 			listIdToType: { x: 'list', y: 'list', z: 'list' },
 			listIdToLastKnownInfo: {},
-			listIdToTimestamp: {}
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
 		};
 		const nextState = lists(state, signed_in);
 		expect(nextState).to.equal(initialState);
@@ -114,7 +150,8 @@ describe('lists', () => {
 			listIdToList: { a: 'A', b: 'B' },
 			listIdToType: { x: 'list', y: 'list', z: 'list' },
 			listIdToLastKnownInfo: {},
-			listIdToTimestamp: {}
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
 		};
 		const nextState = lists(state, signed_out);
 		expect(nextState).to.equal(initialState);

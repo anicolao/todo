@@ -17,13 +17,13 @@
 	export let requestId = '';
 	export let sharerId = '';
 	export let nested = false;
+	export let viaLabelId = '';
 	export let labelExpanded = false;
 	export let labelPinned = false;
 	export let setActive: (name: string, keepDrawerOpen?: boolean) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
 	};
-	export let pinLabel: (listId: string) => void = () => {};
 	export let onTogglePinnedLabel: (listId: string) => void = () => {};
 	export let openEditDialog = () => {
 		store.dispatch(show_edit_dialog(true));
@@ -49,13 +49,12 @@
 			// A real drag captures the pointer on the container, so this pointerup
 			// only fires for taps — navigate regardless of how long the press was.
 			const isLabel = $store.lists.listIdToType[listId] === 'label';
-			if (isLabel && !labelPinned && (!activated || !labelExpanded)) {
-				pinLabel(listId);
-				return;
+			if (isLabel) {
+				setActive(`labels?labelId=${encodeURIComponent(listId)}`);
+			} else {
+				const via = viaLabelId ? `&via=${encodeURIComponent(viaLabelId)}` : '';
+				setActive(`lists?listId=${encodeURIComponent(listId)}${via}`);
 			}
-			const route = isLabel ? 'labels' : 'lists';
-			const param = isLabel ? 'labelId' : 'listId';
-			setActive(`${route}/?${param}=${listId}`);
 		};
 	}
 	$: pageLabelId = $page.url.searchParams.get('labelId') || 'hmph';
@@ -97,7 +96,12 @@
 
 {#if listId}
 	<div class="list-menu-item" class:nested>
-		<Item on:pointerup={gotoList(listId)} {activated} draggable="false">
+		<Item
+			on:pointerup={gotoList(listId)}
+			{activated}
+			draggable="false"
+			aria-expanded={$store.lists.listIdToType[listId] === 'label' ? labelExpanded : undefined}
+		>
 			{#if $store.lists.listIdToType[listId] === 'label'}
 				<Icon class="material-icons">label</Icon>
 			{:else if isShared}

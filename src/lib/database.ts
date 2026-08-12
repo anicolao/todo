@@ -21,6 +21,7 @@ import {
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
 import { selectListsForRefresh, type ActivityList } from './list-refresh';
+import { shouldReplayGlobalAction } from './global-action-replay';
 
 const sleep = (delay: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, delay));
@@ -543,9 +544,9 @@ export function load() {
 									logTime(
 										`Filtering ${changes.length} global requests on first call from time ${startTime}`
 									);
-									changes = changes.filter((x: any) => {
-										return x.doc.data().timestamp?.seconds > startTime;
-									});
+									changes = changes.filter((x: any) =>
+										shouldReplayGlobalAction(x.doc.data(), startTime)
+									);
 									logTime(`... ${changes.length} global requests remaining.`);
 								}
 								try {

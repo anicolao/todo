@@ -8,7 +8,12 @@
 	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
-	import { reorder_list, type ListsState } from './lists';
+	import {
+		buildExpandedLabelIds,
+		buildRouteExpandedLabelIds,
+		type LabelEntriesById
+	} from './label-sidebar';
+	import { pin_label, reorder_list, unpin_label, type ListsState } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
@@ -44,22 +49,7 @@
 		);
 	}
 
-	function findContainingLabelIds(
-		listId: string,
-		lists: ListsState,
-		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
-	) {
-		return lists.visibleLists.filter(
-			(candidateId) =>
-				lists.listIdToType[candidateId] === 'label' &&
-				labelEntriesById[candidateId]?.some((entry) => entry.id === listId)
-		);
-	}
-
-	function buildHiddenListIds(
-		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] },
-		lists: ListsState
-	) {
+	function buildHiddenListIds(labelEntriesById: LabelEntriesById, lists: ListsState) {
 		const hiddenListIds = new Set<string>();
 		Object.values(labelEntriesById).forEach((entries) => {
 			entries.forEach((entry) => {
@@ -77,32 +67,14 @@
 		);
 	}
 
-	function buildExpandedLabelIds(
-		pinnedLabelIds: string[],
-		pageListId: string,
-		lists: ListsState,
-		labelEntriesById: { [labelId: string]: ResolvedLabelEntry[] }
-	) {
-		const expandedLabelIds = new Set(pinnedLabelIds);
-		if (pageListId) {
-			findContainingLabelIds(pageListId, lists, labelEntriesById).forEach((labelId) =>
-				expandedLabelIds.add(labelId)
-			);
-		}
-		return expandedLabelIds;
-	}
-
-	function pinLabel(labelId: string) {
-		if (!pinnedLabelIds.includes(labelId)) {
-			pinnedLabelIds = [...pinnedLabelIds, labelId];
-		}
-	}
-
 	function togglePinnedLabel(labelId: string) {
-		if (pinnedLabelIds.includes(labelId)) {
-			pinnedLabelIds = pinnedLabelIds.filter((id) => id !== labelId);
+		if ($store.lists.pinnedLabelIds.includes(labelId)) {
+			if (!unpinPreservedLabelIds.includes(labelId)) {
+				unpinPreservedLabelIds = [...unpinPreservedLabelIds, labelId];
+			}
+			firebase.dispatch(unpin_label({ id: labelId }));
 		} else {
-			pinLabel(labelId);
+			firebase.dispatch(pin_label({ id: labelId }));
 		}
 	}
 
@@ -113,14 +85,29 @@
 			items = displayItems;
 		}
 	}
-	let pinnedLabelIds: string[] = [];
+	let unpinPreservedLabelIds: string[] = [];
+	let previousRouteKey = '';
 	$: pageListId = $page.url.searchParams.get('listId') || '';
+	$: pageLabelId = $page.url.searchParams.get('labelId') || '';
+	$: viaLabelId = $page.url.searchParams.get('via') || '';
+	$: routeKey = `${$page.url.pathname}?${$page.url.searchParams.toString()}`;
+	$: if (routeKey !== previousRouteKey) {
+		previousRouteKey = routeKey;
+		unpinPreservedLabelIds = [];
+	}
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
-	$: expandedLabelIds = buildExpandedLabelIds(
-		pinnedLabelIds,
+	$: routeExpandedLabelIds = buildRouteExpandedLabelIds(
+		$page.url.pathname,
+		pageLabelId,
 		pageListId,
+		viaLabelId,
 		$store.lists,
 		labelEntriesById
+	);
+	$: expandedLabelIds = buildExpandedLabelIds(
+		$store.lists.pinnedLabelIds,
+		routeExpandedLabelIds,
+		unpinPreservedLabelIds
 	);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
 	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
@@ -393,15 +380,20 @@
 					{setActive}
 					{openEditDialog}
 					labelExpanded={expandedLabelIds.has(listId)}
-					labelPinned={pinnedLabelIds.includes(listId)}
-					{pinLabel}
+					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
 					onTogglePinnedLabel={togglePinnedLabel}
 				/>
 				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 600 }}>
 						{#each labelEntriesById[listId] || [] as entry (entry.id)}
 							<div class="nested-list-item">
-								<ListMenuItem listId={entry.id} {setActive} {openEditDialog} nested />
+								<ListMenuItem
+									listId={entry.id}
+									{setActive}
+									{openEditDialog}
+									nested
+									viaLabelId={listId}
+								/>
 							</div>
 						{/each}
 					</div>

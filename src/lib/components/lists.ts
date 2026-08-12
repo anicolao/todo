@@ -16,6 +16,7 @@ export interface ListsState {
 	listIdToType: { [key: string]: ListDocumentType };
 	listIdToLastKnownInfo: { [key: string]: LastKnownListInfo };
 	listIdToTimestamp: { [key: string]: number };
+	pinnedLabelIds: string[];
 }
 
 export const create_list = createAction<{ id: string; name: string }>('create_list');
@@ -25,13 +26,16 @@ export const delete_list = createAction<string>('delete_list');
 export const accept_pending_share = createAction<string>('accept_pending_share');
 export const revoke_share = createAction<{ id: string }>('revoke_share');
 export const reorder_list = createAction<{ id: string; goes_before?: string }>('reorder_list');
+export const pin_label = createAction<{ id: string }>('pin_label');
+export const unpin_label = createAction<{ id: string }>('unpin_label');
 
 export const initialState = {
 	visibleLists: [],
 	listIdToList: {},
 	listIdToType: {},
 	listIdToLastKnownInfo: {},
-	listIdToTimestamp: {}
+	listIdToTimestamp: {},
+	pinnedLabelIds: []
 } as ListsState;
 
 function rememberListInfo(
@@ -156,6 +160,25 @@ export const lists = createReducer(initialState, (r) => {
 			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
 		}
 		return state;
+	});
+	r.addCase(pin_label, (state, action) => {
+		if (
+			!state.visibleLists.includes(action.payload.id) ||
+			state.listIdToType[action.payload.id] !== 'label' ||
+			state.pinnedLabelIds.includes(action.payload.id)
+		) {
+			return state;
+		}
+		return { ...state, pinnedLabelIds: [...state.pinnedLabelIds, action.payload.id] };
+	});
+	r.addCase(unpin_label, (state, action) => {
+		if (!state.pinnedLabelIds.includes(action.payload.id)) {
+			return state;
+		}
+		return {
+			...state,
+			pinnedLabelIds: state.pinnedLabelIds.filter((id) => id !== action.payload.id)
+		};
 	});
 	r.addDefault((state, action) => {
 		if (action.timestamp) {

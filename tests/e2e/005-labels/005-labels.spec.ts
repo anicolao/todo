@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetEmulators } from '../helpers/emulator';
+import type { APIRequestContext } from '@playwright/test';
+import { emulatorProjectId, firestoreEmulatorOrigin, resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(async ({ request }) => {
@@ -45,7 +46,10 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
 }
 
-async function openNestedListFromActiveLabel(page: import('@playwright/test').Page, listName: string) {
+async function openNestedListFromActiveLabel(
+	page: import('@playwright/test').Page,
+	listName: string
+) {
 	await openDrawerIfNeeded(page);
 	const nestedList = page.locator('.nested-list-item').filter({
 		has: page.getByText(listName, { exact: true })
@@ -67,21 +71,16 @@ function drawerTopLevelItem(page: import('@playwright/test').Page, name: string)
 		.first();
 }
 
-async function expectNestedListVisible(page: import('@playwright/test').Page, listName: string) {
-	await expect(page.locator('.nested-list-item').getByText(listName)).toBeVisible({
-		timeout: 10000
-	});
-}
-
 async function expectNestedListVisibleUnderLabel(
 	page: import('@playwright/test').Page,
 	labelName: string,
 	listName: string
 ) {
-	await expect(drawerTopLevelItem(page, labelName).locator('.nested-list-item').getByText(listName))
-		.toBeVisible({
-			timeout: 10000
-		});
+	await expect(
+		drawerTopLevelItem(page, labelName).locator('.nested-list-item').getByText(listName)
+	).toBeVisible({
+		timeout: 10000
+	});
 }
 
 async function expectNestedListHiddenUnderLabel(
@@ -121,22 +120,11 @@ async function toggleDraftLabelMembership(
 	await expect(checkbox).toBeChecked({ checked });
 }
 
-async function expectDrawerOpen(page: import('@playwright/test').Page) {
-	const drawer = page.locator('.mdc-drawer');
-	await expect
-		.poll(async () => {
-			const isModal = await drawer.evaluate((element) =>
-				element.classList.contains('mdc-drawer--modal')
-			);
-			const box = await drawer.boundingBox();
-			return !isModal || (box !== null && Math.round(box.x) >= 0);
-		})
-		.toBe(true);
-}
-
 async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
 	const drawer = page.locator('.mdc-drawer');
-	const isModal = await drawer.evaluate((element) => element.classList.contains('mdc-drawer--modal'));
+	const isModal = await drawer.evaluate((element) =>
+		element.classList.contains('mdc-drawer--modal')
+	);
 	if (!isModal) {
 		return;
 	}
@@ -148,7 +136,39 @@ async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
 		.toBeLessThan(0);
 }
 
-test('create a label containing a list', async ({ page }, testInfo) => {
+async function expectPersistedGlobalAction(
+	request: APIRequestContext,
+	type: 'pin_label' | 'unpin_label',
+	id: string
+) {
+	await expect
+		.poll(async () => {
+			const response = await request.post(
+				`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents:runQuery`,
+				{
+					data: {
+						structuredQuery: {
+							from: [{ collectionId: 'requests', allDescendants: true }]
+						}
+					}
+				}
+			);
+			const rows = (await response.json()) as Array<{
+				document?: { fields?: Record<string, any> };
+			}>;
+			return rows.some((row) => {
+				const fields = row.document?.fields;
+				return (
+					fields?.type?.stringValue === type &&
+					fields?.payload?.mapValue?.fields?.id?.stringValue === id &&
+					!!fields?.timestamp?.timestampValue
+				);
+			});
+		})
+		.toBe(true);
+}
+
+test('create a label containing a list', async ({ page, request }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
 	helper.setMetadata(
 		'Labels',
@@ -192,8 +212,7 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 			},
 			{
 				spec: 'Create label button is disabled until a name is entered',
-				check: async () =>
-					expect(page.getByRole('button', { name: 'Create label' })).toBeDisabled()
+				check: async () => expect(page.getByRole('button', { name: 'Create label' })).toBeDisabled()
 			}
 		]
 	});
@@ -219,33 +238,36 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 		]
 	});
 
-	await clickDrawerLabel(page, labelName);
-
-	await helper.step('label_pinned_and_expanded', {
-		description: 'User tapped a collapsed label and it expanded as a pinned folder.',
+	await page.goto('/profile');
+	await openDrawerIfNeeded(page);
+	await helper.step('closed_label_has_no_pin_control', {
+		description: 'An unpinned label is closed away from its label or child-list route.',
 		verifications: [
-			{ spec: 'User remains on the source list', check: async () => expect(page).toHaveURL(/lists/) },
 			{
-				spec: 'Drawer remains open so the user can choose a nested list',
-				check: async () => expectDrawerOpen(page)
+				spec: 'Nested source list is hidden',
+				check: async () => expectNestedListHiddenUnderLabel(page, labelName, listName)
 			},
 			{
-				spec: 'Source list appears nested under the pinned label',
-				check: async () => expectNestedListVisible(page, listName)
-			},
-			{
-				spec: 'Pinned label can be unpinned',
+				spec: 'Closed label has no pin control',
 				check: async () =>
-					expect(page.getByRole('button', { name: `Unpin label ${labelName}` })).toBeVisible()
+					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toHaveCount(0)
 			}
 		]
 	});
 
 	await clickDrawerLabel(page, labelName);
-	await helper.step('expanded_label_tap_selects_label', {
-		description: 'User tapped an already-expanded label to select the label view.',
+	await expect(page).toHaveURL(/labels\?labelId=/);
+	const labelId = new URL(page.url()).searchParams.get('labelId');
+	if (!labelId) {
+		throw new Error('Label route did not include labelId');
+	}
+	await helper.step('label_click_selects_and_expands', {
+		description: 'One label-row click selects the label view and expands its sidebar folder.',
 		verifications: [
-			{ spec: 'URL is the label route', check: async () => expect(page).toHaveURL(/labels/) },
+			{
+				spec: 'URL is the label route',
+				check: async () => expect(page).toHaveURL(/labels\?labelId=/)
+			},
 			{
 				spec: 'Mobile drawer is dismissed after selecting the label',
 				check: async () => expectMobileDrawerClosed(page)
@@ -259,80 +281,116 @@ test('create a label containing a list', async ({ page }, testInfo) => {
 	});
 
 	await openDrawerIfNeeded(page);
-	await helper.step('label_sidebar_folder_opened', {
-		description: 'The active label opens like a folder in the sidebar.',
+	await helper.step('selected_label_is_open_but_unpinned', {
+		description: 'The selected label is expanded without being pinned.',
 		verifications: [
 			{
-				spec: 'Source list appears nested under the active label',
-				check: async () => expectNestedListVisible(page, listName)
+				spec: 'Source list appears nested under the selected label',
+				check: async () => expectNestedListVisibleUnderLabel(page, labelName, listName)
 			},
 			{
-				spec: 'Source list is hidden from the top-level sidebar',
+				spec: 'Open label offers a separate Pin action',
 				check: async () =>
-					expect(
-						page
-							.locator('.mdc-drawer .listContainer > .mdc-deprecated-list > .item > .list-menu-item')
-							.filter({
-								hasText: listName
-							})
-					).toHaveCount(0)
+					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toBeVisible()
 			}
 		]
 	});
 
-	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
-	await helper.step('active_unpinned_label_collapsed', {
-		description: 'The selected label collapses when it is not pinned and no current child list keeps it open.',
+	const labelRoute = page.url();
+	await page.getByRole('button', { name: `Pin label ${labelName}` }).click();
+	await expectPersistedGlobalAction(request, 'pin_label', labelId);
+	await helper.step('label_pinned_explicitly', {
+		description: 'The user explicitly pins the already-open label without navigating.',
 		verifications: [
 			{
-				spec: 'Nested source list is hidden',
-				check: async () => expect(page.locator('.nested-list-item').getByText(listName)).toHaveCount(0)
-			}
-		]
-	});
-
-	await clickDrawerLabel(page, labelName);
-	await expectNestedListVisible(page, listName);
-	await openNestedListFromActiveLabel(page, listName);
-
-	await openDrawerIfNeeded(page);
-	await helper.step('pinned_label_stays_open_after_nested_navigation', {
-		description: 'The pinned label stays expanded after navigating to a list inside it.',
-		verifications: [
+				spec: 'Label route is unchanged',
+				check: async () => expect(page).toHaveURL(labelRoute)
+			},
 			{
-				spec: 'Nested source list remains visible',
-				check: async () => expectNestedListVisible(page, listName)
+				spec: 'Pin control changes to Unpin',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Unpin label ${labelName}` })).toBeVisible()
 			}
 		]
 	});
 
-	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
-	await helper.step('unpinned_label_collapses_after_navigation_away', {
-		description: 'An unpinned label collapses after the user navigates away from its nested list.',
-		verifications: [
-			{
-				spec: 'Unpinned label is still expanded while viewing its nested list',
-				check: async () => expectNestedListVisible(page, listName)
-			}
-		]
-	});
-
+	await page.reload();
 	await page.goto('/profile');
 	await openDrawerIfNeeded(page);
-	await helper.step('unpinned_label_collapsed_after_navigation_away', {
-		description: 'The unpinned label collapsed after the user navigated away from its nested list.',
+	await helper.step('pinned_label_persists', {
+		description: 'The explicit pin survives reload and unrelated navigation.',
 		verifications: [
 			{
-				spec: 'Nested source list is no longer shown in the drawer',
-				check: async () => expect(page.locator('.nested-list-item').getByText(listName)).toHaveCount(0)
+				spec: 'Pinned label remains expanded on Profile',
+				check: async () => expectNestedListVisibleUnderLabel(page, labelName, listName)
+			},
+			{
+				spec: 'Persisted label remains pinned',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Unpin label ${labelName}` })).toBeVisible()
 			}
 		]
 	});
 
+	const profileRoute = page.url();
+	await page.getByRole('button', { name: `Unpin label ${labelName}` }).click();
+	await expectPersistedGlobalAction(request, 'unpin_label', labelId);
+	await helper.step('unpin_keeps_label_open', {
+		description: 'Unpinning changes only persistence and does not collapse the label.',
+		verifications: [
+			{
+				spec: 'Current route is unchanged',
+				check: async () => expect(page).toHaveURL(profileRoute)
+			},
+			{
+				spec: 'Label remains expanded immediately after unpinning',
+				check: async () => expectNestedListVisibleUnderLabel(page, labelName, listName)
+			},
+			{
+				spec: 'Control changes back to Pin',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toBeVisible()
+			}
+		]
+	});
+
+	await page
+		.locator('.mdc-drawer .mdc-deprecated-list-item')
+		.filter({ has: page.getByText('Search', { exact: true }) })
+		.click();
+	await expect(page).toHaveURL(/\/search$/);
+	await openDrawerIfNeeded(page);
+	await helper.step('unpinned_label_closes_on_next_navigation', {
+		description: 'The next URL navigation recalculates expansion and closes the unpinned label.',
+		verifications: [
+			{
+				spec: 'Nested source list is no longer shown',
+				check: async () => expectNestedListHiddenUnderLabel(page, labelName, listName)
+			},
+			{
+				spec: 'Closed label again has no pin control',
+				check: async () =>
+					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toHaveCount(0)
+			}
+		]
+	});
+	await page.reload();
+	await openDrawerIfNeeded(page);
+	await expectNestedListHiddenUnderLabel(page, labelName, listName);
+
 	await clickDrawerLabel(page, labelName);
-	await clickDrawerLabel(page, labelName);
-	await expectMobileDrawerClosed(page);
+	await expect(page).toHaveURL(new RegExp(`labels\\?labelId=${labelId}`));
+	await openDrawerIfNeeded(page);
 	await openNestedListFromActiveLabel(page, listName);
+	await helper.step('nested_navigation_records_via', {
+		description: 'Opening a nested list records the parent label explicitly in the URL.',
+		verifications: [
+			{
+				spec: 'List URL includes the parent label as via',
+				check: async () => expect(new URL(page.url()).searchParams.get('via')).toBe(labelId)
+			}
+		]
+	});
 
 	await openCurrentListEditDialog(page, listName);
 	await expect(page.getByLabel(`Include in ${labelName}`)).toBeChecked();
@@ -413,6 +471,10 @@ test('active list expands every containing label', async ({ page }) => {
 	await page.getByLabel('New list').fill(listA);
 	await page.keyboard.press('Enter');
 	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
+	const listAId = new URL(page.url()).searchParams.get('listId');
+	if (!listAId) {
+		throw new Error('List A route did not include listId');
+	}
 	await openCurrentListEditDialog(page, listA);
 	await createDraftLabel(page, labelA);
 	await createDraftLabel(page, labelAB);
@@ -420,6 +482,10 @@ test('active list expands every containing label', async ({ page }) => {
 	await openDrawerIfNeeded(page);
 	await expect(drawerTopLevelItem(page, labelA)).toBeVisible({ timeout: 10000 });
 	await expect(drawerTopLevelItem(page, labelAB)).toBeVisible({ timeout: 10000 });
+	const labelABId = await drawerTopLevelItem(page, labelAB).getAttribute('data-id');
+	if (!labelABId) {
+		throw new Error('Label AB sidebar item did not include data-id');
+	}
 
 	await openDrawerIfNeeded(page);
 	await page.getByLabel('New list').fill(listB);
@@ -442,6 +508,13 @@ test('active list expands every containing label', async ({ page }) => {
 		.locator('.mdc-deprecated-list-item')
 		.click();
 	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
+	await expect(new URL(page.url()).searchParams.get('via')).toBe(labelABId);
+	await openDrawerIfNeeded(page);
+	await expectNestedListVisibleUnderLabel(page, labelAB, listA);
+	await expectNestedListHiddenUnderLabel(page, labelA, listA);
+	await expectNestedListHiddenUnderLabel(page, labelB, listB);
+
+	await page.goto(`/lists?listId=${encodeURIComponent(listAId)}`);
 	await openDrawerIfNeeded(page);
 	await expectNestedListVisibleUnderLabel(page, labelA, listA);
 	await expectNestedListVisibleUnderLabel(page, labelAB, listA);
