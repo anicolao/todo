@@ -60,7 +60,9 @@ The selected label is expanded without being pinned.
 
 **Verifications:**
 - [x] Source list appears nested under the selected label
+- [x] Nested list uses the new assets without excessive indentation
 - [x] Open label offers a separate Pin action
+- [x] Edit appears to the left without moving the Pin action
 
 ![selected_label_is_open_but_unpinned](screenshots/006-selected-label-is-open-but-unpinned.png)
 
@@ -81,6 +83,7 @@ The explicit pin survives reload and unrelated navigation.
 **Verifications:**
 - [x] Pinned label remains expanded on Profile
 - [x] Persisted label remains pinned
+- [x] Pin position is stable when the Edit action disappears
 
 ![pinned_label_persists](screenshots/008-pinned-label-persists.png)
 

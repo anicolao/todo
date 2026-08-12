@@ -182,6 +182,20 @@ async function expectNestedListSnugUnderLabel(
 	}
 }
 
+async function labelActionX(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	actionName: string
+) {
+	const action = drawerTopLevelItem(page, labelName).getByRole('button', { name: actionName });
+	await expect(action).toBeVisible();
+	const box = await action.boundingBox();
+	if (!box) {
+		throw new Error(`${actionName} has no bounding box`);
+	}
+	return box.x;
+}
+
 async function expectNestedListHiddenUnderLabel(
 	page: import('@playwright/test').Page,
 	labelName: string,
@@ -414,6 +428,7 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	});
 
 	await openDrawerIfNeeded(page);
+	let selectedLabelPinX: number | undefined;
 	await helper.step('selected_label_is_open_but_unpinned', {
 		description: 'The selected label is expanded without being pinned.',
 		verifications: [
@@ -429,6 +444,14 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 				spec: 'Open label offers a separate Pin action',
 				check: async () =>
 					expect(page.getByRole('button', { name: `Pin label ${labelName}` })).toBeVisible()
+			},
+			{
+				spec: 'Edit appears to the left without moving the Pin action',
+				check: async () => {
+					const editX = await labelActionX(page, labelName, 'Edit list');
+					selectedLabelPinX = await labelActionX(page, labelName, `Pin label ${labelName}`);
+					expect(editX).toBeLessThan(selectedLabelPinX);
+				}
 			}
 		]
 	});
@@ -465,6 +488,13 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 				spec: 'Persisted label remains pinned',
 				check: async () =>
 					expect(page.getByRole('button', { name: `Unpin label ${labelName}` })).toBeVisible()
+			},
+			{
+				spec: 'Pin position is stable when the Edit action disappears',
+				check: async () => {
+					const persistedPinX = await labelActionX(page, labelName, `Unpin label ${labelName}`);
+					expect(persistedPinX).toBe(selectedLabelPinX);
+				}
 			}
 		]
 	});

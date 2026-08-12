@@ -111,21 +111,6 @@
 			{/if}
 			<Text>{$store.lists.listIdToList[listId]}</Text>
 		</Item>
-		{#if $store.lists.listIdToType[listId] === 'label' && labelExpanded}
-			<div class="list-menu-actions">
-				<button
-					type="button"
-					aria-label={`${labelPinned ? 'Unpin' : 'Pin'} label ${$store.lists.listIdToList[listId]}`}
-					title={`${labelPinned ? 'Unpin' : 'Pin'} label`}
-					class="list-pin-button"
-					on:pointerdown={stopEvent}
-					on:mousedown={stopEvent}
-					on:pointerup|stopPropagation
-					on:click={handleTogglePinnedLabel}
-					><img src={labelPinned ? '/new/unpin.svg' : '/new/pin.svg'} alt="" /></button
-				>
-			</div>
-		{/if}
 		{#if activated}
 			<div class="list-menu-actions">
 				{#if sharerId === ''}
@@ -157,6 +142,21 @@
 						}}>close</IconButton
 					>
 				{/if}
+			</div>
+		{/if}
+		{#if $store.lists.listIdToType[listId] === 'label' && labelExpanded}
+			<div class="list-menu-actions">
+				<button
+					type="button"
+					aria-label={`${labelPinned ? 'Unpin' : 'Pin'} label ${$store.lists.listIdToList[listId]}`}
+					title={`${labelPinned ? 'Unpin' : 'Pin'} label`}
+					class="list-pin-button"
+					on:pointerdown={stopEvent}
+					on:mousedown={stopEvent}
+					on:pointerup|stopPropagation
+					on:click={handleTogglePinnedLabel}
+					><img src={labelPinned ? '/new/unpin.svg' : '/new/pin.svg'} alt="" /></button
+				>
 			</div>
 		{/if}
 	</div>
