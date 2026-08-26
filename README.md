@@ -44,6 +44,41 @@ npm run build
 
 You can preview the production build with `npm run preview`.
 
+## Android
+
+The Nix development shell provides Java, the Android SDK, build tools, and a pinned
+API 36 Google APIs emulator image. Build fresh Android artifacts with:
+
+```bash
+nix develop
+npm ci
+npm run android:build
+```
+
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk` and
+the release bundle to `android/app/build/outputs/bundle/release/app-release.aab`.
+The native shell loads `https://todo-firebase-1a740.web.app` at runtime, so deploying
+the website updates the app without rebuilding the APK. The website retains control
+of its existing caching and service-worker behavior.
+
+Run the launch test in a clean, headless emulator with:
+
+```bash
+npm run android:test:emulator
+```
+
+The test requires Linux KVM access. It creates an API 36 AVD under the ignored
+`.android/` directory and saves its launch screenshot to
+`test-results/android-emulator/app-launch.png`. CI runs the same test and uploads
+the screenshot and emulator log as build artifacts.
+
+Once a physical device has USB debugging enabled, install the debug build with:
+
+```bash
+adb devices
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Firebase deploy credentials
 
 Check that a Firebase deploy service account can see the project, has the required IAM permissions, and can inspect the configured Cloud Functions:

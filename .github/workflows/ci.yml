@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -36,7 +36,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -74,4 +74,30 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+          retention-days: 30
+
+  android-e2e:
+    name: Android E2E
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Install dependencies
+        run: nix develop --command npm ci
+
+      - name: Run Android emulator test
+        run: nix develop --command npm run android:test:emulator
+
+      - name: Upload Android test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-emulator-results
+          path: test-results/android-emulator/
+          if-no-files-found: warn
           retention-days: 30
