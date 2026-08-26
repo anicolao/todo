@@ -136,11 +136,20 @@
 	{#if enableUndo}<span class="material-icons" on:click={uncomplete(listId, item.id)}>undo</span
 		>{:else if item.completed}<span
 			class="check material-icons"
+			role="button"
+			tabindex="0"
+			aria-label={`Mark ${item.description} active`}
 			on:click={complete(listId, item.id, false)}>check_box</span
-		>{:else}<span class="check material-icons" on:click={complete(listId, item.id, true)}
+		>{:else}<span
+			class="check material-icons"
+			role="button"
+			tabindex="0"
+			aria-label={`Complete ${item.description}`}
+			on:click={complete(listId, item.id, true)}
 			>check_box_outline_blank</span
 		>{/if}<input
 		class="description"
+		aria-label={`Task ${item.description}`}
 		value={item.description}
 		on:keydown={handleEnterKey}
 		on:blur={handleBlur(listId, item)}
@@ -162,8 +171,16 @@
 	{#if item.starred}<span
 			class="star material-icons"
 			style="color: #ffb74d"
+			role="button"
+			tabindex="0"
+			aria-label={`Unstar ${item.description}`}
 			on:click={star(listId, item.id, false)}>star</span
-		>{:else}<span class="star material-icons" on:click={star(listId, item.id, true)}
+		>{:else}<span
+			class="star material-icons"
+			role="button"
+			tabindex="0"
+			aria-label={`Star ${item.description}`}
+			on:click={star(listId, item.id, true)}
 			>star_outline</span
 		>{/if}
 </div>

@@ -19,7 +19,9 @@
 	const testLoginEmail = import.meta.env.VITE_TEST_LOGIN_EMAIL || 'test@example.com';
 	const testLoginPassword = import.meta.env.VITE_TEST_LOGIN_PASSWORD || 'password';
 	const testLoginName = import.meta.env.VITE_TEST_LOGIN_NAME || 'Test User';
-	const testLoginPhoto = `https://i.pravatar.cc/150?u=${encodeURIComponent(testLoginEmail)}`;
+	const testLoginPhoto =
+		import.meta.env.VITE_TEST_LOGIN_PHOTO ??
+		`https://i.pravatar.cc/150?u=${encodeURIComponent(testLoginEmail)}`;
 
 	const signInWithGoogle = async () => {
 		// 1. Create credentials on the native layer

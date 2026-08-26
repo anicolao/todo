@@ -85,6 +85,7 @@
 			style="width: 100%"
 			bind:value={newItemText}
 			label="New task"
+			input$aria-label="New task"
 			enterkeyhint="enter"
 			input$enterkeyhint="enter"
 			on:keydown={handleEnterKey}

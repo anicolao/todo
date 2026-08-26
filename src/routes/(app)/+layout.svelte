@@ -84,13 +84,19 @@
 
 	let newListName = '';
 
+	function submitNewList() {
+		const name = newListName.trim();
+		if (name.length > 0) {
+			createList(name);
+		}
+		newListName = '';
+	}
+
 	function handleEnterKey(e: CustomEvent | KeyboardEvent) {
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
-			if (newListName.trim().length > 0) {
-				createList(newListName);
-			}
-			newListName = '';
+			e.preventDefault();
+			submitNewList();
 		}
 	}
 
@@ -516,6 +522,7 @@
 						{#if width <= MOBILE_LAYOUT_WIDTH}
 							<IconButton
 								class="material-icons"
+								aria-label="Open navigation menu"
 								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
 								>menu</IconButton
 							>
@@ -547,9 +554,11 @@
 					style="width: 100%; min-height: 55px;"
 					bind:value={newListName}
 					label="New list"
+					input$aria-label="New list"
 					enterkeyhint="enter"
 					input$enterkeyhint="enter"
 					on:keydown={handleEnterKey}
+					on:blur={submitNewList}
 					><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 				>
 				<List>
