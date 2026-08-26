@@ -245,14 +245,24 @@
 	let startX = 0;
 	let startY = 0;
 	let dragArmed = false;
+	let pendingFocus:
+		| {
+				input: HTMLInputElement;
+				caretOffset: number;
+		  }
+		| undefined;
+	let completedTap = pendingFocus;
 	let holdTimer: ReturnType<typeof setTimeout> | undefined;
 	const DRAG_THRESHOLD = 8; // px the pointer must move before a drag begins
 	const TOUCH_HOLD_MS = 400; // long-press before a touch can start a drag
-	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
-		if (grabbed) {
-			updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+	let autoScroller = createDragAutoScroller(
+		() => container,
+		(direction, didScroll) => {
+			if (grabbed) {
+				updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+			}
 		}
-	});
+	);
 
 	// A press that never turned into a drag (a tap, or a touch scroll) must be
 	// abandoned without grabbing, so the tap reaches the item's own controls.
@@ -265,15 +275,67 @@
 		dragArmed = false;
 	}
 
+	function selectWordAt(input: HTMLInputElement, caretOffset: number) {
+		const value = input.value;
+		if (!value) {
+			return;
+		}
+		const segments = [...new Intl.Segmenter(undefined, { granularity: 'word' }).segment(value)];
+		const offset = Math.min(caretOffset, value.length);
+		let selected = segments.find(
+			(segment) => offset >= segment.index && offset < segment.index + segment.segment.length
+		);
+		if (!selected?.isWordLike && offset > 0) {
+			const previous = segments.find(
+				(segment) =>
+					offset - 1 >= segment.index && offset - 1 < segment.index + segment.segment.length
+			);
+			if (previous?.isWordLike) {
+				selected = previous;
+			}
+		}
+		if (selected) {
+			input.setSelectionRange(selected.index, selected.index + selected.segment.length);
+		}
+	}
+
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
+			pendingFocus = undefined;
+			completedTap = undefined;
 			// Always arm here; whether a drag is actually allowed (dragEnabled) is
 			// re-checked at grab time. Bailing out now would lose the gesture,
 			// because focus/blur (which toggles dragEnabled) only settles after
 			// pointerdown — so the press after editing any row could never drag.
-			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
+			const pressedElement = document.elementFromPoint(e.clientX, e.clientY);
+			target = pressedElement?.closest('.item') as HTMLElement;
 			if (!target) {
 				return;
+			}
+			const pressedInput = pressedElement?.closest<HTMLInputElement>('input.description') ?? null;
+			const editingPressedInput = pressedInput === document.activeElement && !dragEnabled;
+			if (e.pointerType !== 'touch' && pressedInput && !editingPressedInput) {
+				// The input is the row's drag surface until it has entered edit mode.
+				// Cancel pointerdown before Chrome can arm native text selection. A
+				// press that remains a tap focuses the input and restores Chrome's
+				// point-derived caret position from pointerup instead.
+				const caretPosition = document.caretPositionFromPoint(e.clientX, e.clientY);
+				e.preventDefault();
+				const activeInput = document.activeElement;
+				if (
+					activeInput instanceof HTMLInputElement &&
+					activeInput.classList.contains('description') &&
+					activeInput !== pressedInput
+				) {
+					activeInput.blur();
+				}
+				pendingFocus = {
+					input: pressedInput,
+					caretOffset:
+						caretPosition?.offsetNode === pressedInput
+							? caretPosition.offset
+							: pressedInput.value.length
+				};
 			}
 			startX = e.clientX;
 			startY = e.clientY;
@@ -324,6 +386,7 @@
 					clearTimeout(holdTimer);
 					holdTimer = undefined;
 				}
+				pendingFocus = undefined;
 				grab(e.clientY, target);
 				pointerX = e.clientX;
 				updateDragTarget(e.clientX, e.clientY);
@@ -331,6 +394,7 @@
 			}
 		},
 		onPointerUp: (e: PointerEvent) => {
+			const focusAfterTap = grabbed ? undefined : pendingFocus;
 			if (grabbed) {
 				release();
 			}
@@ -338,6 +402,25 @@
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
 			cancelPendingDrag();
+			pendingFocus = undefined;
+			completedTap = focusAfterTap;
+			if (focusAfterTap) {
+				focusAfterTap.input.focus();
+				focusAfterTap.input.setSelectionRange(focusAfterTap.caretOffset, focusAfterTap.caretOffset);
+			}
+		},
+		onClick: (e: MouseEvent) => {
+			const clickedInput = (e.target as Element).closest<HTMLInputElement>('input.description');
+			if (!completedTap || clickedInput !== completedTap.input) {
+				return;
+			}
+			if (e.detail === 2) {
+				e.preventDefault();
+				selectWordAt(completedTap.input, completedTap.caretOffset);
+			} else if (e.detail >= 3) {
+				e.preventDefault();
+				completedTap.input.select();
+			}
 		},
 		onTouchMove: (e: TouchEvent) => {
 			if (grabbed) {
@@ -364,6 +447,8 @@
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 			}
 			cancelPendingDrag();
+			pendingFocus = undefined;
+			completedTap = undefined;
 		}
 	};
 
@@ -380,6 +465,8 @@
 		ro.observe(container);
 	}
 </script>
+
+<svelte:window on:click={containerDragHandlers.onClick} />
 
 {#if items.length > 0}
 	<slot />
