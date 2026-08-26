@@ -61,16 +61,29 @@ The native shell loads `https://todo-firebase-1a740.web.app` at runtime, so depl
 the website updates the app without rebuilding the APK. The website retains control
 of its existing caching and service-worker behavior.
 
-Run the launch test in a clean, headless emulator with:
+Run the Android task-lifecycle E2E test in a clean, headless emulator with:
 
 ```bash
 npm run android:test:emulator
 ```
 
-The test requires Linux KVM access. It creates an API 36 AVD under the ignored
-`.android/` directory and saves its launch screenshot to
-`test-results/android-emulator/app-launch.png`. CI runs the same test and uploads
-the screenshot and emulator log as build artifacts.
+The test requires Linux KVM access. It starts isolated Firebase Auth and Firestore
+emulators, builds the web app with deterministic test settings, wipes and starts the
+pinned API 36 AVD, then drives the Android app through the same eight task-lifecycle
+states as `tests/e2e/005-task-lifecycle`. Every WebView screenshot is compared to its
+committed baseline with exactly zero differing pixels. Actual screenshots, pixel diffs,
+and service logs are written to `test-results/android-emulator/`; CI runs the same
+command and uploads that directory as a build artifact.
+
+After intentionally changing the UI, inspect and update the Android baselines with:
+
+```bash
+npm run android:test:emulator -- --update-screenshots
+```
+
+The committed baselines are in
+`android/app/src/androidTest/assets/android-e2e/`, and the test implementation is
+`android/app/src/androidTest/java/com/stockgamblers/todo/AndroidTaskLifecycleE2ETest.java`.
 
 Once a physical device has USB debugging enabled, install the debug build with:
 

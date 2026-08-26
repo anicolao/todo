@@ -34,7 +34,9 @@
 				if (user.email) {
 					// always true
 					let notificationToken = '';
-					if (Capacitor.isNativePlatform()) {
+					if (import.meta.env.VITE_DISABLE_NOTIFICATIONS === 'true') {
+						console.log('Notification registration disabled for deterministic testing.');
+					} else if (Capacitor.isNativePlatform()) {
 						const permission = await PushNotifications.requestPermissions();
 						if (permission.receive === 'granted') {
 							await PushNotifications.requestPermissions();
