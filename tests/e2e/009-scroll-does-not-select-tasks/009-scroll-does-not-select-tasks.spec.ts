@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type ConsoleMessage, type Locator, type Page, test } from '@playwright/test';
 import { resetEmulators } from '../helpers/emulator';
 
 test.beforeEach(async ({ request }, testInfo) => {
@@ -18,19 +18,33 @@ async function createList(page: Page, listName: string) {
 		await page.locator('button.material-icons').filter({ hasText: 'menu' }).click();
 	}
 	await expect(newList).toBeVisible();
-	await newList.fill(listName);
-	await newList.press('Enter');
-	await expect(page).toHaveURL(/lists\/?\?listId=/, { timeout: 10000 });
-	const scrim = page.locator('.mdc-drawer-scrim').first();
-	if (await scrim.isVisible()) {
-		await page
-			.locator('.mdc-drawer .listContainer .item:not(#ghost)')
-			.filter({ hasText: listName })
-			.last()
-			.click();
-		await expect(scrim).not.toBeVisible();
+	const consoleMessages: string[] = [];
+	const onConsole = (message: ConsoleMessage) => consoleMessages.push(message.text());
+	page.on('console', onConsole);
+	try {
+		await newList.fill(listName);
+		await newList.press('Enter');
+		await expect(page).toHaveURL(/lists\/?\?listId=/, { timeout: 10000 });
+		const listId = new URL(page.url()).searchParams.get('listId');
+		await expect
+			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)))
+			.toBe(true);
+		await expect(
+			page.locator('.mdc-top-app-bar__title').filter({ hasText: listName })
+		).toBeVisible();
+		const scrim = page.locator('.mdc-drawer-scrim').first();
+		if (await scrim.isVisible()) {
+			await page
+				.locator('.mdc-drawer .listContainer .item:not(#ghost)')
+				.filter({ hasText: listName })
+				.last()
+				.click();
+			await expect(scrim).not.toBeVisible();
+		}
+		await expect(page.getByLabel('New task')).toBeVisible();
+	} finally {
+		page.off('console', onConsole);
 	}
-	await expect(page.getByLabel('New task')).toBeVisible();
 }
 
 async function createTasks(page: Page, names: string[]) {
