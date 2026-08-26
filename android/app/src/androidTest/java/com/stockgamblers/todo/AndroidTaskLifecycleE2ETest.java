@@ -77,8 +77,6 @@ public class AndroidTaskLifecycleE2ETest {
         createTask("Lifecycle completed task");
         createTask("Lifecycle starred task");
         dismissKeyboard();
-        device.click(device.getDisplayWidth() / 2, 73);
-        device.waitForIdle();
         waitFor(task("Lifecycle starred task"));
         captureStep("003-tasks-created.png");
 
@@ -243,6 +241,9 @@ public class AndroidTaskLifecycleE2ETest {
     }
 
     private void captureStep(String screenshotName) throws Exception {
+        // Remove transient focus styling from whichever control performed the last action.
+        // The fixed top-app-bar point is non-interactive on every route in this scenario.
+        device.click(device.getDisplayWidth() / 2, 73);
         device.waitForIdle();
         Bitmap actual = waitForStableScreenshot();
 
