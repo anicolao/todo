@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 import { resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
@@ -116,12 +116,28 @@ test('label visibility survives rename and controls aggregate results', async ({
 	const archiveName = 'Archive';
 	const renamedArchive = 'Someday';
 
-	await page.getByLabel('New list').fill(listName);
-	await page.keyboard.press('Enter');
+	const consoleMessages: string[] = [];
+	const onConsole = (message: ConsoleMessage) => consoleMessages.push(message.text());
+	page.on('console', onConsole);
+	try {
+		await page.getByLabel('New list').fill(listName);
+		await page.keyboard.press('Enter');
+		await expect(page).toHaveURL(/lists\?listId=/, { timeout: 10000 });
+		const listId = new URL(page.url()).searchParams.get('listId');
+		await expect
+			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)), {
+				timeout: 10000
+			})
+			.toBe(true);
+	} finally {
+		page.off('console', onConsole);
+	}
 	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
-	await page.getByLabel('New task').fill(taskName);
-	await page.keyboard.press('Enter');
+	const newTask = page.getByLabel('New task');
+	await newTask.fill(taskName);
+	await newTask.blur();
 	await expect(page.getByLabel(`Task ${taskName}`)).toBeVisible({ timeout: 10000 });
+	await expect(newTask).toHaveValue('');
 
 	await openSelectedDocumentEditor(page, listName);
 	await page.getByLabel('New label').fill(archiveName);
