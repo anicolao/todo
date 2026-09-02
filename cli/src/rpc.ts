@@ -41,7 +41,8 @@ export class RpcServer {
 
 	constructor(
 		readonly socketPath: string,
-		readonly handler: (request: RpcRequest) => Promise<unknown>
+		readonly handler: (request: RpcRequest) => Promise<unknown>,
+		readonly requestReadTimeoutMs = 30_000
 	) {}
 
 	async start() {
@@ -61,7 +62,7 @@ export class RpcServer {
 	private handleSocket(socket: Socket) {
 		let input = '';
 		let done = false;
-		socket.setTimeout(30_000, () => socket.destroy());
+		socket.setTimeout(this.requestReadTimeoutMs, () => socket.destroy());
 		socket.setEncoding('utf8');
 		socket.on('data', (chunk) => {
 			if (done) return;
@@ -80,6 +81,7 @@ export class RpcServer {
 			const newline = input.indexOf('\n');
 			if (newline === -1) return;
 			done = true;
+			socket.setTimeout(0);
 			const line = input.slice(0, newline);
 			void this.respond(socket, line);
 		});
@@ -121,21 +123,34 @@ export async function rpcRequest(
 	return new Promise<unknown>((resolve, reject) => {
 		const socket = createConnection(socketPath);
 		let input = '';
+		let settled = false;
+		const finish = (callback: () => void) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			callback();
+		};
 		const timeout = setTimeout(() => {
 			socket.destroy();
-			reject(new TodoServiceError('service_timeout', 'Timed out waiting for Todo service'));
+			finish(() =>
+				reject(new TodoServiceError('service_timeout', 'Timed out waiting for Todo service'))
+			);
 		}, timeoutMs);
 		const fail = (error: unknown) => {
-			clearTimeout(timeout);
-			reject(error);
+			finish(() => reject(error));
 		};
 		socket.setEncoding('utf8');
 		socket.once('error', fail);
+		socket.once('close', () => {
+			fail(new TodoServiceError('service_unavailable', 'Todo service closed without a response'));
+		});
 		socket.on('connect', () => socket.write(requestLine(request)));
 		socket.on('data', (chunk) => {
 			input += chunk;
 			const newline = input.indexOf('\n');
 			if (newline === -1) return;
+			if (settled) return;
+			settled = true;
 			clearTimeout(timeout);
 			socket.destroy();
 			try {
