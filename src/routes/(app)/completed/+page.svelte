@@ -2,11 +2,15 @@
 	console.log('routes/(app)/completed/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import { RepeatType, type TodoItem } from '$lib/components/items';
+	import { selectSearchableListIds } from '$lib/components/labels';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 
 	store.dispatch(set_icon('check_circle'));
 	store.dispatch(set_title('Completed'));
+
+	$: searchableListIds = new Set(selectSearchableListIds($store.lists, $store.labels));
+	$: searchableListMatcher = (listId: string) => searchableListIds.has(listId);
 
 	/*
 	const [send, receive] = crossfade({
@@ -34,7 +38,9 @@
 		return (
 			item !== undefined &&
 			(item.completed ||
-				(repeatType !== undefined && repeatType !== RepeatType.NONE && item.completedTimestamp !== 0))
+				(repeatType !== undefined &&
+					repeatType !== RepeatType.NONE &&
+					item.completedTimestamp !== 0))
 		);
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
@@ -43,7 +49,13 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={hasBeenCompleted} {comparator} enableUndo={true} showListName={true}/>
+	<ItemList
+		listIdMatcher={searchableListMatcher}
+		filter={hasBeenCompleted}
+		{comparator}
+		enableUndo={true}
+		showListName={true}
+	/>
 </div>
 
 <style>
