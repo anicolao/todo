@@ -16,7 +16,7 @@ nix run github:anicolao/todo#todo -- today
 The flake bundles both the short-lived `todo` command and the resident local service; ordinary
 commands start the service automatically. Install it persistently with
 `nix profile install github:anicolao/todo#todo`. See [cli/README.md](cli/README.md) for login,
-configuration, and local-state details.
+configuration, authorized SOPS recipients, and local-state details.
 
 ## Creating a project
 

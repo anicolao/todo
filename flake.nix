@@ -60,7 +60,6 @@
           };
           nativeBuildInputs = [
             pkgs.bun
-            pkgs.makeWrapper
           ];
           dontNpmBuild = true;
 
@@ -75,10 +74,15 @@
             runHook preInstall
             mkdir -p "$out/bin" "$out/share/todo-cli"
             cp dist/cli.js dist/service.js "$out/share/todo-cli/"
-            makeWrapper ${pkgs.bun}/bin/bun "$out/bin/todo" \
-              --add-flags "$out/share/todo-cli/cli.js" \
-              --set TODO_CLI_SERVICE_ENTRYPOINT "$out/share/todo-cli/service.js" \
-              ${nixpkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''--prefix PATH : "${runtimePath}"''}
+            install -m 0444 cli/secrets/oauth.enc.json "$out/share/todo-cli/oauth.enc.json"
+            install -m 0555 cli/bin/todo-nix "$out/bin/todo"
+            substituteInPlace "$out/bin/todo" \
+              --replace-fail '@sops@' '${pkgs.sops}/bin/sops' \
+              --replace-fail '@oauthConfig@' "$out/share/todo-cli/oauth.enc.json" \
+              --replace-fail '@service@' "$out/share/todo-cli/service.js" \
+              --replace-fail '@runtimePath@' '${runtimePath}' \
+              --replace-fail '@bun@' '${pkgs.bun}/bin/bun' \
+              --replace-fail '@cli@' "$out/share/todo-cli/cli.js"
             runHook postInstall
           '';
 
