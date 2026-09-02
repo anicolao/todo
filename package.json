@@ -2,6 +2,10 @@
 	"name": "todo",
 	"version": "0.1.46",
 	"private": true,
+	"bin": {
+		"todo": "cli/src/cli.ts",
+		"todo-service": "cli/src/service.ts"
+	},
 	"scripts": {
 		"build": "vite build",
 		"android:sync": "npm run build && cap sync android",
@@ -18,6 +22,9 @@
 		"postversion": "./bin/packagedist",
 		"preview": "vite preview",
 		"test": "vitest run --coverage",
+		"test:cli": "bun test cli/test",
+		"todo": "bun run cli/src/cli.ts",
+		"todo:service": "bun run cli/src/service.ts",
 		"playwright": "playwright test",
 		"playwright:isolated": "node scripts/playwright-isolated.mjs",
 		"deploy": "scripts/deploy-production.sh",
@@ -43,6 +50,7 @@
 		"@smui/top-app-bar": "^7.0.0-beta.14",
 		"@sveltejs/kit": "next",
 		"@tsconfig/svelte": "^5.0.0",
+		"@types/bun": "^1.4.0",
 		"@types/chai": "^4.3.3",
 		"@types/mocha": "^9.1.1",
 		"@typescript-eslint/eslint-plugin": "^5.27.0",

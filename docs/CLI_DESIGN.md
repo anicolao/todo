@@ -1,6 +1,6 @@
 # Todo command-line client and local service design
 
-Status: proposed
+Status: implemented for the initial macOS/Linux command set
 
 ## Decision
 

@@ -1,0 +1,10 @@
+{
+	"name": "@todo/local-cli",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "bun run src/cli.ts",
+		"service": "bun run src/service.ts",
+		"test": "bun test test"
+	}
+}
