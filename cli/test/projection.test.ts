@@ -35,7 +35,8 @@ describe('service projection', () => {
 				listName: 'Groceries',
 				description: 'oat milk',
 				completed: false,
-				starred: false
+				starred: false,
+				starTimestamp: 0
 			}
 		]);
 	});
@@ -95,7 +96,8 @@ describe('service projection', () => {
 				listName: 'Groceries',
 				description: 'oat milk',
 				completed: false,
-				starred: false
+				starred: false,
+				starTimestamp: 0
 			}
 		]);
 	});

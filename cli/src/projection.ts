@@ -194,6 +194,7 @@ export class Projection {
 			description: item.description,
 			completed: item.completed,
 			starred: item.starred,
+			starTimestamp: item.starTimestamp,
 			...(item.dueDate
 				? {
 						dueDate: {
