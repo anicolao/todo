@@ -209,7 +209,7 @@ export class TodoApplication {
 	}
 
 	private scheduleSnapshot() {
-		if (this.#snapshotEnabled && this.firebase.user) {
+		if (this.#snapshotEnabled && this.firebase.user && this.#phase === 'ready') {
 			this.snapshots.schedule(() => this.snapshotData());
 		}
 	}

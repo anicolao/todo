@@ -227,13 +227,22 @@ export class FirestoreSynchronizer {
 
 	private processList(id: string, snapshot: QuerySnapshot<DocumentData>) {
 		const documents = snapshot.docChanges().map((change) => change.doc);
-		for (const document of sortDocuments(documents)) {
+		const cursor = this.cursors.lists[id];
+		const entries = sortDocuments(documents).flatMap((document) => {
 			const data = document.data();
 			const timestamp = timestampOf(data);
-			const cursor = this.cursors.lists[id];
-			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) continue;
-			this.projection.dispatchList(data as AnyAction, document.id, timestamp.seconds);
-			this.cursors.lists[id] = advanceCursor(cursor, timestamp, document.id);
+			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) return [];
+			return [{ document, data: data as AnyAction, timestamp }];
+		});
+		this.projection.dispatchListBatch(
+			entries.map(({ document, data, timestamp }) => ({
+				action: data,
+				documentId: document.id,
+				timestamp: timestamp.seconds
+			}))
+		);
+		for (const { document, timestamp } of entries) {
+			this.cursors.lists[id] = advanceCursor(this.cursors.lists[id], timestamp, document.id);
 			this.confirm(document.id);
 			this.changed();
 		}
