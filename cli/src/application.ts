@@ -16,6 +16,7 @@ import { SnapshotStore } from './snapshot';
 import { FirestoreSynchronizer } from './subscriptions';
 import {
 	SNAPSHOT_VERSION,
+	SERVICE_VERSION,
 	type CursorState,
 	type ItemView,
 	type RpcRequest,
@@ -216,6 +217,7 @@ export class TodoApplication {
 	status(): ServiceStatus {
 		const user = this.firebase.user;
 		return {
+			serviceVersion: SERVICE_VERSION,
 			phase: this.#phase,
 			projectId: this.firebase.projectId,
 			...(user ? { uid: user.uid, email: user.email || undefined } : {}),

@@ -73,10 +73,11 @@ export TODO_GOOGLE_CLIENT_ID=example.apps.googleusercontent.com
 todo auth login
 ```
 
-The CLI prints the Google authorization URL before waiting and also attempts to open it in the
-desktop browser. Use `todo auth login --no-open` to suppress the automatic browser launch and
-paste the printed URL into a browser on the same machine. When running over SSH, the callback
-URL's displayed port must be forwarded to the remote machine before opening it locally.
+The CLI prints the Google authorization URL as an unformatted single line before waiting and
+also attempts to open it in the desktop browser. Use `todo auth login --no-open` to suppress the
+automatic browser launch and paste the printed URL into a browser on the same machine. When
+running over SSH, the callback URL's displayed port must be forwarded to the remote machine
+before opening it locally.
 
 Set `TODO_GOOGLE_CLIENT_SECRET` only when the client registration requires it. The Google
 refresh credential is stored in macOS Keychain or the Linux Secret Service; it is not written

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { TodoServiceError } from './errors';
 import { ensurePrivateDirectories, runtimePaths } from './paths';
 import { rpcRequest } from './rpc';
-import type { ItemView, ListView, ServiceStatus } from './types';
+import { SERVICE_VERSION, type ItemView, type ListView, type ServiceStatus } from './types';
 
 interface ParsedArgs {
 	positionals: string[];
@@ -51,18 +51,37 @@ function sleep(milliseconds: number) {
 	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function serviceAvailable() {
+async function serviceStatus() {
 	try {
-		await rpcRequest(runtimePaths().socket, 'service.status', undefined, 500);
-		return true;
+		return (await rpcRequest(
+			runtimePaths().socket,
+			'service.status',
+			undefined,
+			500
+		)) as ServiceStatus;
 	} catch {
-		return false;
+		return undefined;
 	}
+}
+
+async function serviceAvailable() {
+	return (await serviceStatus()) !== undefined;
+}
+
+async function stopStaleService() {
+	await rpcRequest(runtimePaths().socket, 'service.stop', undefined, 2_000);
+	for (let attempt = 0; attempt < 50; attempt++) {
+		if (!(await serviceAvailable())) return;
+		await sleep(100);
+	}
+	throw new TodoServiceError('service_unavailable', 'Stale Todo service did not stop');
 }
 
 export async function startService() {
 	const paths = await ensurePrivateDirectories(runtimePaths());
-	if (await serviceAvailable()) return;
+	const existing = await serviceStatus();
+	if (existing?.serviceVersion === SERVICE_VERSION) return;
+	if (existing) await stopStaleService();
 	const log = openSync(paths.log, 'a', 0o600);
 	fchmodSync(log, 0o600);
 	const service =
@@ -307,13 +326,9 @@ export async function runCli(args = process.argv.slice(2)) {
 				if (started.completed) {
 					result = started.status;
 				} else {
-					printMarkdown(`# Google sign-in
-
-Open this URL if the browser does not open automatically:
-
-<${started.url}>
-
-_Waiting for Google authorization…_`);
+					process.stderr.write('Open this Google sign-in URL if the browser does not open:\n');
+					process.stdout.write(`${started.url}\n`);
+					process.stderr.write('Waiting for Google authorization…\n');
 					if (parsed.options['no-open'] !== true) openBrowser(started.url);
 					result = await call('auth.login.finish', { id: started.id }, { timeout: 150_000 });
 				}

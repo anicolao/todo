@@ -4,6 +4,7 @@ import type { ListsState } from '$lib/components/lists';
 import type { RequestsState } from '$lib/components/requests';
 
 export const PROTOCOL_VERSION = 1;
+export const SERVICE_VERSION = 2;
 export const SNAPSHOT_VERSION = 2;
 
 export type ServicePhase = 'starting' | 'needs-auth' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -53,6 +54,7 @@ export interface SnapshotData {
 }
 
 export interface ServiceStatus {
+	serviceVersion: number;
 	phase: ServicePhase;
 	projectId: string;
 	uid?: string;
