@@ -15,6 +15,23 @@ import type { AnyAction } from '@reduxjs/toolkit';
 import type { ItemView, ListView, ProjectionState } from './types';
 import { TodoServiceError } from './errors';
 
+export interface ListActionEntry {
+	action: AnyAction;
+	documentId: string;
+	timestamp: number;
+}
+
+const ITEM_ACTIONS = new Set([
+	'describe_item',
+	'complete_item',
+	'uncomplete_item',
+	'complete_forever',
+	'star_item',
+	'reorder_item',
+	'set_due_date',
+	'remove_due_date'
+]);
+
 function clone<T>(value: T): T {
 	return structuredClone(value);
 }
@@ -84,6 +101,49 @@ export class Projection {
 			isANormalAction: true,
 			timestamp
 		});
+	}
+
+	dispatchListBatch(entries: ListActionEntry[]) {
+		const staged = new Projection(this.#state);
+		const remaining = [...entries];
+		while (remaining.length > 0) {
+			const index = remaining.findIndex(
+				({ action }) => staged.missingItemDependencies(action).length === 0
+			);
+			if (index === -1) {
+				const entry = remaining[0];
+				const missingItemIds = staged.missingItemDependencies(entry.action);
+				throw new TodoServiceError(
+					'invalid_history',
+					`Cannot replay ${entry.action.type} (${entry.documentId}) before its item is created`,
+					{
+						documentId: entry.documentId,
+						actionType: entry.action.type,
+						missingItemIds
+					}
+				);
+			}
+			const [entry] = remaining.splice(index, 1);
+			staged.dispatchList(entry.action, entry.documentId, entry.timestamp);
+		}
+		this.#state = staged.#state;
+	}
+
+	private missingItemDependencies(action: AnyAction) {
+		if (!ITEM_ACTIONS.has(action.type)) return [];
+		const payload = action.payload;
+		if (!payload || typeof payload !== 'object') return [];
+		const listId = typeof payload.list_id === 'string' ? payload.list_id : undefined;
+		if (!listId) return [];
+		const dependencies = [
+			payload.id,
+			action.type === 'reorder_item' ? payload.goes_before : undefined
+		].filter((value): value is string => typeof value === 'string' && value.length > 0);
+		return dependencies.filter((itemId) => !this.hasItem(listId, itemId));
+	}
+
+	private hasItem(listId: string, itemId: string) {
+		return this.#state.items.listIdToListOfItems[listId]?.itemIdToItem[itemId] !== undefined;
 	}
 
 	visibleDocumentIds() {
