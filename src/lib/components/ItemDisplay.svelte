@@ -1,6 +1,6 @@
 <script lang="ts">
 	// console.log('ItemDisplay.svelte');
-	import { dispatch } from '$lib/components/ActionLog';
+	import { dispatch, dispatchOptimistically } from '$lib/components/ActionLog';
 	import RepeatingDate from '$lib/components/RepeatingDate.svelte';
 	import {
 		complete_item,
@@ -62,7 +62,7 @@
 			if ($store.auth.uid) {
 				const completed_time = new Date().getTime();
 				const item = $store.items.listIdToListOfItems[list_id].itemIdToItem[id];
-				dispatch(
+				dispatchOptimistically(
 					'lists',
 					list_id,
 					$store.auth.uid,

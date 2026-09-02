@@ -1,13 +1,15 @@
 import firebase from '$lib/firebase';
-import { store } from '$lib/store';
+import { discardLocalAction, store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
 import {
 	addDoc,
 	collection,
+	doc,
 	onSnapshot,
 	orderBy,
 	query,
 	serverTimestamp,
+	setDoc,
 	type DocumentChange,
 	type DocumentData
 } from 'firebase/firestore';
@@ -34,6 +36,25 @@ export async function dispatchLabelAction(id: string, uid: string, action: AnyAc
 		throw new Error(`Label action path does not match payload for ${action.type}`);
 	}
 	return dispatch('lists', id, uid, action);
+}
+
+export async function dispatchOptimistically(
+	type: string,
+	id: string,
+	uid: string,
+	action: AnyAction
+) {
+	const actions = collection(firebase.firestore, type, id, 'actions');
+	const actionDoc = doc(actions);
+	console.log('DISPATCH DISPATCH ', { action });
+	store.dispatch({ ...action, firebase_doc_id: actionDoc.id, timestamp: null });
+	try {
+		await setDoc(actionDoc, { ...action, timestamp: serverTimestamp(), creator: uid });
+		return actionDoc;
+	} catch (message) {
+		discardLocalAction(actionDoc.id);
+		console.error(message);
+	}
 }
 
 /*

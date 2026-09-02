@@ -177,18 +177,27 @@ const rebasingReducer = (state: GlobalState | undefined, action: AnyAction) => {
 		}
 		const timestamp = action.timestamp ? action.timestamp.seconds : 0;
 		delete action.timestamp;
-		if (rebasedLocalActions.length > 0) {
-			const currentLocalAction = rebasedLocalActions[0].firebase_doc_id;
-			if (action.firebase_doc_id === currentLocalAction) {
-				rebasedLocalActions = rebasedLocalActions.slice(1);
-			}
+		const localActionIndex = rebasedLocalActions.findIndex(
+			(localAction) => localAction.firebase_doc_id === action.firebase_doc_id
+		);
+		if (localActionIndex >= 0) {
+			rebasedLocalActions = [
+				...rebasedLocalActions.slice(0, localActionIndex),
+				...rebasedLocalActions.slice(localActionIndex + 1)
+			];
 		}
 		action.timestamp = timestamp;
 		serverSideStore.dispatch(action);
 	} else {
 		// console.log('client side action: ', action);
 		delete action.timestamp;
-		rebasedLocalActions.push(action as AnyAction);
+		if (
+			!rebasedLocalActions.some(
+				(localAction) => localAction.firebase_doc_id === action.firebase_doc_id
+			)
+		) {
+			rebasedLocalActions.push(action as AnyAction);
+		}
 	}
 	let replayedState = serverSideStore.getState();
 	rebasedLocalActions.forEach((action) => {
@@ -202,3 +211,11 @@ export let store = createStore(
 	serverSideStore.getState(),
 	svelteStoreEnhancer
 ) as ReduxStore & SvelteStore;
+
+export function discardLocalAction(firebaseDocId: string) {
+	rebasedLocalActions = rebasedLocalActions.filter(
+		(action) => action.firebase_doc_id !== firebaseDocId
+	);
+	// Re-run the rebasing reducer so subscribers see state without the rejected local action.
+	store.dispatch({ type: 'DISCARD_LOCAL_ACTION@INIT' });
+}
