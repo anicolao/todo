@@ -9,7 +9,11 @@ import {
 	queryHasId,
 	remove_label_predicate,
 	resolveLabelQuery,
+	resolveSearchableLabelQuery,
+	selectExcludedSearchListIds,
+	selectSearchableListIds,
 	set_label_query,
+	set_label_visibility,
 	type LabelQuery
 } from '$lib/components/labels';
 import type { ListsState } from '$lib/components/lists';
@@ -24,11 +28,50 @@ describe('labels', () => {
 		const state = labels(initialState, set_label_query({ label_id: 'label1', query: listQuery }));
 
 		expect(state.labelIdToLabel.label1.query).to.deep.equal(listQuery);
+		expect(state.labelIdToLabel.label1.visibility).to.equal('visible');
 		expect(queryHasId(state.labelIdToLabel.label1.query, 'list1')).to.equal(true);
 	});
 
+	it('stores visibility independently from the query', () => {
+		let state = labels(
+			initialState,
+			set_label_visibility({ label_id: 'label1', visibility: 'hidden' })
+		);
+		expect(state.labelIdToLabel.label1.query).to.deep.equal(emptyLabelQuery);
+		expect(state.labelIdToLabel.label1.visibility).to.equal('hidden');
+
+		state = labels(state, set_label_query({ label_id: 'label1', query: listQuery }));
+		expect(state.labelIdToLabel.label1.query).to.deep.equal(listQuery);
+		expect(state.labelIdToLabel.label1.visibility).to.equal('hidden');
+
+		state = labels(state, set_label_visibility({ label_id: 'label1', visibility: 'fully_hidden' }));
+		expect(state.labelIdToLabel.label1.query).to.deep.equal(listQuery);
+		expect(state.labelIdToLabel.label1.visibility).to.equal('fully_hidden');
+
+		state = labels(state, set_label_visibility({ label_id: 'label1', visibility: 'visible' }));
+		expect(state.labelIdToLabel.label1.visibility).to.equal('visible');
+	});
+
+	it('ignores invalid visibility actions and replays identical actions idempotently', () => {
+		const action = set_label_visibility({ label_id: 'label1', visibility: 'hidden' });
+		const state = labels(initialState, action);
+		expect(labels(state, action)).to.equal(state);
+		expect(labels(state, set_label_visibility({ label_id: '', visibility: 'visible' }))).to.equal(
+			state
+		);
+		expect(
+			labels(state, {
+				type: 'set_label_visibility',
+				payload: { label_id: 'label1', visibility: 'unknown' }
+			} as any)
+		).to.equal(state);
+	});
+
 	it('adds a label predicate idempotently', () => {
-		let state = labels(initialState, set_label_query({ label_id: 'label1', query: emptyLabelQuery }));
+		let state = labels(
+			initialState,
+			set_label_query({ label_id: 'label1', query: emptyLabelQuery })
+		);
 		state = labels(
 			state,
 			add_label_predicate({ label_id: 'label1', predicate: { type: 'id', id: 'list1' } })
@@ -204,5 +247,99 @@ describe('labels', () => {
 		expect(entries[1].name).to.contain('Inaccessible List');
 		expect(entries[1].name).to.contain('Old Shared List');
 		expect(entries[1].name).to.contain('a@example.com');
+	});
+
+	it('excludes concrete lists selected by hidden labels from aggregate searches', () => {
+		const lists: ListsState = {
+			visibleLists: ['hidden-label', 'work-label', 'list1', 'list2'],
+			listIdToList: {
+				'hidden-label': 'Archive',
+				'work-label': 'Work',
+				list1: 'Archived work',
+				list2: 'Current work'
+			},
+			listIdToType: {
+				'hidden-label': 'label',
+				'work-label': 'label',
+				list1: 'list',
+				list2: 'list'
+			},
+			listIdToLastKnownInfo: {},
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
+		};
+		let labelState = labels(
+			initialState,
+			set_label_query({
+				label_id: 'hidden-label',
+				query: { type: 'or', predicates: [{ type: 'id', id: 'list1' }] }
+			})
+		);
+		labelState = labels(
+			labelState,
+			set_label_visibility({ label_id: 'hidden-label', visibility: 'hidden' })
+		);
+		labelState = labels(
+			labelState,
+			set_label_query({
+				label_id: 'work-label',
+				query: {
+					type: 'or',
+					predicates: [
+						{ type: 'id', id: 'list1' },
+						{ type: 'id', id: 'list2' }
+					]
+				}
+			})
+		);
+
+		expect([...selectExcludedSearchListIds(lists, labelState)]).to.deep.equal(['list1']);
+		expect(selectSearchableListIds(lists, labelState)).to.deep.equal(['list2']);
+		expect(resolveSearchableLabelQuery('work-label', lists, labelState)).to.deep.equal([
+			{ id: 'list2', name: 'Current work', inaccessible: false }
+		]);
+		expect(resolveSearchableLabelQuery('hidden-label', lists, labelState)).to.deep.equal([
+			{ id: 'list1', name: 'Archived work', inaccessible: false }
+		]);
+	});
+
+	it('resolves nested hidden labels and preserves inaccessible placeholders', () => {
+		const lists: ListsState = {
+			visibleLists: ['archive', 'nested', 'list1'],
+			listIdToList: { archive: 'Renamed Archive', nested: 'Nested', list1: 'One' },
+			listIdToType: { archive: 'label', nested: 'label', list1: 'list' },
+			listIdToLastKnownInfo: { missing: { name: 'Missing' } },
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
+		};
+		let labelState = labels(
+			initialState,
+			set_label_query({
+				label_id: 'nested',
+				query: {
+					type: 'or',
+					predicates: [
+						{ type: 'id', id: 'list1' },
+						{ type: 'id', id: 'missing' }
+					]
+				}
+			})
+		);
+		labelState = labels(
+			labelState,
+			set_label_query({
+				label_id: 'archive',
+				query: { type: 'or', predicates: [{ type: 'id', id: 'nested' }] }
+			})
+		);
+		labelState = labels(
+			labelState,
+			set_label_visibility({ label_id: 'archive', visibility: 'fully_hidden' })
+		);
+
+		expect([...selectExcludedSearchListIds(lists, labelState)]).to.deep.equal(['list1']);
+		const directEntries = resolveSearchableLabelQuery('archive', lists, labelState);
+		expect(directEntries.map((entry) => entry.id)).to.deep.equal(['list1', 'missing']);
+		expect(directEntries[1].inaccessible).to.equal(true);
 	});
 });

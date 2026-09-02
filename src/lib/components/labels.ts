@@ -15,8 +15,11 @@ export interface IdPredicate {
 	id: string;
 }
 
+export type LabelVisibility = 'visible' | 'hidden' | 'fully_hidden';
+
 export interface LabelState {
 	query: LabelQuery;
+	visibility: LabelVisibility;
 }
 
 export interface LabelsState {
@@ -43,6 +46,10 @@ export const add_label_predicate = createAction<{ label_id: string; predicate: L
 export const remove_label_predicate = createAction<{ label_id: string; predicate: LabelQuery }>(
 	'remove_label_predicate'
 );
+export const set_label_visibility = createAction<{
+	label_id: string;
+	visibility: LabelVisibility;
+}>('set_label_visibility');
 
 export const initialState = {
 	labelIdToLabel: {}
@@ -103,6 +110,10 @@ export function queryHasId(query: LabelQuery | undefined, id: string): boolean {
 	return query.predicates.some((predicate) => queryHasId(predicate, id));
 }
 
+export function getLabelVisibility(label: LabelState | undefined): LabelVisibility {
+	return label?.visibility || 'visible';
+}
+
 function inaccessibleEntry(id: string, lists: ListsState): ResolvedLabelEntry {
 	const lastKnownInfo = lists.listIdToLastKnownInfo[id];
 	const suffix = lastKnownInfo?.name
@@ -160,34 +171,105 @@ export function resolveLabelQuery(
 	];
 }
 
+export function selectExcludedSearchListIds(
+	lists: ListsState,
+	labels: LabelsState,
+	bypassLabelId?: string
+): Set<string> {
+	const excluded = new Set<string>();
+	lists.visibleLists.forEach((labelId) => {
+		if (
+			labelId === bypassLabelId ||
+			lists.listIdToType[labelId] !== 'label' ||
+			getLabelVisibility(labels.labelIdToLabel[labelId]) === 'visible'
+		) {
+			return;
+		}
+		resolveLabelQuery(labels.labelIdToLabel[labelId]?.query, lists, labels, [labelId]).forEach(
+			(entry) => {
+				if (!entry.inaccessible && lists.listIdToType[entry.id] === 'list') {
+					excluded.add(entry.id);
+				}
+			}
+		);
+	});
+	return excluded;
+}
+
+export function selectSearchableListIds(
+	lists: ListsState,
+	labels: LabelsState,
+	bypassLabelId?: string
+): string[] {
+	const excluded = selectExcludedSearchListIds(lists, labels, bypassLabelId);
+	return lists.visibleLists.filter((id) => lists.listIdToType[id] === 'list' && !excluded.has(id));
+}
+
+export function resolveSearchableLabelQuery(
+	labelId: string,
+	lists: ListsState,
+	labels: LabelsState
+): ResolvedLabelEntry[] {
+	const excluded = selectExcludedSearchListIds(lists, labels, labelId);
+	return resolveLabelQuery(labels.labelIdToLabel[labelId]?.query, lists, labels, [labelId]).filter(
+		(entry) => entry.inaccessible || !excluded.has(entry.id)
+	);
+}
+
 export const labels = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(set_label_query, (state, action) => {
 		state = { ...state };
+		const label = state.labelIdToLabel[action.payload.label_id];
 		state.labelIdToLabel = { ...state.labelIdToLabel };
 		state.labelIdToLabel[action.payload.label_id] = {
-			query: action.payload.query
+			query: action.payload.query,
+			visibility: getLabelVisibility(label)
 		};
 		return state;
 	});
 	r.addCase(add_label_predicate, (state, action) => {
 		state = { ...state };
-		const label = state.labelIdToLabel[action.payload.label_id] || { query: emptyLabelQuery };
+		const label = state.labelIdToLabel[action.payload.label_id];
 		state.labelIdToLabel = { ...state.labelIdToLabel };
 		state.labelIdToLabel[action.payload.label_id] = {
-			query: queryWithPredicate(label.query, action.payload.predicate)
+			query: queryWithPredicate(label?.query || emptyLabelQuery, action.payload.predicate),
+			visibility: getLabelVisibility(label)
 		};
 		return state;
 	});
 	r.addCase(remove_label_predicate, (state, action) => {
 		state = { ...state };
-		const label = state.labelIdToLabel[action.payload.label_id] || { query: emptyLabelQuery };
+		const label = state.labelIdToLabel[action.payload.label_id];
 		state.labelIdToLabel = { ...state.labelIdToLabel };
 		state.labelIdToLabel[action.payload.label_id] = {
-			query: queryWithoutPredicate(label.query, action.payload.predicate)
+			query: queryWithoutPredicate(label?.query || emptyLabelQuery, action.payload.predicate),
+			visibility: getLabelVisibility(label)
 		};
 		return state;
+	});
+	r.addCase(set_label_visibility, (state, action) => {
+		if (
+			!action.payload.label_id ||
+			!(['visible', 'hidden', 'fully_hidden'] as unknown[]).includes(action.payload.visibility)
+		) {
+			return state;
+		}
+		const label = state.labelIdToLabel[action.payload.label_id];
+		if (label?.visibility === action.payload.visibility) {
+			return state;
+		}
+		return {
+			...state,
+			labelIdToLabel: {
+				...state.labelIdToLabel,
+				[action.payload.label_id]: {
+					query: label?.query || emptyLabelQuery,
+					visibility: action.payload.visibility
+				}
+			}
+		};
 	});
 	r.addDefault((state, action) => {
 		if (action.type === 'CACHE_LOADED@INIT') {
