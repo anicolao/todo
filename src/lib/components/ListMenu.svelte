@@ -1,11 +1,20 @@
 <script lang="ts">
 	console.log('ListMenu.svelte');
+	import { page } from '$app/stores';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import List from '@smui/list';
-	import { flip } from 'svelte/animate';
+	import { flip, type AnimationConfig } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
-	import { reorder_list } from './lists';
+	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
+	import {
+		buildExpandedLabelIds,
+		buildRouteExpandedLabelIds,
+		type LabelEntriesById
+	} from './label-sidebar';
+	import { pin_label, reorder_list, unpin_label, type ListsState } from './lists';
+	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
 
 	/*
@@ -19,18 +28,80 @@
 	) => () => TransitionConfig;
 	*/
 
-	export let setActive: (name: string) => void;
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void;
+	export let openEditDialog: () => void;
 
-	let items: string[] = [];
-	function updateItems() {
-		if (items !== $store.lists.visibleLists) {
-			console.log('ListMenu.updateItems');
-			items = $store.lists.visibleLists;
+	function arraysEqual(a: string[], b: string[]) {
+		return a.length === b.length && a.every((value, index) => value === b[index]);
+	}
+
+	function resolveVisibleLabelEntries(labelId: string, lists: ListsState, labels: LabelsState) {
+		return resolveLabelQuery(labels.labelIdToLabel[labelId]?.query, lists, labels).filter(
+			(entry) => !entry.inaccessible
+		);
+	}
+
+	function buildLabelEntriesById(lists: ListsState, labels: LabelsState) {
+		return Object.fromEntries(
+			lists.visibleLists
+				.filter((listId) => lists.listIdToType[listId] === 'label')
+				.map((labelId) => [labelId, resolveVisibleLabelEntries(labelId, lists, labels)])
+		);
+	}
+
+	function buildHiddenListIds(labelEntriesById: LabelEntriesById, lists: ListsState) {
+		const hiddenListIds = new Set<string>();
+		Object.values(labelEntriesById).forEach((entries) => {
+			entries.forEach((entry) => {
+				if (lists.listIdToType[entry.id] !== 'label') {
+					hiddenListIds.add(entry.id);
+				}
+			});
+		});
+		return hiddenListIds;
+	}
+
+	function buildDisplayItems(lists: ListsState, hiddenListIds: Set<string>) {
+		return lists.visibleLists.filter(
+			(listId) => lists.listIdToType[listId] === 'label' || !hiddenListIds.has(listId)
+		);
+	}
+
+	function togglePinnedLabel(labelId: string) {
+		if ($store.lists.pinnedLabelIds.includes(labelId)) {
+			const action = unpin_label({ id: labelId });
+			store.dispatch(action);
+			firebase.dispatch(action);
+		} else {
+			const action = pin_label({ id: labelId });
+			store.dispatch(action);
+			firebase.dispatch(action);
 		}
 	}
-	$: if ($store.lists.visibleLists) {
-		updateItems();
+
+	let items: string[] = [];
+	function updateItems(displayItems: string[]) {
+		if (!arraysEqual(items, displayItems)) {
+			console.log('ListMenu.updateItems');
+			items = displayItems;
+		}
 	}
+	$: pageListId = $page.url.searchParams.get('listId') || '';
+	$: pageLabelId = $page.url.searchParams.get('labelId') || '';
+	$: viaLabelId = $page.url.searchParams.get('via') || '';
+	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
+	$: routeExpandedLabelIds = buildRouteExpandedLabelIds(
+		$page.url.pathname,
+		pageLabelId,
+		pageListId,
+		viaLabelId,
+		$store.lists,
+		labelEntriesById
+	);
+	$: expandedLabelIds = buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds);
+	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
+	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
+	$: updateItems(displayItems);
 	let dragTo: string;
 
 	let anchor: Element;
@@ -39,6 +110,13 @@
 	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
+
+	function flipWhileDragging(
+		node: Element,
+		positions: { from: DOMRect; to: DOMRect }
+	): AnimationConfig {
+		return grabbed ? flip(node, positions, { duration: 200 }) : { duration: 0 };
+	}
 
 	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
 	let offsetY = 0; // negative y distance from top of grabbed element to pointer
@@ -284,7 +362,7 @@
 		class={grabbed ? 'item haunting' : 'item'}
 		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
 	>
-		{#if grabbed}<ListMenuItem listId={grabbedItem} />{/if}
+		{#if grabbed}<ListMenuItem listId={grabbedItem} {openEditDialog} />{/if}
 	</div>
 	<List>
 		{#each items as listId, i (listId)}<div
@@ -292,9 +370,31 @@
 				class="item"
 				data-index={i}
 				data-id={listId}
-				animate:flip={{ duration: 200 }}
+				animate:flipWhileDragging
 			>
-				<ListMenuItem {listId} {setActive} />
+				<ListMenuItem
+					{listId}
+					{setActive}
+					{openEditDialog}
+					labelExpanded={expandedLabelIds.has(listId)}
+					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
+					onTogglePinnedLabel={togglePinnedLabel}
+				/>
+				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
+					<div class="nested-list-items" transition:slide={{ duration: 200 }}>
+						{#each labelEntriesById[listId] || [] as entry (entry.id)}
+							<div class="nested-list-item">
+								<ListMenuItem
+									listId={entry.id}
+									{setActive}
+									{openEditDialog}
+									nested
+									viaLabelId={listId}
+								/>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>{/each}</List
 	>
 </div>
@@ -322,6 +422,16 @@
 
 	.item:not(#grabbed):not(#ghost) {
 		z-index: 10;
+	}
+
+	.nested-list-items {
+		border-left: 2px solid rgba(0, 0, 0, 0.12);
+		margin-left: 8px;
+		overflow: hidden;
+	}
+
+	.nested-list-item {
+		min-height: 40px;
 	}
 
 	#grabbed {

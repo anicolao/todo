@@ -4,7 +4,7 @@
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import IconButton from '@smui/icon-button';
-	import { Item, Meta, Text } from '@smui/list';
+	import { Item, Text } from '@smui/list';
 	import ListIcon from './ListIcon.svelte';
 	import SharedListIcon from './SharedListIcon.svelte';
 	import { accept_request, reject_request } from './requests';
@@ -16,9 +16,17 @@
 	export let listId: string | undefined = undefined;
 	export let requestId = '';
 	export let sharerId = '';
-	export let setActive: (name: string) => void = (name: string) => {
+	export let nested = false;
+	export let viaLabelId = '';
+	export let labelExpanded = false;
+	export let labelPinned = false;
+	export let setActive: (name: string, keepDrawerOpen?: boolean) => void = (name: string) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
+	};
+	export let onTogglePinnedLabel: (listId: string) => void = () => {};
+	export let openEditDialog = () => {
+		store.dispatch(show_edit_dialog(true));
 	};
 
 	let isShared = false;
@@ -40,10 +48,17 @@
 		return () => {
 			// A real drag captures the pointer on the container, so this pointerup
 			// only fires for taps — navigate regardless of how long the press was.
-			setActive(`lists/?listId=${listId}`);
+			const isLabel = $store.lists.listIdToType[listId] === 'label';
+			if (isLabel) {
+				setActive(`labels?labelId=${encodeURIComponent(listId)}`);
+			} else {
+				const via = viaLabelId ? `&via=${encodeURIComponent(viaLabelId)}` : '';
+				setActive(`lists?listId=${encodeURIComponent(listId)}${via}`);
+			}
 		};
 	}
-	$: activated = pageListId === listId;
+	$: pageLabelId = $page.url.searchParams.get('labelId') || 'hmph';
+	$: activated = pageListId === listId || pageLabelId === listId;
 
 	function acceptPendingShare() {
 		return () => {
@@ -62,32 +77,145 @@
 		};
 	}
 
+	function stopEvent(e: Event) {
+		e.stopPropagation();
+	}
+
+	function handleOpenEditDialog(e: Event) {
+		e.stopPropagation();
+		openEditDialog();
+	}
+
+	function handleTogglePinnedLabel(e: Event) {
+		e.stopPropagation();
+		if (listId) {
+			onTogglePinnedLabel(listId);
+		}
+	}
 </script>
 
 {#if listId}
-	<Item on:pointerup={gotoList(listId)} {activated} draggable="false">
-		{#if isShared}
-			<SharedListIcon />
-		{:else}
-			<ListIcon />
-		{/if}
-		<Text>{$store.lists.listIdToList[listId]}</Text>
+	<div class="list-menu-item" class:nested>
+		<Item
+			on:pointerup={gotoList(listId)}
+			{activated}
+			draggable="false"
+			aria-expanded={$store.lists.listIdToType[listId] === 'label' ? labelExpanded : undefined}
+		>
+			{#if $store.lists.listIdToType[listId] === 'label'}
+				<img class="sidebar-row-icon" src="/new/label.svg" alt="" />
+			{:else if isShared}
+				<SharedListIcon />
+			{:else}
+				<ListIcon />
+			{/if}
+			<Text>{$store.lists.listIdToList[listId]}</Text>
+		</Item>
 		{#if activated}
-			<Meta
-				>{#if sharerId === ''}<IconButton
+			<div class="list-menu-actions">
+				{#if sharerId === ''}
+					<button
+						type="button"
+						aria-label="Edit list"
+						class="list-edit-button"
+						on:pointerdown={handleOpenEditDialog}
+						on:mousedown={handleOpenEditDialog}
+						on:pointerup|stopPropagation
+						on:click={handleOpenEditDialog}><img src="/new/edit.svg" alt="" /></button
+					>
+				{:else}
+					<IconButton
 						class="material-icons"
-						on:click={() => store.dispatch(show_edit_dialog(true))}>edit</IconButton
-					>{:else}<div>
-						<IconButton class="material-icons" on:click={acceptPendingShare()}>check</IconButton
-						><IconButton class="material-icons" on:click={rejectPendingShare()}>close</IconButton>
-					</div>{/if}</Meta
-			>
+						on:pointerdown={stopEvent}
+						on:pointerup={stopEvent}
+						on:click={(e) => {
+							stopEvent(e);
+							acceptPendingShare()();
+						}}>check</IconButton
+					><IconButton
+						class="material-icons"
+						on:pointerdown={stopEvent}
+						on:pointerup={stopEvent}
+						on:click={(e) => {
+							stopEvent(e);
+							rejectPendingShare()();
+						}}>close</IconButton
+					>
+				{/if}
+			</div>
 		{/if}
-	</Item>
+		{#if $store.lists.listIdToType[listId] === 'label' && labelExpanded}
+			<div class="list-menu-actions">
+				<button
+					type="button"
+					aria-label={`${labelPinned ? 'Unpin' : 'Pin'} label ${$store.lists.listIdToList[listId]}`}
+					title={`${labelPinned ? 'Unpin' : 'Pin'} label`}
+					class="list-pin-button"
+					on:pointerdown={stopEvent}
+					on:mousedown={stopEvent}
+					on:pointerup|stopPropagation
+					on:click={handleTogglePinnedLabel}
+					><img src={labelPinned ? '/new/unpin.svg' : '/new/pin.svg'} alt="" /></button
+				>
+			</div>
+		{/if}
+	</div>
 {/if}
 
 <style>
-	div {
-		min-width: 96px; /* 2 x icon width. */
+	.list-menu-item {
+		align-items: stretch;
+		display: flex;
+		width: 100%;
+	}
+	.list-menu-item :global(.mdc-deprecated-list-item) {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
+		min-height: 40px;
+		padding-left: 8px;
+	}
+	.sidebar-row-icon {
+		display: block;
+		flex: 0 0 auto;
+	}
+	.list-menu-actions {
+		align-items: center;
+		display: flex;
+		flex: 0 0 auto;
+		min-width: 48px;
+	}
+	.list-edit-button {
+		align-items: center;
+		background: transparent;
+		border: 0;
+		border-radius: 50%;
+		color: inherit;
+		cursor: pointer;
+		display: inline-flex;
+		height: 48px;
+		justify-content: center;
+		padding: 0;
+		width: 48px;
+	}
+	.list-pin-button {
+		align-items: center;
+		background: transparent;
+		border: 0;
+		border-radius: 50%;
+		color: inherit;
+		cursor: pointer;
+		display: inline-flex;
+		height: 48px;
+		justify-content: center;
+		padding: 0;
+		width: 48px;
+	}
+	.list-edit-button img,
+	.list-pin-button img {
+		display: block;
+		height: 20px;
+		width: 30px;
 	}
 </style>

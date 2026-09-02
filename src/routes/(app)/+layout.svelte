@@ -13,7 +13,14 @@
 	import type { TodoItem } from '$lib/components/items';
 	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
+		add_label_predicate,
+		queryHasId,
+		remove_label_predicate,
+		set_label_query
+	} from '$lib/components/labels';
+	import {
 		accept_pending_share,
+		create_label,
 		create_list,
 		delete_list,
 		rename_list,
@@ -35,7 +42,7 @@
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
-	import { load } from '$lib/database';
+	import { createFirebaseListActions, load } from '$lib/database';
 	import { set_current_url } from '$lib/components/UiSettings';
 
 	let count = 0;
@@ -57,9 +64,9 @@
 	let topAppBar;
 
 	let active: string;
-	function setActive(name: string) {
+	function setActive(name: string, keepDrawerOpen = false) {
 		console.log('setActive ' + name);
-		drawerOpen = width > MOBILE_LAYOUT_WIDTH;
+		drawerOpen = keepDrawerOpen || width > MOBILE_LAYOUT_WIDTH;
 		active = name;
 		firebase.dispatch(set_current_url('/' + name));
 		goto('/' + name);
@@ -77,13 +84,19 @@
 
 	let newListName = '';
 
+	function submitNewList() {
+		const name = newListName.trim();
+		if (name.length > 0) {
+			createList(name);
+		}
+		newListName = '';
+	}
+
 	function handleEnterKey(e: CustomEvent | KeyboardEvent) {
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
-			if (newListName.trim().length > 0) {
-				createList(newListName);
-			}
-			newListName = '';
+			e.preventDefault();
+			submitNewList();
 		}
 	}
 
@@ -107,7 +120,10 @@
 		checkForNewlyCreatedList();
 	}
 
-	$: itemDetailsOpen = $store.ui.showItemDetailsDialog;
+	let itemDetailsOpen = false;
+	$: if ($store.ui.showItemDetailsDialog && !itemDetailsOpen) {
+		itemDetailsOpen = true;
+	}
 	$: itemDescription = '';
 	let dueDate = new Date(0);
 	let dueDateStr = '';
@@ -191,13 +207,124 @@
 
 	$: updateDetailsDialog($store.ui.listId, $store.ui.itemId);
 
-	$: dialogOpen = $store.ui.showEditDialog;
-	$: listName = '';
+	let dialogOpen = false;
+	$: if ($store.ui.showEditDialog && !dialogOpen) {
+		beginEditDialog();
+	}
+	let listName = '';
 	$: if ($store.ui.title && !dialogOpen) {
 		if (listName !== $store.ui.title) listName = $store.ui.title;
 	}
+	$: currentDocumentType = $store.lists.listIdToType[$store.ui.listId];
+	$: visibleLabelIds = $store.lists.visibleLists.filter(
+		(id: string) => $store.lists.listIdToType[id] === 'label'
+	);
+	$: showLabelControls = !!$store.ui.listId && currentDocumentType !== 'label';
+	type DraftLabel = { id: string; name: string };
+	let newLabelName = '';
+	let initialDialogLabelIds: string[] = [];
+	let selectedDialogLabelIds: string[] = [];
+	let draftCreatedLabels: DraftLabel[] = [];
 
-	function closeDialog() {
+	function openEditDialog() {
+		store.dispatch(show_edit_dialog(true));
+		beginEditDialog();
+	}
+
+	function labelHasCurrentList(labelId: string) {
+		return queryHasId($store.labels.labelIdToLabel[labelId]?.query, $store.ui.listId);
+	}
+
+	function getCurrentLabelIds() {
+		return visibleLabelIds.filter((labelId: string) => labelHasCurrentList(labelId));
+	}
+
+	function initializeDialogState() {
+		listName = $store.ui.title || '';
+		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
+		initialDialogLabelIds = getCurrentLabelIds();
+		selectedDialogLabelIds = [...initialDialogLabelIds];
+		draftCreatedLabels = [];
+		newLabelName = '';
+	}
+
+	function beginEditDialog() {
+		initializeDialogState();
+		dialogOpen = true;
+	}
+
+	function dialogHasLabel(labelId: string) {
+		return selectedDialogLabelIds.indexOf(labelId) !== -1;
+	}
+
+	function setDialogLabel(labelId: string, selected: boolean) {
+		const selectedSet = new Set(selectedDialogLabelIds);
+		if (selected) {
+			selectedSet.add(labelId);
+		} else {
+			selectedSet.delete(labelId);
+		}
+		selectedDialogLabelIds = [...selectedSet];
+	}
+
+	function toggleDialogLabel(labelId: string) {
+		setDialogLabel(labelId, !dialogHasLabel(labelId));
+	}
+
+	function createLabelForCurrentList() {
+		const name = newLabelName.trim();
+		if (name.length === 0) {
+			return;
+		}
+		const labelId = crypto.randomUUID();
+		draftCreatedLabels = [...draftCreatedLabels, { id: labelId, name }];
+		setDialogLabel(labelId, true);
+		newLabelName = '';
+	}
+
+	async function commitLabelChanges(uid: string, currentListId: string) {
+		const selectedSet = new Set(selectedDialogLabelIds);
+		const initialSet = new Set(initialDialogLabelIds);
+		const draftLabelIds = new Set(draftCreatedLabels.map((label) => label.id));
+		const predicate = { type: 'id' as const, id: currentListId };
+
+		for (const labelId of initialDialogLabelIds) {
+			if (!selectedSet.has(labelId)) {
+				const action = remove_label_predicate({ label_id: labelId, predicate });
+				store.dispatch(action);
+				await dispatch('lists', labelId, uid, action);
+			}
+		}
+
+		for (const labelId of selectedDialogLabelIds) {
+			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
+				const action = add_label_predicate({ label_id: labelId, predicate });
+				store.dispatch(action);
+				await dispatch('lists', labelId, uid, action);
+			}
+		}
+
+		for (const label of draftCreatedLabels) {
+			if (!selectedSet.has(label.id)) {
+				continue;
+			}
+			const createAction = create_label({ id: label.id, name: label.name });
+			store.dispatch(createAction);
+			await firebase.dispatch(createAction);
+			await createFirebaseListActions(label.id, $store.auth, label.name);
+			const queryAction = set_label_query({
+				label_id: label.id,
+				query: {
+					type: 'or' as const,
+					predicates: [predicate]
+				}
+			});
+			store.dispatch(queryAction);
+			await dispatch('lists', label.id, uid, queryAction);
+		}
+	}
+
+	async function closeDialog() {
 		const uid = $store.auth.uid;
 		const id = $store.ui.listId;
 		const name = listName;
@@ -205,6 +332,9 @@
 			if (listName !== $store.ui.title) {
 				const action = rename_list({ id, name });
 				dispatch('lists', id, uid, action);
+			}
+			if (id) {
+				await commitLabelChanges(uid, id);
 			}
 			const previousShares: string[] = getSharedUsers()
 				.map((u: AuthState) => u.email || "")
@@ -243,7 +373,11 @@
 			}
 		}
 		selectedShareUsers = [];
+		initialDialogLabelIds = [];
+		selectedDialogLabelIds = [];
+		draftCreatedLabels = [];
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 	}
 
 	function closeItemDetailsDialog() {
@@ -295,15 +429,19 @@
 			}
 		}
 		previousDialogItem = undefined;
+		store.dispatch(show_item_detail_dialog(false));
+		itemDetailsOpen = false;
 	}
 
 	function cancelDialog() {
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 	}
 
 	function cancelItemDetailsDialog() {
 		previousDialogItem = undefined;
 		store.dispatch(show_item_detail_dialog(false));
+		itemDetailsOpen = false;
 	}
 
 	function deleteList() {
@@ -313,6 +451,7 @@
 			dispatch('lists', id, uid, delete_list(id));
 		}
 		store.dispatch(show_edit_dialog(false));
+		dialogOpen = false;
 		const remainingLists = $store.lists.visibleLists.filter((x: string) => x !== id);
 		if (remainingLists.length == 0) {
 			setActive('profile');
@@ -324,14 +463,7 @@
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
 
-	function initializeShareUsers() {
-		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
-	}
-
 	let selectedShareUsers: string[] = [];
-	$: if (dialogOpen) {
-		initializeShareUsers();
-	}
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
@@ -390,6 +522,7 @@
 						{#if width <= MOBILE_LAYOUT_WIDTH}
 							<IconButton
 								class="material-icons"
+								aria-label="Open navigation menu"
 								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
 								>menu</IconButton
 							>
@@ -414,16 +547,18 @@
 		>
 			<Content>
 				<FilterMenu {setActive} />
-				<ListMenu {setActive} />
+				<ListMenu {setActive} {openEditDialog} />
 				<div class="verticalspacer" />
 				<AcceptShare />
 				<Textfield
 					style="width: 100%; min-height: 55px;"
 					bind:value={newListName}
 					label="New list"
+					input$aria-label="New list"
 					enterkeyhint="enter"
 					input$enterkeyhint="enter"
 					on:keydown={handleEnterKey}
+					on:blur={submitNewList}
 					><Icon class="material-icons" slot="leadingIcon">add</Icon></Textfield
 				>
 				<List>
@@ -450,82 +585,131 @@
 		<AppContent class="app-content">
 			<div class="backdrop" style:background-image={bgStyle}>
 				<slot />
-				<SgDialog
-					bind:open={itemDetailsOpen}
-					cancelDialog={cancelItemDetailsDialog}
-					labelledby="itemdetails-dialog-title"
-					describedby="itemdetails-dialog-content"
-				>
-					<div class="itemdetails-title-div">
-						<Title id="itemdetails-dialog-title">Edit Task</Title>
-					</div>
-					<Content id="itemdetails-dialog-content">
-						<Paper style="width=100%;">
-							<Textfield textarea bind:value={itemDescription} label="Task" style="width: 100%;" />
-							<Checkbox bind:checked={useDueDate} />
-							<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
-							<br />
-							<Select
-								key={(x) => x.substr(0, 3)}
-								bind:value={repeatValue}
-								label="Repeat"
-								disabled={!useDueDate}
-								style="padding-left: 2.75em;"
-							>
-								{#each repeatKind as value}
-									<Option {value}>{value}</Option>
-								{/each}
-							</Select>
-							<Textfield
-								bind:value={repeatEvery}
-								label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
-								type="number"
-								input$step="1"
-								disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
-								style="width: 6em;"
-							/>
-						</Paper>
-					</Content>
-					<Actions>
-						<Button on:click={cancelItemDetailsDialog}>
-							<Label>Cancel</Label>
-						</Button>
-						<Button on:click={closeItemDetailsDialog}>
-							<Label>Save</Label>
-						</Button>
-					</Actions>
-				</SgDialog>
-				<SgDialog
-					bind:open={dialogOpen}
-					{cancelDialog}
-					labelledby="editlist-dialog-title"
-					describedby="editlist-dialog-content"
-				>
-					<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-					<div class="editlist-dialog-title-div">
-						<Title id="editlist-dialog-title">Edit List</Title>
-					</div>
-					<Content id="editlist-dialog-content">
-						<div class="editlist-dialog-content-div">
-							<Paper variant="unelevated">
-								<Textfield bind:value={listName} label="Name" />
-							</Paper>
-							<Paper variant="unelevated"
-								><Subtitle>Share with:</Subtitle>
-								<ShareList bind:selected={selectedShareUsers} />
-							</Paper>
+				{#if itemDetailsOpen}
+					<SgDialog
+						bind:open={itemDetailsOpen}
+						cancelDialog={cancelItemDetailsDialog}
+						labelledby="itemdetails-dialog-title"
+						describedby="itemdetails-dialog-content"
+					>
+						<div class="itemdetails-title-div">
+							<Title id="itemdetails-dialog-title">Edit Task</Title>
 						</div>
-					</Content>
-					<Actions>
-						<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
-						<Button on:click={cancelDialog}>
-							<Label>Cancel</Label>
-						</Button>
-						<Button on:click={closeDialog}>
-							<Label>Done</Label>
-						</Button>
-					</Actions>
-				</SgDialog>
+						<Content id="itemdetails-dialog-content">
+							<Paper style="width=100%;">
+								<Textfield
+									textarea
+									bind:value={itemDescription}
+									label="Task"
+									style="width: 100%;"
+								/>
+								<Checkbox bind:checked={useDueDate} />
+								<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
+								<br />
+								<Select
+									key={(x) => x.substr(0, 3)}
+									bind:value={repeatValue}
+									label="Repeat"
+									disabled={!useDueDate}
+									style="padding-left: 2.75em;"
+								>
+									{#each repeatKind as value}
+										<Option {value}>{value}</Option>
+									{/each}
+								</Select>
+								<Textfield
+									bind:value={repeatEvery}
+									label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
+									type="number"
+									input$step="1"
+									disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
+									style="width: 6em;"
+								/>
+							</Paper>
+						</Content>
+						<Actions>
+							<Button on:click={cancelItemDetailsDialog}>
+								<Label>Cancel</Label>
+							</Button>
+							<Button on:click={closeItemDetailsDialog}>
+								<Label>Save</Label>
+							</Button>
+						</Actions>
+					</SgDialog>
+				{/if}
+				{#if dialogOpen}
+					<SgDialog
+						bind:open={dialogOpen}
+						{cancelDialog}
+						labelledby="editlist-dialog-title"
+						describedby="editlist-dialog-content"
+					>
+						<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
+						<div class="editlist-dialog-title-div">
+							<Title id="editlist-dialog-title">Edit List</Title>
+						</div>
+						<Content id="editlist-dialog-content">
+							<div class="editlist-dialog-content-div">
+								<Paper variant="unelevated">
+									<Textfield bind:value={listName} label="Name" />
+								</Paper>
+								<Paper variant="unelevated"
+									><Subtitle>Share with:</Subtitle>
+									<ShareList bind:selected={selectedShareUsers} />
+								</Paper>
+								{#if showLabelControls}
+									<Paper variant="unelevated">
+										<section class="labels-editor" aria-labelledby="labels-editor-title">
+											<Subtitle id="labels-editor-title">Labels</Subtitle>
+											{#if visibleLabelIds.length > 0}
+												<div class="existing-labels">
+													{#each visibleLabelIds as labelId (labelId)}
+														<div class="label-row">
+															<Checkbox
+																checked={dialogHasLabel(labelId)}
+																input$aria-label={`Include in ${$store.lists.listIdToList[labelId]}`}
+																on:change={() => toggleDialogLabel(labelId)}
+															/>
+															<span>{$store.lists.listIdToList[labelId]}</span>
+														</div>
+													{/each}
+												</div>
+											{/if}
+											{#each draftCreatedLabels as label (label.id)}
+												<div class="label-row">
+													<Checkbox
+														checked={dialogHasLabel(label.id)}
+														input$aria-label={`Include in ${label.name}`}
+														on:change={() => toggleDialogLabel(label.id)}
+													/>
+													<span>{label.name}</span>
+												</div>
+											{/each}
+											<div class="new-label-row">
+												<Textfield bind:value={newLabelName} label="New label" />
+												<Button
+													on:click={createLabelForCurrentList}
+													disabled={newLabelName.trim().length === 0}
+												>
+													<Label>Create label</Label>
+												</Button>
+											</div>
+										</section>
+									</Paper>
+								{/if}
+							</div>
+						</Content>
+						<Actions>
+							<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
+							<Button on:click={cancelDialog}>
+								<Label>Cancel</Label>
+							</Button>
+							<Button action="" on:click={closeDialog}>
+								<Label>Done</Label>
+							</Button>
+						</Actions>
+					</SgDialog>
+				{/if}
 			</div>
 		</AppContent>
 	</div>
@@ -673,6 +857,18 @@
 
 	.editlist-dialog-title-div {
 		padding-top: 0.75em;
+	}
+	.label-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 2.5rem;
+	}
+	.new-label-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
 	}
 
 	* :global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {

@@ -14,6 +14,30 @@
 			},
 			"oauth_client": [
 				{
+					"client_id": "847898271389-7t90sbjua1njug8d82p6r6eg69rd9udg.apps.googleusercontent.com",
+					"client_type": 1,
+					"android_info": {
+						"package_name": "com.stockgamblers.todo",
+						"certificate_hash": "6b0fd6417a7dede44b39eddda0b03e11c1e87253"
+					}
+				},
+				{
+					"client_id": "847898271389-i59hgcdpg6o6r3bn5qer3k70ttmani9p.apps.googleusercontent.com",
+					"client_type": 1,
+					"android_info": {
+						"package_name": "com.stockgamblers.todo",
+						"certificate_hash": "501a38c88676dba40c2d48daa1215350305fdc6b"
+					}
+				},
+				{
+					"client_id": "847898271389-umtlq8fi54uh54j65kdui1j7sdec9ldh.apps.googleusercontent.com",
+					"client_type": 1,
+					"android_info": {
+						"package_name": "com.stockgamblers.todo",
+						"certificate_hash": "4246e51254ba259697c3e13decdb2bdd532971dc"
+					}
+				},
+				{
 					"client_id": "847898271389-1ngvp009aq9ur97mhko27dqsr2hd8o5j.apps.googleusercontent.com",
 					"client_type": 3
 				}

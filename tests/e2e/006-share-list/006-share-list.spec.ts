@@ -93,11 +93,7 @@ async function expectTasksVisible(page: Page, taskNames: string[]) {
 
 async function openEditListDialog(page: Page) {
 	await ensureListMenuVisible(page);
-	await page
-		.locator('.mdc-drawer button.material-icons')
-		.filter({ hasText: 'edit' })
-		.first()
-		.click();
+	await page.locator('.mdc-drawer').getByRole('button', { name: 'Edit list' }).first().click();
 	await expect(page.getByText('Edit List')).toBeVisible();
 }
 
@@ -108,7 +104,7 @@ function shareRecipientRow(page: Page, email: string): Locator {
 }
 
 function drawerListRow(page: Page, listName: string): Locator {
-	return page.locator('.mdc-drawer .mdc-deprecated-list-item').filter({ hasText: listName });
+	return page.locator('.mdc-drawer .list-menu-item').filter({ hasText: listName });
 }
 
 test('share a list between two users', async ({ browser, page: ownerPage, request }, testInfo) => {

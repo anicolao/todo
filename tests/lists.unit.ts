@@ -4,13 +4,16 @@ import { describe, it } from 'vitest';
 import { signed_in, signed_out } from '$lib/components/auth';
 import {
 	accept_pending_share,
+	create_label,
 	create_list,
 	delete_list,
 	initialState,
 	lists,
+	pin_label,
 	rename_list,
 	reorder_list,
 	revoke_share,
+	unpin_label,
 	type ListsState
 } from '$lib/components/lists';
 
@@ -25,6 +28,51 @@ describe('lists', () => {
 		expect(nextState.visibleLists.length).to.equal(1);
 		expect(nextState.visibleLists[0]).to.equal(id);
 		expect(nextState.listIdToList).to.deep.include({ abcd1234: name });
+		expect(nextState.listIdToType[id]).to.equal('list');
+	});
+
+	it('can create a new label at the top of visible lists', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = lists(state, create_label({ id: 'label1', name: 'Important' }));
+
+		expect(state.visibleLists.length).to.equal(2);
+		expect(state.visibleLists[0]).to.equal('label1');
+		expect(state.visibleLists[1]).to.equal('id1');
+		expect(state.listIdToList.label1).to.equal('Important');
+		expect(state.listIdToType.label1).to.equal('label');
+	});
+
+	it('pins and unpins labels idempotently', () => {
+		let state = lists(initialState, create_label({ id: 'label1', name: 'Important' }));
+
+		state = lists(state, pin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal(['label1']);
+		state = lists(state, pin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal(['label1']);
+
+		state = lists(state, unpin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal([]);
+		state = lists(state, unpin_label({ id: 'label1' }));
+		expect(state.pinnedLabelIds).to.deep.equal([]);
+	});
+
+	it('does not pin ordinary lists', () => {
+		const state = createList(initialState, 'list1', 'Ordinary List');
+		const nextState = lists(state, pin_label({ id: 'list1' }));
+
+		expect(nextState).to.equal(state);
+		expect(nextState.pinnedLabelIds).to.deep.equal([]);
+	});
+
+	it('does not pin labels that are not visible', () => {
+		const state: ListsState = {
+			...initialState,
+			listIdToType: { hidden: 'label' }
+		};
+		const nextState = lists(state, pin_label({ id: 'hidden' }));
+
+		expect(nextState).to.equal(state);
+		expect(nextState.pinnedLabelIds).to.deep.equal([]);
 	});
 
 	it('can create a new list that is first', () => {
@@ -52,6 +100,7 @@ describe('lists', () => {
 		nextState = lists(nextState, delete_list('id1'));
 		expect(nextState.visibleLists.length).to.equal(0);
 		expect(nextState.listIdToList['id1']).to.equal(undefined);
+		expect(nextState.listIdToLastKnownInfo['id1'].name).to.equal('First List');
 	});
 
 	it('accepts a share request', () => {
@@ -86,7 +135,10 @@ describe('lists', () => {
 		const state: ListsState = {
 			visibleLists: ['x', 'y', 'z'],
 			listIdToList: { a: 'A', b: 'B' },
-			listIdToTimestamp: {}
+			listIdToType: { x: 'list', y: 'list', z: 'list' },
+			listIdToLastKnownInfo: {},
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
 		};
 		const nextState = lists(state, signed_in);
 		expect(nextState).to.equal(initialState);
@@ -96,7 +148,10 @@ describe('lists', () => {
 		const state: ListsState = {
 			visibleLists: ['x', 'y', 'z'],
 			listIdToList: { a: 'A', b: 'B' },
-			listIdToTimestamp: {}
+			listIdToType: { x: 'list', y: 'list', z: 'list' },
+			listIdToLastKnownInfo: {},
+			listIdToTimestamp: {},
+			pinnedLabelIds: []
 		};
 		const nextState = lists(state, signed_out);
 		expect(nextState).to.equal(initialState);

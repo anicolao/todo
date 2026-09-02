@@ -44,6 +44,54 @@ npm run build
 
 You can preview the production build with `npm run preview`.
 
+## Android
+
+The Nix development shell provides Java, the Android SDK, build tools, and a pinned
+API 36 Google APIs emulator image. Build fresh Android artifacts with:
+
+```bash
+nix develop
+npm ci
+npm run android:build
+```
+
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk` and
+the release bundle to `android/app/build/outputs/bundle/release/app-release.aab`.
+The native shell loads `https://todo-firebase-1a740.web.app` at runtime, so deploying
+the website updates the app without rebuilding the APK. The website retains control
+of its existing caching and service-worker behavior.
+
+Run the Android task-lifecycle E2E test in a clean, headless emulator with:
+
+```bash
+npm run android:test:emulator
+```
+
+The test requires Linux KVM access. It starts isolated Firebase Auth and Firestore
+emulators, builds the web app with deterministic test settings, wipes and starts the
+pinned API 36 AVD, then drives the Android app through the same eight task-lifecycle
+states as `tests/e2e/005-task-lifecycle`. Every WebView screenshot is compared to its
+committed baseline with exactly zero differing pixels. Actual screenshots, pixel diffs,
+and service logs are written to `test-results/android-emulator/`; CI runs the same
+command and uploads that directory as a build artifact.
+
+After intentionally changing the UI, inspect and update the Android baselines with:
+
+```bash
+npm run android:test:emulator -- --update-screenshots
+```
+
+The committed baselines are in
+`android/app/src/androidTest/assets/android-e2e/`, and the test implementation is
+`android/app/src/androidTest/java/com/stockgamblers/todo/AndroidTaskLifecycleE2ETest.java`.
+
+Once a physical device has USB debugging enabled, install the debug build with:
+
+```bash
+adb devices
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Firebase deploy credentials
 
 Check that a Firebase deploy service account can see the project, has the required IAM permissions, and can inspect the configured Cloud Functions:

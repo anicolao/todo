@@ -1,6 +1,7 @@
 import { watch } from '$lib/components/ActionLog';
 import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
+import { isCompatibleCachedState } from '$lib/components/schema';
 import { add_user } from '$lib/components/users';
 import firebase from '$lib/firebase';
 import { handleDocChanges, logTime, store, enableCaching, writeCacheNow } from '$lib/store';
@@ -20,12 +21,17 @@ import {
 import { openDB } from 'idb';
 import { set_loading_status } from './components/ui';
 import { selectListsForRefresh, type ActivityList } from './list-refresh';
+import { shouldReplayGlobalAction } from './global-action-replay';
 
 const sleep = (delay: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, delay));
 const ACTION_PROGRESS_BATCH_SIZE = 100;
 
-const createFirebaseListActions = async function (id: string, user: AuthState, name?: string) {
+export const createFirebaseListActions = async function (
+	id: string,
+	user: AuthState,
+	name?: string
+) {
 	if (user.uid) {
 		const listDesc = id + (name ? ' ' + name : '');
 		logTime('Firebase: Setting up list ' + listDesc);
@@ -68,6 +74,12 @@ async function loadCachedState(user: AuthState) {
 	if (user.email) {
 		const cachedState = await db.get('state', user.email);
 		if (cachedState) {
+			if (!isCompatibleCachedState(cachedState)) {
+				console.log('Discard cached state with incompatible schema version', {
+					cachedSchemaVersion: cachedState.schemaVersion
+				});
+				return;
+			}
 			console.log('Read cached state for ' + cachedState.cache.timestamp);
 			const newState = { ...cachedState };
 			newState.users = store.getState().users;
@@ -532,9 +544,9 @@ export function load() {
 									logTime(
 										`Filtering ${changes.length} global requests on first call from time ${startTime}`
 									);
-									changes = changes.filter((x: any) => {
-										return x.doc.data().timestamp?.seconds > startTime;
-									});
+									changes = changes.filter((x: any) =>
+										shouldReplayGlobalAction(x.doc.data(), startTime)
+									);
 									logTime(`... ${changes.length} global requests remaining.`);
 								}
 								try {

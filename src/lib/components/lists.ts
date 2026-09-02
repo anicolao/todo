@@ -2,41 +2,119 @@ import { createReducer } from '$lib/redux';
 import { createAction } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
 
+export type ListDocumentType = 'list' | 'label';
+
+export interface LastKnownListInfo {
+	name?: string;
+	ownerUid?: string;
+	ownerEmail?: string;
+}
+
 export interface ListsState {
 	visibleLists: string[];
 	listIdToList: { [key: string]: string };
+	listIdToType: { [key: string]: ListDocumentType };
+	listIdToLastKnownInfo: { [key: string]: LastKnownListInfo };
 	listIdToTimestamp: { [key: string]: number };
+	pinnedLabelIds: string[];
 }
 
 export const create_list = createAction<{ id: string; name: string }>('create_list');
+export const create_label = createAction<{ id: string; name: string }>('create_label');
 export const rename_list = createAction<{ id: string; name: string }>('rename_list');
 export const delete_list = createAction<string>('delete_list');
 export const accept_pending_share = createAction<string>('accept_pending_share');
 export const revoke_share = createAction<{ id: string }>('revoke_share');
 export const reorder_list = createAction<{ id: string; goes_before?: string }>('reorder_list');
+export const pin_label = createAction<{ id: string }>('pin_label');
+export const unpin_label = createAction<{ id: string }>('unpin_label');
 
 export const initialState = {
 	visibleLists: [],
 	listIdToList: {},
-	listIdToTimestamp: {}
+	listIdToType: {},
+	listIdToLastKnownInfo: {},
+	listIdToTimestamp: {},
+	pinnedLabelIds: []
 } as ListsState;
+
+function rememberListInfo(
+	state: ListsState,
+	id: string,
+	name?: string,
+	ownerUid?: string,
+	ownerEmail?: string
+) {
+	state.listIdToLastKnownInfo = { ...state.listIdToLastKnownInfo };
+	state.listIdToLastKnownInfo[id] = {
+		...state.listIdToLastKnownInfo[id],
+		...(name ? { name } : {}),
+		...(ownerUid ? { ownerUid } : {}),
+		...(ownerEmail ? { ownerEmail } : {})
+	};
+}
+
+function createVisibleDocument(
+	state: ListsState,
+	id: string,
+	name: string,
+	type: ListDocumentType,
+	position: 'top' | 'bottom',
+	ownerUid?: string,
+	ownerEmail?: string
+) {
+	state = { ...state };
+	if (state.visibleLists.indexOf(id) === -1) {
+		state.visibleLists =
+			position === 'top' ? [id, ...state.visibleLists] : [...state.visibleLists, id];
+	}
+	state.listIdToList = { ...state.listIdToList };
+	state.listIdToList[id] = name;
+	state.listIdToType = { ...state.listIdToType };
+	state.listIdToType[id] = type;
+	rememberListInfo(state, id, name, ownerUid, ownerEmail);
+	return state;
+}
 
 export const lists = createReducer(initialState, (r) => {
 	r.addCase(signed_in, () => initialState);
 	r.addCase(signed_out, () => initialState);
 	r.addCase(create_list, (state, action) => {
-		state = { ...state };
-		if (state.visibleLists.indexOf(action.payload.id) === -1) {
-			state.visibleLists = [...state.visibleLists, action.payload.id];
-		}
-		state.listIdToList = { ...state.listIdToList };
-		state.listIdToList[action.payload.id] = action.payload.name;
-		return state;
+		const serverAction = action as typeof action & { creator?: string; creatorEmail?: string };
+		return createVisibleDocument(
+			state,
+			action.payload.id,
+			action.payload.name,
+			'list',
+			'bottom',
+			serverAction.creator,
+			serverAction.creatorEmail
+		);
+	});
+	r.addCase(create_label, (state, action) => {
+		const serverAction = action as typeof action & { creator?: string; creatorEmail?: string };
+		return createVisibleDocument(
+			state,
+			action.payload.id,
+			action.payload.name,
+			'label',
+			'top',
+			serverAction.creator,
+			serverAction.creatorEmail
+		);
 	});
 	r.addCase(rename_list, (state, action) => {
+		const serverAction = action as typeof action & { creator?: string; creatorEmail?: string };
 		state = { ...state };
 		state.listIdToList = { ...state.listIdToList };
 		state.listIdToList[action.payload.id] = action.payload.name;
+		rememberListInfo(
+			state,
+			action.payload.id,
+			action.payload.name,
+			serverAction.creator,
+			serverAction.creatorEmail
+		);
 		return state;
 	});
 	r.addCase(delete_list, (state, action) => {
@@ -44,6 +122,8 @@ export const lists = createReducer(initialState, (r) => {
 		state.visibleLists = state.visibleLists.filter((x) => x !== action.payload);
 		state.listIdToList = { ...state.listIdToList };
 		delete state.listIdToList[action.payload];
+		state.listIdToType = { ...state.listIdToType };
+		delete state.listIdToType[action.payload];
 		return state;
 	});
 	r.addCase(revoke_share, (state, action) => {
@@ -51,6 +131,8 @@ export const lists = createReducer(initialState, (r) => {
 		state.visibleLists = state.visibleLists.filter((x) => x !== action.payload.id);
 		state.listIdToList = { ...state.listIdToList };
 		delete state.listIdToList[action.payload.id];
+		state.listIdToType = { ...state.listIdToType };
+		delete state.listIdToType[action.payload.id];
 		return state;
 	});
 	r.addCase(accept_pending_share, (state, action) => {
@@ -79,6 +161,25 @@ export const lists = createReducer(initialState, (r) => {
 		}
 		return state;
 	});
+	r.addCase(pin_label, (state, action) => {
+		if (
+			!state.visibleLists.includes(action.payload.id) ||
+			state.listIdToType[action.payload.id] !== 'label' ||
+			state.pinnedLabelIds.includes(action.payload.id)
+		) {
+			return state;
+		}
+		return { ...state, pinnedLabelIds: [...state.pinnedLabelIds, action.payload.id] };
+	});
+	r.addCase(unpin_label, (state, action) => {
+		if (!state.pinnedLabelIds.includes(action.payload.id)) {
+			return state;
+		}
+		return {
+			...state,
+			pinnedLabelIds: state.pinnedLabelIds.filter((id) => id !== action.payload.id)
+		};
+	});
 	r.addDefault((state, action) => {
 		if (action.timestamp) {
 			// action came from server
@@ -91,6 +192,20 @@ export const lists = createReducer(initialState, (r) => {
 					state.listIdToTimestamp[candidateId] = action.timestamp;
 				}
 			}
+		}
+		return state;
+	});
+	r.addDefault((state, action) => {
+		const labelId = action.payload?.label_id;
+		if (
+			labelId &&
+			(action.type === 'set_label_query' ||
+				action.type === 'add_label_predicate' ||
+				action.type === 'remove_label_predicate')
+		) {
+			state = { ...state };
+			state.listIdToType = { ...state.listIdToType };
+			state.listIdToType[labelId] = 'label';
 		}
 		return state;
 	});
