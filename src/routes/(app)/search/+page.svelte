@@ -2,6 +2,7 @@
 	console.log('routes/(app)/starred/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import ListToggleButton from '$lib/components/ListToggleButton.svelte';
+	import { selectSearchableListIds } from '$lib/components/labels';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 	import { Icon } from '@smui/icon-button';
@@ -11,7 +12,7 @@
 	store.dispatch(set_title('Search'));
 
 	let listIds: string[] = [];
-	$: listIds = $store.lists.visibleLists;
+	$: listIds = selectSearchableListIds($store.lists, $store.labels);
 
 	function searchedItems(query: string): (listId: string, id: string) => boolean {
 		const queryLC = query.toLocaleLowerCase('en-US');

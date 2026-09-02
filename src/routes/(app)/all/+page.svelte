@@ -2,6 +2,7 @@
 	console.log('routes/(app)/starred/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import ListToggleButton from '$lib/components/ListToggleButton.svelte';
+	import { selectSearchableListIds } from '$lib/components/labels';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 
@@ -9,7 +10,7 @@
 	store.dispatch(set_title('All'));
 
 	let listIds: string[] = [];
-	$: listIds = $store.lists.visibleLists;
+	$: listIds = selectSearchableListIds($store.lists, $store.labels);
 
 	function completedItems(completedFlag: boolean): (listId: string, id: string) => boolean {
 		return (listId: string, id: string) => {

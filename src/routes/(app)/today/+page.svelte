@@ -2,6 +2,7 @@
 	console.log('routes/(app)/today/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import type { TodoItem } from '$lib/components/items';
+	import { selectSearchableListIds } from '$lib/components/labels';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 	import { isDueToday } from '$lib/dates';
@@ -9,15 +10,18 @@
 	store.dispatch(set_icon('date_range'));
 	store.dispatch(set_title('Today'));
 
+	$: searchableListIds = new Set(selectSearchableListIds($store.lists, $store.labels));
+	$: searchableListMatcher = (listId: string) => searchableListIds.has(listId);
+
 	function isDatedOrStarred(listId: string, itemId: string): boolean {
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
-        let today = false
-     
+		let today = false;
+
 		if (item.dueDate !== undefined) {
-            const dueDate = item.dueDate;
-            const due = new Date(dueDate.year, dueDate.month - 1, dueDate.day);
-            today = isDueToday(due);
-        }
+			const dueDate = item.dueDate;
+			const due = new Date(dueDate.year, dueDate.month - 1, dueDate.day);
+			today = isDueToday(due);
+		}
 		return (today || item.starred) && !item.completed;
 	}
 	function comparator(a: TodoItem, b: TodoItem) {
@@ -40,7 +44,12 @@
 </script>
 
 <div class="container">
-		<ItemList listIdMatcher={() => true} filter={isDatedOrStarred} {comparator} showListName={true}/>
+	<ItemList
+		listIdMatcher={searchableListMatcher}
+		filter={isDatedOrStarred}
+		{comparator}
+		showListName={true}
+	/>
 </div>
 
 <style>

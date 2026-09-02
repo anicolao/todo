@@ -2,11 +2,15 @@
 	console.log('routes/(app)/starred/+page.svelte');
 	import ItemList from '$lib/components/ItemList.svelte';
 	import type { TodoItem } from '$lib/components/items';
+	import { selectSearchableListIds } from '$lib/components/labels';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import { store } from '$lib/store';
 
 	store.dispatch(set_icon('star'));
 	store.dispatch(set_title('Starred'));
+
+	$: searchableListIds = new Set(selectSearchableListIds($store.lists, $store.labels));
+	$: searchableListMatcher = (listId: string) => searchableListIds.has(listId);
 
 	/*
 	const [send, receive] = crossfade({
@@ -38,7 +42,12 @@
 </script>
 
 <div class="container">
-	<ItemList listIdMatcher={() => true} filter={isStarred} {comparator} showListName={true}/>
+	<ItemList
+		listIdMatcher={searchableListMatcher}
+		filter={isStarred}
+		{comparator}
+		showListName={true}
+	/>
 </div>
 
 <style>
