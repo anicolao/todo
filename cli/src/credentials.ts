@@ -11,17 +11,46 @@ interface CommandResult {
 	code: number;
 }
 
-function run(command: string, args: string[], input?: string): Promise<CommandResult> {
+const CREDENTIAL_COMMAND_TIMEOUT_MS = 5_000;
+
+function run(
+	command: string,
+	args: string[],
+	input?: string,
+	timeoutMs = CREDENTIAL_COMMAND_TIMEOUT_MS
+): Promise<CommandResult> {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 		let stdout = '';
 		let stderr = '';
+		let settled = false;
+		const finish = (callback: () => void) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			callback();
+		};
+		const timeout = setTimeout(() => {
+			child.kill('SIGTERM');
+			const forceKill = setTimeout(() => child.kill('SIGKILL'), 1_000);
+			forceKill.unref();
+			finish(() => reject(new Error(`${command} did not respond within ${timeoutMs}ms`)));
+		}, timeoutMs);
 		child.stdout.setEncoding('utf8').on('data', (chunk) => (stdout += chunk));
 		child.stderr.setEncoding('utf8').on('data', (chunk) => (stderr += chunk));
-		child.once('error', reject);
-		child.once('close', (code) => resolve({ stdout, stderr, code: code ?? 1 }));
+		child.once('error', (error) => finish(() => reject(error)));
+		child.once('close', (code) => finish(() => resolve({ stdout, stderr, code: code ?? 1 })));
 		child.stdin.end(input);
 	});
+}
+
+export function shouldUseLinuxSecretService(env: NodeJS.ProcessEnv = process.env) {
+	return Boolean(
+		env.DBUS_SESSION_BUS_ADDRESS &&
+			!env.SSH_CONNECTION &&
+			!env.SSH_TTY &&
+			env.TODO_CLI_CREDENTIAL_STORE !== 'file'
+	);
 }
 
 export interface CredentialStore {
@@ -93,8 +122,9 @@ export function credentialStore(projectId: string): CredentialStore {
 		};
 	}
 	if (platform() === 'linux') {
-		const attributes = ['service', 'todo-cli', 'project', projectId];
 		const fallback = fileCredentialStore(projectId);
+		if (!shouldUseLinuxSecretService()) return fallback;
+		const attributes = ['service', 'todo-cli', 'project', projectId];
 		return {
 			async read() {
 				try {

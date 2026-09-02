@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileCredentialStore } from '../src/credentials';
+import { fileCredentialStore, shouldUseLinuxSecretService } from '../src/credentials';
 import { runtimePaths } from '../src/paths';
 
 const directories: string[] = [];
@@ -30,5 +30,20 @@ describe('file credential store', () => {
 
 		await credentials.remove();
 		expect(await credentials.read()).toBeUndefined();
+	});
+
+	test('does not attempt a desktop keyring from SSH or without a session bus', () => {
+		expect(shouldUseLinuxSecretService({})).toBe(false);
+		expect(
+			shouldUseLinuxSecretService({
+				DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus',
+				SSH_CONNECTION: '192.0.2.10 12345 192.0.2.20 22'
+			})
+		).toBe(false);
+		expect(
+			shouldUseLinuxSecretService({
+				DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus'
+			})
+		).toBe(true);
 	});
 });

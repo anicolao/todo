@@ -63,11 +63,17 @@ function openBrowser(url: string) {
 }
 
 async function tokenRequest(body: URLSearchParams): Promise<OAuthTokens> {
-	const response = await fetch('https://oauth2.googleapis.com/token', {
-		method: 'POST',
-		headers: { 'content-type': 'application/x-www-form-urlencoded' },
-		body
-	});
+	let response: Response;
+	try {
+		response = await fetch('https://oauth2.googleapis.com/token', {
+			method: 'POST',
+			headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			body,
+			signal: AbortSignal.timeout(15_000)
+		});
+	} catch {
+		throw new TodoServiceError('authentication', 'Google login token exchange timed out');
+	}
 	if (!response.ok) {
 		throw new TodoServiceError('authentication', 'Google login token exchange failed');
 	}
@@ -200,7 +206,7 @@ export class FirebaseRuntime {
 				const code = url.searchParams.get('code');
 				if (!code) throw new Error('Google login returned no authorization code');
 				response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-				response.end('Todo CLI is signed in. You may close this window.\n');
+				response.end('Google authorization received. Return to the Todo CLI.\n');
 				resolveCode(code);
 			} catch (error) {
 				response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });

@@ -76,13 +76,14 @@ todo auth login
 The CLI prints the Google authorization URL as an unformatted single line before waiting and
 also attempts to open it in the desktop browser. Use `todo auth login --no-open` to suppress the
 automatic browser launch and paste the printed URL into a browser on the same machine. When
-running over SSH, the callback URL's displayed port must be forwarded to the remote machine
-before opening it locally.
+the SSH target and browser are the same machine, its loopback callback works without port
+forwarding. A tunnel is only needed when the browser is on a different machine from the service.
 
 Set `TODO_GOOGLE_CLIENT_SECRET` only when the client registration requires it. The Google
 refresh credential is stored in macOS Keychain or the Linux Secret Service; it is not written
-to the Todo snapshot. When a Linux Secret Service is unavailable, the CLI falls back to a
-`0600` token file inside its owner-only state directory.
+to the Todo snapshot. In an SSH session, or when a Linux Secret Service is unavailable, the CLI
+uses a `0600` token file inside its owner-only state directory instead of waiting for a desktop
+keyring prompt that cannot be answered.
 
 ## Emulator login
 
