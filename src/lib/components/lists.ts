@@ -183,7 +183,8 @@ export const lists = createReducer(initialState, (r) => {
 	r.addDefault((state, action) => {
 		if (action.timestamp) {
 			// action came from server
-			const candidateId = action.payload.list_id || action.payload.id || action.payload;
+			const candidateId =
+				action.payload.list_id || action.payload.label_id || action.payload.id || action.payload;
 			if (state.visibleLists.indexOf(candidateId) !== -1) {
 				if (action.isANormalAction) {
 					console.log(`Update timestamp for list ${candidateId}`);
@@ -201,7 +202,8 @@ export const lists = createReducer(initialState, (r) => {
 			labelId &&
 			(action.type === 'set_label_query' ||
 				action.type === 'add_label_predicate' ||
-				action.type === 'remove_label_predicate')
+				action.type === 'remove_label_predicate' ||
+				action.type === 'set_label_visibility')
 		) {
 			state = { ...state };
 			state.listIdToType = { ...state.listIdToType };
