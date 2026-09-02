@@ -75,6 +75,7 @@ export interface ItemView {
 	description: string;
 	completed: boolean;
 	starred: boolean;
+	starTimestamp: number;
 	dueDate?: {
 		year: number;
 		month: number;

@@ -15,6 +15,8 @@ npm run todo -- auth login
 npm run todo -- lists
 npm run todo -- add --list Groceries "oat milk"
 npm run todo -- list --list Groceries
+npm run todo -- today
+npm run todo -- search "oat milk"
 ```
 
 `npm link` exposes the root package's `todo` and `todo-service` binaries for local development.
@@ -23,6 +25,10 @@ Ordinary commands start the service automatically, so an explicit `service start
 Item commands currently include `add`, `list`, `complete`, `uncomplete`, `edit`, `star`,
 `unstar`, `due`, and `undue`. Run `todo help` for their arguments. Item IDs may be shortened to
 an unambiguous prefix.
+
+Human-readable command output is Markdown. When stdout is an interactive terminal and `glow` is
+installed, the CLI renders that Markdown automatically; redirected output remains plain Markdown.
+Use `--verbose` to include IDs, state, due dates, and list types, or `--json` for structured output.
 
 ## Production login
 

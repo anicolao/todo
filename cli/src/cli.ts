@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { closeSync, fchmodSync, openSync, readFileSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { TodoServiceError } from './errors';
 import { ensurePrivateDirectories, runtimePaths } from './paths';
@@ -99,17 +99,47 @@ async function call(
 	throw new TodoServiceError('service_timeout', 'Todo service did not become ready');
 }
 
-function printStatus(status: ServiceStatus) {
-	const identity = status.email || status.uid || 'signed out';
-	console.log(`${status.phase}: ${identity} (${status.projectId})`);
-	if (status.phase === 'ready') console.log(`${status.listCount} lists, ${status.itemCount} items`);
-	if (status.message) console.error(status.message);
+function markdownText(value: string) {
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/([`*_[\]<>])/g, '\\$1')
+		.replace(/\r?\n/g, ' ');
 }
 
-function printLists(lists: ListView[]) {
-	if (lists.length === 0) return;
-	console.log('ID\tTYPE\tNAME');
-	for (const list of lists) console.log(`${list.id}\t${list.type}\t${list.name}`);
+function printMarkdown(markdown: string) {
+	const output = `${markdown.trimEnd()}\n`;
+	if (process.stdout.isTTY) {
+		const rendered = spawnSync('glow', ['-'], {
+			input: output,
+			encoding: 'utf8',
+			stdio: ['pipe', 'pipe', 'ignore']
+		});
+		if (!rendered.error && rendered.status === 0) {
+			process.stdout.write(rendered.stdout);
+			return;
+		}
+	}
+	process.stdout.write(output);
+}
+
+function printStatus(status: ServiceStatus, verbose = false) {
+	const identity = status.email || status.uid || 'signed out';
+	const lines = [`# Todo service`, '', `**${status.phase}** — ${markdownText(identity)}`];
+	if (status.phase === 'ready')
+		lines.push('', `${status.listCount} lists, ${status.itemCount} items`);
+	if (verbose) lines.push('', `Project: \`${status.projectId}\``);
+	if (status.message) lines.push('', `> ${markdownText(status.message)}`);
+	printMarkdown(lines.join('\n'));
+}
+
+export function listsMarkdown(lists: ListView[], verbose = false) {
+	const lines = ['# Lists', ''];
+	if (lists.length === 0) return [...lines, '_No lists._'].join('\n');
+	for (const list of lists) {
+		const metadata = verbose ? ` — ${list.type}; \`${list.id}\`` : '';
+		lines.push(`- ${markdownText(list.name)}${metadata}`);
+	}
+	return lines.join('\n');
 }
 
 function dateString(item: ItemView) {
@@ -119,46 +149,93 @@ function dateString(item: ItemView) {
 		.padStart(2, '0')}-${item.dueDate.day.toString().padStart(2, '0')}`;
 }
 
-function printItems(items: ItemView[]) {
-	if (items.length === 0) return;
-	const multipleLists = new Set(items.map((item) => item.listId)).size > 1;
-	console.log(`${multipleLists ? 'LIST\t' : ''}ID\tSTATE\tSTAR\tDUE\tDESCRIPTION`);
-	for (const item of items) {
-		console.log(
-			`${multipleLists ? `${item.listName}\t` : ''}${item.id}\t${
-				item.completed ? 'completed' : 'active'
-			}\t${item.starred ? '*' : ''}\t${dateString(item)}\t${item.description}`
-		);
-	}
+export interface ItemsMarkdownOptions {
+	title: string;
+	verbose?: boolean;
+	groupByList?: boolean;
+	showState?: boolean;
 }
 
-function printItem(item: ItemView, verb: string) {
-	console.log(`${verb} “${item.description}” (${item.id})`);
+function itemMarkdown(item: ItemView, options: ItemsMarkdownOptions) {
+	const state = options.showState ? ` [${item.completed ? 'x' : ' '}]` : '';
+	let line = `-${state} ${item.starred ? '★' : '☆'} ${markdownText(item.description)}`;
+	if (options.verbose) {
+		const metadata = [
+			`\`${item.id}\``,
+			item.completed ? 'completed' : 'active',
+			item.dueDate ? `due ${dateString(item)}` : undefined
+		].filter(Boolean);
+		line += ` — ${metadata.join('; ')}`;
+	}
+	return line;
+}
+
+export function itemsMarkdown(items: ItemView[], options: ItemsMarkdownOptions) {
+	const lines = [`# ${markdownText(options.title)}`, ''];
+	if (items.length === 0) return [...lines, '_No items._'].join('\n');
+	const groupByList = options.groupByList || new Set(items.map((item) => item.listId)).size > 1;
+	if (!groupByList) {
+		lines.push(...items.map((item) => itemMarkdown(item, options)));
+		return lines.join('\n');
+	}
+	const groups = new Map<string, ItemView[]>();
+	for (const item of items) {
+		const group = groups.get(item.listId) || [];
+		group.push(item);
+		groups.set(item.listId, group);
+	}
+	for (const group of groups.values()) {
+		const list = group[0];
+		const metadata = options.verbose ? ` \`${list.listId}\`` : '';
+		lines.push(`## ${markdownText(list.listName)}${metadata}`, '');
+		lines.push(...group.map((item) => itemMarkdown(item, options)), '');
+	}
+	return lines.join('\n').trimEnd();
+}
+
+function printItem(item: ItemView, verb: string, verbose = false) {
+	const metadata = verbose ? ` — \`${item.id}\`` : '';
+	printMarkdown(
+		`- **${verb}:** ${item.starred ? '★' : '☆'} ${markdownText(item.description)}${metadata}`
+	);
 }
 
 function help() {
-	console.log(`Usage: todo <command> [options]
+	printMarkdown(`# Todo CLI
+
+Usage: \`todo <command> [options]\`
 
 Commands:
-  lists [--json]
-  list [--list NAME_OR_ID] [--completed|--all-states] [--json]
-  add [--list NAME_OR_ID] DESCRIPTION [--json]
-  complete|uncomplete [--list NAME_OR_ID] ITEM_ID [--json]
-  edit [--list NAME_OR_ID] ITEM_ID DESCRIPTION [--json]
-  star|unstar [--list NAME_OR_ID] ITEM_ID [--json]
-  due [--list NAME_OR_ID] ITEM_ID YYYY-MM-DD [--json]
-  undue [--list NAME_OR_ID] ITEM_ID [--json]
-  config set default-list NAME_OR_ID
-  auth login [--email EMAIL --password PASSWORD]
-  auth status|logout
-  service start|status|stop|logs`);
+
+- \`lists [--verbose|--json]\`
+- \`list [--list NAME_OR_ID] [--completed|--all-states] [--verbose|--json]\`
+- \`today [--verbose|--json]\`
+- \`search QUERY [--list NAME_OR_ID] [--completed|--all-states] [--verbose|--json]\`
+- \`add [--list NAME_OR_ID] DESCRIPTION [--verbose|--json]\`
+- \`complete|uncomplete [--list NAME_OR_ID] ITEM_ID [--verbose|--json]\`
+- \`edit [--list NAME_OR_ID] ITEM_ID DESCRIPTION [--verbose|--json]\`
+- \`star|unstar [--list NAME_OR_ID] ITEM_ID [--verbose|--json]\`
+- \`due [--list NAME_OR_ID] ITEM_ID YYYY-MM-DD [--verbose|--json]\`
+- \`undue [--list NAME_OR_ID] ITEM_ID [--verbose|--json]\`
+- \`config set default-list NAME_OR_ID\`
+- \`auth login|status|logout\`
+- \`service start|status|stop|logs\`
+
+Human-readable output is Markdown. Interactive output is rendered with \`glow\` when installed;
+use \`--verbose\` to include IDs and other metadata, or \`--json\` for structured output.`);
 }
 
 export async function runCli(args = process.argv.slice(2)) {
 	const parsed = parseArgs(args);
 	const [command, ...positionals] = parsed.positionals;
 	const json = parsed.options.json === true;
+	const verbose = parsed.options.verbose === true;
 	const list = optionString(parsed, 'list');
+	const state = parsed.options['all-states']
+		? 'all'
+		: parsed.options.completed
+		? 'completed'
+		: 'active';
 	let result: unknown;
 
 	switch (command) {
@@ -171,24 +248,27 @@ export async function runCli(args = process.argv.slice(2)) {
 			const operation = positionals[0] || 'status';
 			if (operation === 'start') {
 				await startService();
-				printStatus((await call('service.status')) as ServiceStatus);
+				printStatus((await call('service.status')) as ServiceStatus, verbose);
 				return;
 			}
 			if (operation === 'status') {
 				if (!(await serviceAvailable())) {
-					console.log('stopped');
+					printMarkdown('# Todo service\n\n**stopped**');
 					return;
 				}
-				printStatus((await call('service.status', undefined, { start: false })) as ServiceStatus);
+				printStatus(
+					(await call('service.status', undefined, { start: false })) as ServiceStatus,
+					verbose
+				);
 				return;
 			}
 			if (operation === 'stop') {
 				if (!(await serviceAvailable())) {
-					console.log('Already stopped');
+					printMarkdown('Todo service is already stopped.');
 					return;
 				}
 				await call('service.stop', undefined, { start: false });
-				console.log('Stopped Todo service');
+				printMarkdown('Stopped Todo service.');
 				return;
 			}
 			if (operation === 'logs') {
@@ -219,27 +299,48 @@ export async function runCli(args = process.argv.slice(2)) {
 				throw new TodoServiceError('usage', `Unknown auth command: ${operation}`);
 			}
 			if (json) console.log(JSON.stringify(result));
-			else if (operation === 'logout') console.log('Signed out');
-			else printStatus(result as ServiceStatus);
+			else if (operation === 'logout') printMarkdown('Signed out.');
+			else printStatus(result as ServiceStatus, verbose);
 			return;
 		}
 		case 'lists':
 			result = await call('lists.query');
 			if (json) console.log(JSON.stringify(result));
-			else printLists(result as ListView[]);
+			else printMarkdown(listsMarkdown(result as ListView[], verbose));
 			return;
 		case 'list':
+		case 'today':
+		case 'search': {
+			const search = command === 'search' ? positionals.join(' ').trim() : undefined;
+			if (command === 'search' && !search) {
+				throw new TodoServiceError('usage', 'Usage: todo search QUERY');
+			}
 			result = await call('items.query', {
 				list,
-				state: parsed.options['all-states']
-					? 'all'
-					: parsed.options.completed
-					? 'completed'
-					: 'active'
+				state,
+				...(command === 'today' ? { today: true } : {}),
+				...(search !== undefined ? { search } : {})
 			});
 			if (json) console.log(JSON.stringify(result));
-			else printItems(result as ItemView[]);
+			else {
+				const items = result as ItemView[];
+				const title =
+					command === 'today'
+						? 'Today'
+						: command === 'search'
+						? `Search: ${search}`
+						: items[0]?.listName || list || 'Todos';
+				printMarkdown(
+					itemsMarkdown(items, {
+						title,
+						verbose,
+						groupByList: command !== 'list' || !list,
+						showState: state === 'all'
+					})
+				);
+			}
 			return;
+		}
 		case 'add':
 			result = await call('items.create', { list, description: positionals.join(' ') });
 			break;
@@ -278,14 +379,14 @@ export async function runCli(args = process.argv.slice(2)) {
 			}
 			result = await call('config.setDefaultList', { list: positionals.slice(2).join(' ') });
 			if (json) console.log(JSON.stringify(result));
-			else console.log(`Default list is ${(result as ListView).name}`);
+			else printMarkdown(`Default list is **${markdownText((result as ListView).name)}**.`);
 			return;
 		default:
 			throw new TodoServiceError('usage', `Unknown command: ${command}`);
 	}
 
 	if (json) console.log(JSON.stringify({ item: result }));
-	else printItem(result as ItemView, command === 'add' ? 'Added' : 'Updated');
+	else printItem(result as ItemView, command === 'add' ? 'Added' : 'Updated', verbose);
 }
 
 function exitCode(error: unknown) {

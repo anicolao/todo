@@ -41,6 +41,45 @@ function boolean(value: unknown, name: string, fallback: boolean) {
 	return value;
 }
 
+type ItemStateFilter = 'active' | 'completed' | 'all';
+
+function dueDateValue(item: ItemView) {
+	return item.dueDate
+		? item.dueDate.year * 10_000 + item.dueDate.month * 100 + item.dueDate.day
+		: Number.POSITIVE_INFINITY;
+}
+
+export function selectItemViews(
+	items: ItemView[],
+	options: {
+		state: ItemStateFilter;
+		search?: string;
+		today?: boolean;
+		now?: Date;
+	}
+) {
+	const search = options.search?.toLocaleLowerCase('en-US');
+	const now = options.now || new Date();
+	const today = now.getFullYear() * 10_000 + (now.getMonth() + 1) * 100 + now.getDate();
+	const selected = items.filter((item) => {
+		if (options.state !== 'all' && item.completed !== (options.state === 'completed')) return false;
+		if (search !== undefined && !item.description.toLocaleLowerCase('en-US').includes(search)) {
+			return false;
+		}
+		if (options.today && (item.completed || (!item.starred && dueDateValue(item) > today))) {
+			return false;
+		}
+		return true;
+	});
+	if (!options.today) return selected;
+	return selected.sort((left, right) => {
+		if (left.starred && right.starred) return right.starTimestamp - left.starTimestamp;
+		if (left.starred) return -1;
+		if (right.starred) return 1;
+		return dueDateValue(left) - dueDateValue(right);
+	});
+}
+
 export class TodoApplication {
 	readonly firebase: FirebaseRuntime;
 	readonly snapshots: SnapshotStore;
@@ -257,13 +296,15 @@ export class TodoApplication {
 		if (list?.type === 'label') {
 			throw new TodoServiceError('usage', 'Direct label queries are not implemented yet');
 		}
-		const completed = optionalString(params.state, 'state') || 'active';
-		if (!['active', 'completed', 'all'].includes(completed)) {
+		const state = optionalString(params.state, 'state') || 'active';
+		if (!['active', 'completed', 'all'].includes(state)) {
 			throw new TodoServiceError('usage', 'state must be active, completed, or all');
 		}
-		return this.#projection
-			.itemViews(list)
-			.filter((item) => completed === 'all' || item.completed === (completed === 'completed'));
+		return selectItemViews(this.#projection.itemViews(list), {
+			state: state as ItemStateFilter,
+			search: optionalString(params.search, 'search'),
+			today: boolean(params.today, 'today', false)
+		});
 	}
 
 	private async createItem(rawParams: unknown) {
