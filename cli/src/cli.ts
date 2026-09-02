@@ -2,6 +2,7 @@
 
 import { closeSync, fchmodSync, openSync, readFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
+import { platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { TodoServiceError } from './errors';
 import { ensurePrivateDirectories, runtimePaths } from './paths';
@@ -124,6 +125,14 @@ function printMarkdown(markdown: string) {
 	process.stdout.write(output);
 }
 
+function openBrowser(url: string) {
+	const command = platform() === 'darwin' ? 'open' : platform() === 'win32' ? 'cmd' : 'xdg-open';
+	const args = platform() === 'win32' ? ['/c', 'start', '', url] : [url];
+	const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+	child.once('error', () => undefined);
+	child.unref();
+}
+
 function printStatus(status: ServiceStatus, verbose = false) {
 	const identity = status.email || status.uid || 'signed out';
 	const lines = [`# Todo service`, '', `**${status.phase}** — ${markdownText(identity)}`];
@@ -220,7 +229,7 @@ Commands:
 - \`due [--list NAME_OR_ID] ITEM_ID YYYY-MM-DD [--verbose|--json]\`
 - \`undue [--list NAME_OR_ID] ITEM_ID [--verbose|--json]\`
 - \`config set default-list NAME_OR_ID\`
-- \`auth login|status|logout\`
+- \`auth login [--no-open]|status|logout\`
 - \`service start|status|stop|logs\`
 
 Human-readable output is Markdown. Interactive output is rendered with \`glow\` when installed;
@@ -288,11 +297,26 @@ export async function runCli(args = process.argv.slice(2)) {
 		case 'auth': {
 			const operation = positionals[0] || 'status';
 			if (operation === 'login') {
-				result = await call(
-					'auth.login',
+				const started = (await call(
+					'auth.login.begin',
 					{ email: optionString(parsed, 'email'), password: optionString(parsed, 'password') },
-					{ timeout: 150_000 }
-				);
+					{ timeout: 10_000 }
+				)) as
+					| { completed: true; status: ServiceStatus }
+					| { completed: false; id: string; url: string };
+				if (started.completed) {
+					result = started.status;
+				} else {
+					printMarkdown(`# Google sign-in
+
+Open this URL if the browser does not open automatically:
+
+<${started.url}>
+
+_Waiting for Google authorization…_`);
+					if (parsed.options['no-open'] !== true) openBrowser(started.url);
+					result = await call('auth.login.finish', { id: started.id }, { timeout: 150_000 });
+				}
 			} else if (operation === 'status') {
 				result = await call('auth.status');
 			} else if (operation === 'logout') {

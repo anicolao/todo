@@ -143,6 +143,33 @@ export class TodoApplication {
 				return this.status();
 			case 'auth.status':
 				return this.status();
+			case 'auth.login.begin': {
+				const params = rawParams === undefined ? {} : requireObject(rawParams);
+				if (this.firebase.emulator) {
+					try {
+						await this.firebase.login({
+							email: optionalString(params.email, 'email') || process.env.TODO_AUTH_EMAIL,
+							password:
+								optionalString(params.password, 'password') || process.env.TODO_AUTH_PASSWORD
+						} satisfies LoginParams);
+					} catch (error) {
+						firebaseError(error);
+					}
+					await this.startSynchronization();
+					return { completed: true, status: this.status() };
+				}
+				return { completed: false, ...(await this.firebase.beginBrowserLogin()) };
+			}
+			case 'auth.login.finish': {
+				const params = requireObject(rawParams);
+				try {
+					await this.firebase.finishBrowserLogin(requiredString(params.id, 'id'));
+				} catch (error) {
+					firebaseError(error);
+				}
+				await this.startSynchronization();
+				return this.status();
+			}
 			case 'auth.login': {
 				const params = rawParams === undefined ? {} : requireObject(rawParams);
 				try {
@@ -429,6 +456,7 @@ export class TodoApplication {
 	}
 
 	async stop() {
+		this.firebase.cancelBrowserLogin('Todo service stopped');
 		await this.#synchronizer?.stop();
 		if (
 			this.#snapshotEnabled &&
