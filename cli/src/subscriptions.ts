@@ -227,22 +227,24 @@ export class FirestoreSynchronizer {
 
 	private processList(id: string, snapshot: QuerySnapshot<DocumentData>) {
 		const documents = snapshot.docChanges().map((change) => change.doc);
-		const cursor = this.cursors.lists[id];
-		const entries = sortDocuments(documents).flatMap((document) => {
+		for (const document of sortDocuments(documents)) {
 			const data = document.data();
 			const timestamp = timestampOf(data);
-			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) return [];
-			return [{ document, data: data as AnyAction, timestamp }];
-		});
-		this.projection.dispatchListBatch(
-			entries.map(({ document, data, timestamp }) => ({
-				action: data,
-				documentId: document.id,
-				timestamp: timestamp.seconds
-			}))
-		);
-		for (const { document, timestamp } of entries) {
-			this.cursors.lists[id] = advanceCursor(this.cursors.lists[id], timestamp, document.id);
+			const cursor = this.cursors.lists[id];
+			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) continue;
+			const result = this.projection.dispatchList(
+				data as AnyAction,
+				document.id,
+				timestamp.seconds
+			);
+			if (!result.applied) {
+				console.warn(
+					`Skipping ${data.type} (${document.id}) in list ${id}: item ${result.missingItemIds.join(
+						', '
+					)} has not been created`
+				);
+			}
+			this.cursors.lists[id] = advanceCursor(cursor, timestamp, document.id);
 			this.confirm(document.id);
 			this.changed();
 		}

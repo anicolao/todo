@@ -15,10 +15,9 @@ import type { AnyAction } from '@reduxjs/toolkit';
 import type { ItemView, ListView, ProjectionState } from './types';
 import { TodoServiceError } from './errors';
 
-export interface ListActionEntry {
-	action: AnyAction;
-	documentId: string;
-	timestamp: number;
+export interface ListDispatchResult {
+	applied: boolean;
+	missingItemIds: string[];
 }
 
 const ITEM_ACTIONS = new Set([
@@ -95,38 +94,15 @@ export class Projection {
 	}
 
 	dispatchList(action: AnyAction, documentId: string, timestamp: number) {
+		const missingItemIds = this.missingItemDependencies(action);
+		if (missingItemIds.length > 0) return { applied: false, missingItemIds };
 		this.dispatch({
 			...action,
 			firebase_doc_id: documentId,
 			isANormalAction: true,
 			timestamp
 		});
-	}
-
-	dispatchListBatch(entries: ListActionEntry[]) {
-		const staged = new Projection(this.#state);
-		const remaining = [...entries];
-		while (remaining.length > 0) {
-			const index = remaining.findIndex(
-				({ action }) => staged.missingItemDependencies(action).length === 0
-			);
-			if (index === -1) {
-				const entry = remaining[0];
-				const missingItemIds = staged.missingItemDependencies(entry.action);
-				throw new TodoServiceError(
-					'invalid_history',
-					`Cannot replay ${entry.action.type} (${entry.documentId}) before its item is created`,
-					{
-						documentId: entry.documentId,
-						actionType: entry.action.type,
-						missingItemIds
-					}
-				);
-			}
-			const [entry] = remaining.splice(index, 1);
-			staged.dispatchList(entry.action, entry.documentId, entry.timestamp);
-		}
-		this.#state = staged.#state;
+		return { applied: true, missingItemIds: [] };
 	}
 
 	private missingItemDependencies(action: AnyAction) {
