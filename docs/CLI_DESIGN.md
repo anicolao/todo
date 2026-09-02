@@ -1,10 +1,98 @@
-# Todo command-line client design
+# Todo command-line client and local service design
 
 Status: proposed
 
-## Summary
+## Decision
 
-Add a `todo` command that signs in as a normal Todo user, discovers that user's visible lists, reconstructs list state from the existing Firestore action logs, and supports two primary operations:
+Add two local programs:
+
+- `todo-service` is a long-running Bun process. It owns Firebase authentication, keeps the
+  user's Todo state in memory, follows Firestore action streams, writes new actions, and
+  periodically saves a local snapshot that can accelerate its next start.
+- `todo` is a short-lived command-line client. It parses arguments, sends one request to
+  `todo-service` over an owner-only local socket, formats the response, and exits.
+
+Firestore remains the durable source of truth. The service is a resident projection and
+command gateway, not a second task database. The disk snapshot is disposable derived data,
+not an offline write queue.
+
+The first implementation should import the existing action creators and Redux reducers in
+place. It should not begin by moving them to a new domain package or changing the web app to
+use a new abstraction. Small compatibility edits to existing files are acceptable only if a
+short Bun import spike proves they are necessary; such edits should be proposed separately
+and kept narrowly scoped.
+
+## Why this replaces the previous proposal
+
+The previous design authenticated, discovered lists, and replayed Firestore logs on every CLI
+invocation. It also made extracting the action contracts and reducers into a new shared domain
+layer the first delivery step. That adds latency to every command and puts a large web-app
+refactor on the critical path.
+
+The resident-service design changes those tradeoffs:
+
+| Concern            | Previous proposal                         | Revised design                                       |
+| ------------------ | ----------------------------------------- | ---------------------------------------------------- |
+| Process lifetime   | Authenticate and replay per command       | Authenticate and hydrate once; keep listening        |
+| State              | Fresh finite Firestore reads              | In-memory projection, continuously updated           |
+| Startup            | No local cache initially                  | Optional versioned snapshot, then Firestore catch-up |
+| Code reuse         | Move reducers and contracts first         | Import current reducers and action creators in place |
+| CLI responsibility | Firebase client plus presentation         | Local RPC client plus presentation                   |
+| Extensibility      | Add each operation to a standalone client | Add a typed service method and a thin CLI command    |
+
+This keeps the initial change additive while giving repeated commands low and predictable
+latency.
+
+## Goals
+
+- Keep an authenticated user's visible lists, labels, and items loaded in one local process.
+- Reflect changes made by the web, mobile, sharing collaborators, or the CLI through Firestore
+  listeners.
+- Provide a versioned local interface for all current and future `todo ...` commands.
+- Reuse the existing persisted action shapes, action creators, and reducers without moving or
+  rewriting them.
+- Use normal Firebase end-user credentials and the checked-in Firestore rules.
+- Make repeated reads local and make writes wait for an unambiguous committed result.
+- Support stable JSON output for scripts as well as concise human output.
+
+## Non-goals
+
+- Replacing Firestore with a local database.
+- Changing the web or mobile application to talk to the local service.
+- Introducing a cloud HTTP API, Firebase Admin credentials, or service-account access.
+- Refactoring `src/lib/components` merely to make its organization more conventional.
+- Treating a cached snapshot as proof that the client is current or authorized.
+- Queueing offline mutations in the first release.
+- Publishing a public third-party service API. The socket protocol is local and evolves with
+  the bundled CLI.
+
+## Existing behavior to preserve
+
+Todo is event sourced:
+
+- Global per-user actions live under
+  `from/{creatorUid}/to/{targetUid}/requests/{actionId}`. The collection-group query over
+  `requests`, filtered by `target`, reconstructs visible lists and sharing state.
+- Per-list actions live under `lists/{listId}/actions/{actionId}` and reconstruct list names,
+  labels, item order, descriptions, completion, stars, and due dates.
+- Access is controlled by `editors/{listId}/{uid}/editor`; the service must pass the same rules
+  as the web client.
+- Cloud Functions observe list actions and own activity and notification side effects. The
+  service must not duplicate them.
+- `src/lib/components/lists.ts`, `items.ts`, `labels.ts`, and `requests.ts` contain the current
+  read-model behavior. Their exported action creators define the action shapes used by the UI.
+- The timestamp-zero `rename_list` document named `name` is a special existing part of list
+  hydration.
+
+The browser-specific plumbing in `src/lib/firebase.ts`, `src/lib/database.ts`,
+`src/lib/components/ActionLog.ts`, and `src/lib/store.ts` initializes browser services or uses
+IndexedDB and `window`. The service should not import those modules wholesale. It should add
+small service-side adapters around the reusable reducers and action creators.
+
+## User experience
+
+The service is normally invisible. A command connects to it, and if it is not running the CLI
+starts the installed service binary in the background and waits briefly for readiness.
 
 ```console
 $ todo add --list Groceries "oat milk"
@@ -13,274 +101,353 @@ Added “oat milk” to Groceries (item 48c0…)
 $ todo list --list Groceries
 ID        STATE   DESCRIPTION
 48c0…     active  oat milk
+
+$ todo complete 48c0 --list Groceries
+Completed “oat milk”
 ```
 
-The CLI must use the same Firebase Authentication identity, Firestore paths, security rules, action shapes, and replay behavior as the web and mobile clients. It must not introduce a second task store or bypass Firestore with Admin credentials.
+The architecture is not limited to `add` and `list`. Item completion, editing, starring, due
+dates, reordering, and list operations use the same request path as commands are added. The
+initial product slice can remain small, but it must not create a second transport for later
+commands.
 
-## Goals
-
-- Add an active item to an existing list.
-- List the current items in one or all visible lists.
-- Work with both owned and accepted shared lists.
-- Produce stable machine-readable output for scripts as well as useful terminal output.
-- Preserve the app's append-only, replayable action-log model.
-- Share action contracts and replay code with the app so the two clients cannot silently diverge.
-
-## Non-goals for the first release
-
-- Creating, renaming, deleting, reordering, or sharing lists.
-- Editing, completing, starring, reordering, or assigning due dates to items.
-- Accepting or rejecting a pending share.
-- A long-running real-time `watch` mode.
-- Offline writes or a local cache.
-- Service-account access. The CLI always acts as an end user.
-
-These are natural follow-ups, but limiting the first release to one append operation and read-only replay keeps the compatibility surface small.
-
-## How Todo works today
-
-Todo is an event-sourced SvelteKit application backed by Firebase:
-
-- Global, per-user actions are stored below `from/{creatorUid}/to/{targetUid}/requests/{actionId}`. A collection-group query for `requests`, filtered by `target == currentUid` and ordered by `timestamp`, reconstructs visible-list metadata. Actions written by the current user are applied automatically; incoming share requests remain pending until accepted.
-- Per-list actions are stored below `lists/{listId}/actions/{actionId}` and ordered by `timestamp`. Actions such as `rename_list`, `create_item`, `complete_item`, and `reorder_item` reconstruct the list name and its ordered items.
-- Firestore contains actions, not materialized item documents. `src/lib/components/lists.ts` and `src/lib/components/items.ts` are the effective read model.
-- Creating an item currently writes a `create_item` action from `src/lib/components/ActionLog.ts`. The items reducer prepends a previously unseen item ID, initializes it as active and unstarred, and stores its description.
-- List access is represented by `editors/{listId}/{uid}/editor`. Firestore rules permit list reads and writes only when the authenticated UID has that editor document, so the same mechanism covers an owner and an accepted collaborator.
-- A Cloud Function observes new list actions, updates `activity/{listId}`, and may notify other editors. A conforming CLI write gets these behaviors without special handling.
-- The browser caches a replayed state in IndexedDB and uses real-time listeners, but the action logs remain the source of truth.
-
-This means the CLI is not a CRUD client over task rows. Listing is a deterministic fold over actions, and adding is an append to a list's action log.
-
-## Proposed user experience
-
-### Authentication and setup
+Useful lifecycle and authentication commands are:
 
 ```console
-$ todo auth login
-Opening a browser to sign in…
-Signed in as person@example.com
-
-$ todo auth status
-person@example.com (todo-firebase-1a740)
-
-$ todo auth logout
-Signed out
+todo service status
+todo service start
+todo service stop
+todo service logs
+todo auth login
+todo auth status
+todo auth logout
 ```
 
-`login` uses the existing Google/Firebase identity. It opens the system browser for a Google OAuth installed-application flow, receives the redirect on a random loopback port, exchanges the Google credential with Firebase Authentication, and stores the refresh credential in the operating system's credential store. The OAuth registration requests only `openid`, `email`, and `profile`.
+`todo service start` is optional in normal use because ordinary commands autostart it. `stop`
+asks the service to shut down cleanly; the CLI does not kill an arbitrary process found in a
+PID file.
 
-A dedicated OAuth desktop client should be registered in the same Google Cloud project. The existing browser API key and Firebase project ID are identifiers, not secrets, and can remain in repository configuration. The OAuth client should be proven in a small implementation spike before the CLI structure is merged because the current application only exercises browser/native sign-in.
+List names use exact, case-sensitive matching first, and a list ID is always accepted. A zero
+or ambiguous name match is an error that includes candidate IDs. A configured default list is
+stored by stable ID, not name.
 
-On each invocation, the CLI refreshes the narrowly scoped Google credential, creates a Firebase `GoogleAuthProvider` credential from the resulting Google token, signs in to the Firebase client SDK, and lets Firestore use the resulting Firebase user. It never stores a Firebase Admin key. Credentials must not appear in command arguments, logs, JSON output, or Git configuration.
+`--json` prints only a stable response value on stdout. Diagnostics and service startup notices
+go to stderr. Recommended exits are `0` for success, `2` for usage or ambiguous input, `3` for
+authentication, `4` for permission, `5` when the service is unavailable or incompatible, and
+`1` for other failures.
 
-Emulator tests use the Auth emulator's email/password accounts through the Firebase client SDK. Emulator configuration uses explicit Auth and Firestore host settings plus an explicit project ID; test credentials are accepted only when the configured hosts are loopback addresses. The first release has no non-interactive production login, avoiding a second token-injection path before there is a concrete automation use case.
+## Architecture
 
-If portable credential-store support is not available on a platform, login should fail with an actionable message. A plaintext refresh-token file is not an implicit fallback.
-
-### Discovering lists
-
-Although the first release changes only items, users need a way to disambiguate list names:
-
-```console
-$ todo lists
-ID                                    NAME
-85c4e109-…                            Groceries
-9a852ee2-…                            Work
-
-$ todo lists --json
-[{"id":"85c4e109-…","name":"Groceries"},{"id":"9a852ee2-…","name":"Work"}]
+```text
+todo <command>
+    │  versioned request/response over an owner-only local socket
+    ▼
+todo-service (Bun, one process per local user)
+    ├── command handlers ── validate IDs and construct existing Todo actions
+    ├── in-memory Redux projection ── existing lists/items/labels/requests reducers
+    ├── subscriptions ── global request stream plus visible per-list action streams
+    ├── snapshot store ── versioned derived state and replay cursors
+    └── Firebase client SDK ── end-user Auth and Firestore reads/writes
+                                      │
+                                      ▼
+                                  Firestore
 ```
 
-Names are resolved by an exact, case-sensitive match first. A list ID is always accepted. If a name matches zero or multiple visible lists, the command exits with an error and prints matching IDs; it never guesses. `todo config set default-list <id>` may set a default using the stable ID.
+The implementation is additive:
 
-### Adding an item
-
-```console
-todo add --list <name-or-id> <description>
-todo add <description>                  # when a default list is configured
-todo add --list Work --json "send report"
+```text
+cli/
+  package.json
+  src/
+    cli.ts              argument parsing, autostart, output, and exits
+    service.ts          lifecycle and composition root
+    rpc.ts              framed protocol, version negotiation, and limits
+    commands.ts         typed query and mutation handlers
+    projection.ts       service-owned Redux store using existing reducers
+    subscriptions.ts    Firestore hydration and live listeners
+    firebase.ts         service-safe Firebase initialization and action append
+    auth.ts             login and credential-store integration
+    snapshot.ts         atomic versioned disk snapshot
+    paths.ts            runtime, state, config, and log locations
+  test/
 ```
 
-The description is required and must contain non-whitespace characters, matching the UI. Input is treated literally; shell quoting is the shell's responsibility. The default human output goes to stdout. Diagnostics go to stderr.
+`projection.ts` imports reducer and action-creator exports directly from their current
+locations under `src/lib/components`. A local check with Bun 1.3.10 found that direct imports
+do not resolve the current `$lib` aliases until the root TypeScript configuration has
+`baseUrl: "."`; with that option, the existing item and list reducers run unchanged. The
+implementation should confirm this through its real entry point and either make that one-line
+compatibility edit or supply an equally small build-time alias. If an existing module has an
+avoidable browser side effect, prefer a tiny leaf-level fix over moving the reducer family or
+replacing imports throughout the app.
 
-Successful JSON output has a stable envelope:
+Bun is the target runtime because it can run the TypeScript service directly during
+development and can later produce self-contained executables. Bun-specific socket, process,
+and packaging calls belong behind the small runtime boundary so a Node implementation remains
+possible if Firebase SDK compatibility requires it. The web application continues to use its
+current npm/Vite toolchain.
+
+## Local protocol and lifecycle
+
+On macOS and Linux, the service listens on a Unix domain socket beneath the user's private
+runtime directory. The containing directory is mode `0700`; the socket is accessible only to
+its owner. A Windows implementation can use a named pipe. Loopback TCP is not the default. If
+it is ever required as a fallback, it must bind only to loopback and require a random secret
+stored in an owner-readable file.
+
+The protocol is length-limited request/response JSON. Each request contains:
 
 ```json
 {
-	"item": {
-		"id": "48c0f1c0-…",
-		"listId": "85c4e109-…",
-		"listName": "Groceries",
-		"description": "oat milk",
-		"completed": false,
-		"starred": false
+	"protocol": 1,
+	"id": "request-uuid",
+	"method": "items.create",
+	"params": {
+		"list": "Groceries",
+		"description": "oat milk"
 	}
 }
 ```
 
-### Listing items
+Each response repeats `id` and contains either `result` or a structured `error` with a stable
+code and safe message. Methods are semantic operations such as `lists.query`, `items.create`,
+and `items.complete`; the protocol does not accept arbitrary Firestore paths or arbitrary
+Redux actions. The service validates every request and constructs the persisted action with
+the existing action creator.
 
-```console
-todo list                              # active items from all visible lists
-todo list --list <name-or-id>          # active items from one list
-todo list --completed                  # completed items only
-todo list --all-states --json          # all items, stable JSON
-```
+The CLI and service negotiate the protocol version on connection. If an installed CLI finds
+an incompatible service, it reports the mismatch and tells the user how to restart it. It must
+not send a request whose interpretation is uncertain.
 
-Human output includes the list column when more than one list is selected. Items preserve the reducer's order within each list; lists preserve the global reducer's order. Cross-list output is grouped by list rather than implying a global task order that the data model does not have.
+Autostart uses an atomic lock plus the socket readiness check so concurrent CLI invocations
+start at most one service. The service writes its PID and logs for diagnostics, but the socket
+handshake—not the PID file—is proof that the service is alive. OS login-item integration can
+be added later; it is not needed for the first implementation.
 
-The JSON representation includes `id`, `listId`, `listName`, `description`, `completed`, `starred`, and `dueDate` when present. JSON mode emits only JSON on stdout. Empty results are successful (`[]`), while authentication, ambiguity, permission, network, and malformed-log failures are nonzero exits.
+## Authentication
 
-Recommended exit codes are `0` for success, `2` for command usage or ambiguous input, `3` for authentication, `4` for permission, and `1` for other runtime failures.
+The service, not each CLI invocation, owns the Firebase Auth session. `todo auth login` asks the
+service to open the browser for Google sign-in, receive the redirect on a temporary loopback
+listener, exchange the provider credential with Firebase Authentication, and retain the
+resulting end-user session. The loopback listener is separate from the Todo command socket and
+exists only for the login attempt.
 
-## Architecture
+Refresh credentials belong in the operating system credential store, scoped by Firebase
+project and account. They do not belong in the state snapshot, command arguments, logs, JSON
+output, or Git configuration. There is no plaintext fallback and no Admin SDK path.
 
-The implementation should add a small Node.js package while moving the event contracts into a browser-independent domain layer:
+The OAuth/Firebase flow currently runs only in browser and native clients, so the first
+implementation milestone is a small Bun runtime spike covering sign-in restoration and a
+Firestore listener. If the Firebase client SDK's Auth behavior is not viable under Bun, only
+the service-side auth adapter should change; that finding does not justify changing the web
+app or abandoning the resident service.
 
-```text
-src/lib/domain/
-  actions.ts          typed action creators and persisted action schemas
-  replay.ts           global and per-list replay functions
-  state.ts            list/item read-model types and initial state
-src/lib/components/
-  lists.ts            web-facing re-exports or UI adapters
-  items.ts            web-facing re-exports or UI adapters
-cli/
-  src/main.ts          argument parsing and exit behavior
-  src/auth.ts          browser login and credential-store abstraction
-  src/repository.ts    authenticated Firestore reads and action append
-  src/format.ts        human and JSON output
-  test/                replay, emulator, and command tests
-```
+Emulator tests use explicit Auth and Firestore loopback settings and an explicit project ID.
+Test credentials are accepted only while every configured emulator endpoint is loopback.
 
-The domain layer must not import Svelte, browser globals, IndexedDB, UI state, or Firebase. Both clients use it, and existing reducer tests move with it. Persisted actions should be validated at the Firestore boundary while unknown action types remain ignorable for forward compatibility. A known action with an invalid payload is a data error that identifies the document path without leaking its contents.
+## Hydration and live state
 
-The CLI can be bundled to one ESM entry point and exposed through the root package's `bin` field as `todo`. Node.js 20 or newer provides `crypto.randomUUID`, `fetch`, and a consistent ESM baseline. A future standalone release can publish the bundled artifact without changing the internal API.
+The service has explicit readiness states: `starting`, `needs-auth`, `hydrating`, `ready`,
+`offline`, and `error`. `todo service status` can always report them. Data commands normally
+wait for `ready` up to a bounded timeout rather than silently returning a partially hydrated
+view.
 
-### Read path
+After authentication the service:
 
-For every command that needs list resolution:
+1. Loads a compatible snapshot for the Firebase project and UID, if one exists.
+2. Creates a service-owned Redux store from the existing reducers and restores the saved
+   projection.
+3. Subscribes to the user's global `requests` query and applies the same auto-execution rules
+   as the app: own actions and `accept_request`/`reject_request` acknowledgements are replayed;
+   incoming unaccepted requests remain pending.
+4. Adds or removes per-list listeners as the visible-list projection changes. List actions are
+   ordered by Firestore `timestamp`, including the existing timestamp-zero name action.
+5. Replays every action after the saved stream cursor, replaces uncertain or incompatible
+   snapshot data with a clean replay, and becomes `ready` after every initially visible list
+   has caught up.
+6. Keeps the listeners open. Remote and local writes pass through the same snapshot handlers
+   and reducers.
 
-1. Authenticate and obtain the Firebase UID.
-2. Run the existing indexed collection-group query over `requests`: `target == uid`, ordered by `timestamp` ascending.
-3. Apply only global actions the app auto-executes: actions created by the current UID plus `accept_request` and `reject_request` acknowledgements. Incoming, unaccepted share requests are not visible lists.
-4. Replay list metadata actions to obtain ordered visible list IDs. `create_list`, `delete_list`, `reorder_list`, accepted `accept_pending_share`, and `revoke_share` therefore behave exactly as in the app.
-5. Read `lists/{listId}/actions` ordered by `timestamp` for the selected visible lists and replay them. The timestamp-zero `rename_list` action supplies the authoritative name for a shared list, while later renames win through normal replay.
-6. Select and format items from the resulting read model.
+Replay cursors are part of the snapshot adapter, not a new domain model. A cursor must retain
+enough Firestore timestamp precision and document identity to handle multiple actions at the
+same timestamp. If the implementation cannot prove a cached boundary is complete, it replays
+that stream from the beginning. Correctness is more important than a warm-start optimization.
 
-The first release intentionally performs a fresh, finite read rather than opening snapshots or using the browser's IndexedDB cache. This favors simple, current results. Large logs may be slow; timings should be available only behind `--verbose`. A later release can add a versioned local checkpoint keyed by Firebase project and UID, using the same replay boundary rules as the browser cache.
+The service serializes projection updates and command resolution through one queue. A command
+therefore resolves list and item IDs against a coherent state version even while listener
+callbacks arrive. Read handlers take a projection snapshot and do not expose mutable Redux
+objects to protocol code.
 
-Firestore's timestamp order is the current compatibility contract. The CLI must not sort actions by document ID or client time. If a required timestamp is unresolved or missing in a server read, it reports a malformed action instead of inventing an order. Equal server timestamps are an existing ambiguity in the model and should be covered by a future schema/versioning design rather than solved differently in one client.
+### Snapshot cache
 
-### Write path
+The snapshot contains only derived state required by the CLI, including item descriptions,
+plus stream cursors, project ID, UID, schema version, and creation time. It excludes
+credentials, pending writes, logs, UI-only state, and notification data. Because descriptions
+may be sensitive, snapshot caching can be disabled and the file is treated as private user
+data.
 
-After resolving a visible list and confirming the editor-protected action log is readable, `todo add` generates an item UUID and an action-document UUID and writes:
+Snapshots are written after successful catch-up and then on a debounce after state changes.
+The writer uses a temporary file, file sync where supported, and atomic rename; files and
+parent directories are owner-only. A parse failure, unknown schema version, project/UID
+mismatch, or impossible cursor discards the snapshot and triggers a clean replay.
 
-```json
-{
-	"type": "create_item",
-	"payload": {
-		"list_id": "85c4e109-…",
-		"id": "48c0f1c0-…",
-		"description": "oat milk"
-	},
-	"creator": "firebase-user-uid",
-	"timestamp": "<Firestore server timestamp>"
-}
-```
+`todo auth logout` unsubscribes, clears in-memory state, removes the account snapshot and local
+credential, and leaves other accounts and browser sessions alone.
 
-The destination is `lists/85c4e109-…/actions/<action-uuid>`. This is the same shape produced by the web client. Using `setDoc` with a generated action UUID instead of an anonymous `addDoc` makes an SDK-level retry idempotent. The item UUID remains distinct because item and action identity are separate concepts.
+There are no offline writes in the first release. When Firestore is unavailable, status may be
+`offline` and an explicitly requested cached read can be considered later, but mutations fail
+without changing the local projection.
 
-The command waits for the acknowledged server write before printing success. It does not write `activity` or send notifications itself; the existing Firestore trigger owns those side effects. A permission denial is reported as a changed/revoked share rather than retried as another identity.
+## Query path
 
-There is an unavoidable distinction between transport retries and a user rerunning a completed command: SDK retries reuse the action ID, while a new invocation creates a new item. `--request-id <uuid>` can be considered later for caller-controlled idempotency in automation.
+For `todo lists`, `todo list`, and other reads:
 
-## Compatibility and schema ownership
+1. The CLI connects and sends a semantic query.
+2. The service requires the appropriate readiness state.
+3. It resolves list names or IDs against the current projection.
+4. It selects and copies the requested data from memory.
+5. The CLI formats the typed result as terminal text or JSON.
 
-Today the action schema is implicit in TypeScript action creators and reducers. Adding another writer makes that implicit contract risky. The domain extraction should therefore be part of the CLI implementation, not deferred cleanup.
+No Firebase initialization, credential refresh, or action-log replay occurs in the CLI
+process. Cross-list item output preserves reducer order within each list and groups by list;
+it does not invent a global item order.
 
-Rules for persisted actions:
+## Mutation path
 
-- Existing action type strings and payload field names are wire formats and cannot be renamed casually.
-- New action fields must be optional to older readers.
-- Readers ignore unknown action types, permitting a newer client to add unrelated features.
-- A schema version should be added only with a migration/replay plan. The MVP writes the existing unversioned `create_item` shape.
-- Golden fixtures must prove that web-generated and CLI-generated logs replay to identical state.
+For `todo add --list Groceries "oat milk"`:
 
-The initial list-name document at action ID `name` and timestamp `0` is a special case already handled by the app. The CLI only adds to existing lists and must neither recreate nor modify that document.
+1. The service requires `ready`, resolves the list, and confirms it is visible.
+2. It validates the description and generates separate item and action UUIDs.
+3. It calls the existing `create_item` action creator and adds only the existing server fields:
+   `creator` and a Firestore server timestamp.
+4. It writes the action at `lists/{listId}/actions/{actionId}` using the authenticated Firebase
+   client SDK.
+5. It waits for both the write acknowledgement and its listener to observe the same action
+   document. Only then does it return the updated item.
+
+Using a chosen action document ID makes an SDK-level retry idempotent. A request UUID is also
+retained for the service process lifetime so a CLI reconnect after a dropped response does not
+create a second mutation. Persisted caller-controlled idempotency can be added when there is a
+concrete automation requirement.
+
+The service does not optimistically dispatch a different local action path. This keeps the
+in-memory state, the cache, and other clients aligned with the committed Firestore stream. If
+the write is acknowledged but listener confirmation times out, the response reports
+`commit_status_unknown` with the action ID; it must not claim the mutation failed or retry it
+under a new ID.
+
+Other mutations follow this same route and use the existing action creators. The service does
+not write `activity`, editor documents, or notifications except where an existing user action
+explicitly requires the same write sequence as the application.
 
 ## Security and privacy
 
-- All Firestore operations use a Firebase end-user credential and are evaluated by the checked-in security rules.
-- The CLI refuses service-account JSON and does not use the Admin SDK.
-- Refresh credentials live in an OS credential store under a key scoped by Firebase project and account UID.
-- Logout removes local credentials but does not revoke other app sessions. A future `--revoke` option may perform provider revocation explicitly.
-- Descriptions can contain sensitive information, so verbose logs include paths, action IDs, counts, and timings but not action payloads.
-- Error output must not print ID tokens, refresh credentials, OAuth authorization codes, or complete Firestore responses.
-- Redirect state and PKCE verifier values are random per login; the loopback listener binds only to localhost and shuts down after one response or a short timeout.
-
-The current Firestore rule for `users/{document=**}` permits any signed-in user to read all user profiles, and the global request stream has its existing sharing semantics. The CLI should not expand those permissions. Hardening those rules is valuable but outside this feature.
+- The command socket is local and owner-only; request sizes and connection counts are bounded.
+- Every Firestore request uses a Firebase end-user identity and is checked by Firestore rules.
+- The service never accepts an Admin credential or exposes a general Firestore proxy.
+- Protocol errors and verbose logs never include descriptions. The optional snapshot does
+  contain the projected descriptions and is protected as private user data.
+- Tokens, refresh credentials, OAuth codes, PKCE verifiers, and complete Firebase responses are
+  always redacted.
+- Login redirect state and PKCE values are random per attempt; the temporary listener shuts
+  down after one response or a short timeout.
+- Snapshot paths and socket paths are scoped by local OS user and Firebase project. A UID is
+  included after login so state from two Todo accounts cannot be mixed.
 
 ## Testing strategy
 
-### Domain tests
+### Import spike
 
-- Move the existing list and item reducer tests to run against the shared domain layer.
-- Add golden action logs containing create, rename, reorder, complete, due-date, delete/revoke, and accepted-share cases.
-- Assert that unknown action types are ignored and malformed known actions fail with document context.
-- Assert new items appear at the top, matching current reducer behavior.
+- Run the existing list, item, label, and request reducers in a Bun process without editing or
+  moving those modules, and settle the `$lib` alias configuration described above.
+- Initialize end-user Firebase Auth against the emulator, restore a session, and receive an
+  `onSnapshot` update.
+- Verify the selected Unix socket or named-pipe transport and executable packaging on the
+  initially supported platforms.
 
-### CLI unit tests
+The spike is a decision gate. It should produce evidence for any requested compatibility edit
+rather than speculative refactoring.
 
-- Argument validation, exact name/ID resolution, ambiguous names, default-list behavior, formatting, JSON purity, and exit codes.
-- Credential-store behavior with an in-memory fake; no live credentials in tests.
-- A retry uses one action-document UUID.
+### Unit tests
+
+- Keep existing reducer tests in their current locations and run them unchanged.
+- Test CLI parsing and formatting independently from the service with a fake RPC peer.
+- Test method validation, exact name/ID resolution, ambiguity, readiness errors, and error-code
+  mapping.
+- Test snapshot versioning, atomic replacement, corrupt-cache fallback, account isolation, and
+  same-timestamp cursor handling.
+- Test autostart locking, protocol negotiation, request deduplication, and graceful shutdown.
 
 ### Emulator integration tests
 
-Use the repository's Auth and Firestore emulators and checked-in rules to cover:
+1. Start from no snapshot, hydrate an owned list, and query it through the CLI.
+2. Restart from a snapshot, append remote actions while stopped, and verify catch-up before
+   `ready`.
+3. Change an item from another Firebase client and verify the resident service updates without
+   a CLI-triggered refresh.
+4. Add, edit, complete, star, and date items through service methods and verify the existing
+   reducers produce the expected state.
+5. Accept a shared list as a second user and exercise permitted reads and writes.
+6. Reject access without an editor document and after access is revoked.
+7. Run concurrent CLI commands while listener changes arrive and verify coherent results.
+8. Drop a mutation response after commit and verify retry does not duplicate the action.
 
-1. Seed a user and owned list, run `todo add`, and verify the web-compatible replay sees the new active item.
-2. Seed multiple actions, run `todo list`, and verify order and active/completed filtering.
-3. Accept a shared list as a second user, then list and add as that user.
-4. Reject access to a list without an editor document.
-5. Verify a CLI-shaped `create_item` document has the expected creator and server timestamp.
-
-One Playwright interoperability test should add through the CLI against the emulators and assert that the running web UI receives and displays the item. This catches drift across authentication, rules, action shape, Cloud Function/activity behavior, and replay.
-
-Live-production tests are not required and must not be part of CI.
+One Playwright interoperability test should mutate through the CLI/service and assert that the
+running web UI receives the item. Another should mutate through the web UI and assert that the
+next CLI read sees it without restarting the service.
 
 ## Delivery plan
 
-1. Extract the shared action contracts and replay kernel with no behavior changes; keep existing unit and end-to-end tests green.
-2. Add list discovery and finite replay behind a repository interface, with emulator tests.
-3. Add browser login, credential storage, `auth` commands, and token redaction tests.
-4. Add `lists`, `list`, and `add`, including JSON contracts and exit codes.
-5. Add the CLI-to-web Playwright interoperability test and document installation.
-6. Ship as an opt-in local binary, then decide whether to publish a standalone package after real-log performance is measured.
+1. Complete the Bun import/Auth/listener/socket spike. Make no production refactor.
+2. Add the service process, local protocol, lifecycle commands, and an in-memory projection
+   backed by existing reducers.
+3. Add authentication, cold hydration, live listeners, and emulator coverage.
+4. Add the versioned disk snapshot and prove restart catch-up behavior.
+5. Add `lists`, `list`, and `add`, including stable JSON and exit behavior.
+6. Add item mutation commands through the same service interface, then list and sharing
+   commands as needed.
+7. Add CLI-to-web interoperability coverage and package the Bun executables.
+
+Each implementation PR should be additive by default. Any edit outside `cli/` must explain why
+the service cannot import or adapt the existing code as it stands.
 
 ## Alternatives considered
 
-### Call a new HTTP task API
+### Standalone Firebase CLI process
 
-A Cloud Function could expose CRUD-style endpoints. That would centralize replay but create a second authorization/API surface, add operational cost, and require the server to reproduce the current event-sourced read model. Direct authenticated Firestore access already has the correct security and side effects.
+Authenticating and replaying on every invocation avoids lifecycle code, but it repeats the
+most expensive work and makes a disk cache and live updates much less useful. It also spreads
+Firebase concerns across every command.
 
-### Use the Firebase Admin SDK locally
+### Extract a shared domain package first
 
-This would simplify authentication and queries but bypass Firestore rules and place a project-wide credential on user machines. It is inappropriate for an end-user CLI.
+The reducers may eventually deserve a browser-independent home, but moving them and rewiring
+the existing app is not required to prove or ship this architecture. Importing them in place
+keeps behavior shared without making a broad refactor a prerequisite.
 
-### Automate the existing web UI
+### Cloud HTTP API
 
-Browser automation would inherit current behavior but be slow, brittle, difficult to script, and unsuitable for headless use. It is useful as an interoperability test, not as the product architecture.
+A hosted API would introduce a second deployed authorization and operations surface. The
+locally authenticated Firebase client already receives the correct rules and Cloud Function
+side effects.
 
-### Reimplement only `create_item` and parse logs ad hoc
+### Firebase Admin SDK locally
 
-This is initially smaller, but it creates a second interpretation of visibility, sharing, ordering, completion, and future action types. Extracting a shared replay kernel costs more up front and prevents subtle cross-client data divergence.
+Admin credentials would bypass Firestore rules and grant far more access than an end-user CLI
+needs. They are explicitly unsupported.
+
+### Automate the web UI
+
+Browser automation is useful for interoperability tests, but it is too slow and fragile to be
+the command implementation.
 
 ## Open questions
 
-- Which platforms must the first credential-store implementation support beyond macOS and Linux?
-- Should the initial binary be developer-only from this repository, or published under a package name immediately?
-- Is case-sensitive exact list-name matching the preferred human behavior, or should a later interactive picker handle fuzzy matches?
-- What action-log size should trigger work on persistent CLI checkpoints?
-- Should caller-provided idempotency (`--request-id`) be included before the CLI is advertised for automation?
+- Which platforms beyond macOS and Linux must the first service package support?
+- Should ordinary read commands ever return cached data while offline, or should that require
+  an explicit future `--stale-ok` option?
+- How long should autostart and initial hydration wait before returning a service-unavailable
+  error?
+- Which command family should follow `lists`, `list`, and `add` first?
+- Should OS login-item installation be opt-in after the autostart-on-first-command model is
+  proven?
