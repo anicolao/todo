@@ -2,6 +2,10 @@
 	"name": "@todo/local-cli",
 	"private": true,
 	"type": "module",
+	"dependencies": {
+		"@reduxjs/toolkit": "1.9.5",
+		"firebase": "12.18.0"
+	},
 	"scripts": {
 		"start": "bun run src/cli.ts",
 		"service": "bun run src/service.ts",

@@ -4,6 +4,20 @@
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
 
+## Command-line client
+
+Run the Todo CLI directly from GitHub with Nix:
+
+```bash
+nix run github:anicolao/todo#todo -- help
+nix run github:anicolao/todo#todo -- today
+```
+
+The flake bundles both the short-lived `todo` command and the resident local service; ordinary
+commands start the service automatically. Install it persistently with
+`nix profile install github:anicolao/todo#todo`. See [cli/README.md](cli/README.md) for login,
+configuration, and local-state details.
+
 ## Creating a project
 
 If you're seeing this, you've probably already done this step. Congrats!
