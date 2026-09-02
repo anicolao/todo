@@ -2,16 +2,14 @@
 
 ## Summary
 
-Checking off an item is likely slow on very large lists because the client does work proportional to the total number of items in the list, not just the number of visible active items.
+The confirmed cause of the first slow checkbox is that the UI waits for a Firestore snapshot to
+apply the completion action. A directly opened list normally has a live action watcher, but an
+aggregate route such as Today can render cached tasks from lists that were only hydrated once at
+startup. The first action on one of those lists remains network-dependent until the activity feed
+causes a watcher to be attached.
 
-The strongest current hypothesis is:
-
-1. The completed item action is replayed into the local store.
-2. The item reducer copies and freezes large list-level data structures.
-3. Each `ItemList` recomputes its display array by scanning every item id in the list.
-4. The hidden completed-items `ItemList` still builds its item array even when completed items are collapsed.
-
-This fits the reported symptom: a list with thousands of completed items and only a few current items can still be slow when checking off one current item.
+Large-state reducer and rendering work still scales with item count, but controlled measurements
+put it in the millisecond range. It does not explain the one-second-plus first-click delay.
 
 ## Click Path
 
@@ -27,7 +25,7 @@ function complete(list_id: string, id: string, completed: boolean) {
 		if ($store.auth.uid) {
 			const completed_time = new Date().getTime();
 			const item = $store.items.listIdToListOfItems[list_id].itemIdToItem[id];
-			dispatch(
+			dispatchOptimistically(
 				'lists',
 				list_id,
 				$store.auth.uid,
@@ -38,13 +36,19 @@ function complete(list_id: string, id: string, completed: boolean) {
 }
 ```
 
-`dispatch` in `src/lib/components/ActionLog.ts` writes the action to Firestore:
+The fix uses the store's existing local-action rebasing path. It creates the Firestore document ID,
+applies the action locally with `timestamp: null`, and writes the same action and document ID to
+Firestore:
 
 ```ts
-return addDoc(actions, { ...action, timestamp: serverTimestamp(), creator: uid });
+const actionDoc = doc(actions);
+store.dispatch({ ...action, firebase_doc_id: actionDoc.id, timestamp: null });
+await setDoc(actionDoc, { ...action, timestamp: serverTimestamp(), creator: uid });
 ```
 
-The click handler does not await this promise, so the first visible delay is probably not caused by waiting for the network, Cloud Functions, or Firestore acknowledgement. The local snapshot/replay path is more likely.
+When Firestore echoes that document, the rebasing reducer removes the matching local action before
+applying the server action. Pending snapshots are deduplicated by document ID, and a rejected write
+removes the local action so the UI rolls back.
 
 ## Expensive Store Update
 
@@ -161,11 +165,11 @@ It does not prevent `updateItemIds` or `filterItems` from running. That means th
 
 This is probably the biggest mismatch between the UI and the work being done: "completed items hidden" does not mean "completed items skipped."
 
-## Less Likely Causes
+## Secondary Costs
 
-The Firestore write itself is less likely to be the immediate cause because the click handler does not await `addDoc`.
-
-Cloud Functions are also unlikely to block the checkbox UI directly. A function may run after the action is written, but the local UI should already be updating from the action log.
+Once the completion reaches Redux, large-state reducer, rendering, DevTools, and cache work can add
+synchronous cost. The measurements below show that these are worth monitoring, but are not large
+enough to explain the cold first-click symptom by themselves.
 
 The completion sound may add a small amount of work:
 
@@ -311,6 +315,24 @@ cached UI was displayed. Three repeated runs measured first-click updates of 120
 114 ms. Second-click updates were 111 ms, 114 ms, and 113 ms. The earlier baseline was approximately
 4,140 ms for the first click and 120 ms for the second.
 
+### Aggregate-View Production Reproduction
+
+Manual testing of the preview found that the current-list-first change was incomplete. The browser
+log showed the user on Today and clicking a task owned by `Routine`. That list had been populated by
+the startup one-shot hydration path, but there was no `watch from time ... on <Routine id>` entry
+before the click. The click triggered `Loading for`, then watcher setup, and the first callback
+arrived 134 ms later in the captured log. Although that particular callback was below one second,
+the UI was still gated on a network-dependent watcher that did not exist when the cached task was
+rendered. This matches the reported preview behavior and explains why the direct-list test passed
+while the real Today workflow still failed.
+
+Watching every cached list would reverse the deliberate June 12, 2026 change in `ea503c3`
+(`Hydrate startup lists without live watch fanout`). The regression test therefore covers the real
+invariant instead: on an aggregate route, a cached task must disappear promptly even when its
+source-list watcher is not yet active. With 1,200 ms artificial network latency, repeated runs of
+the optimistic completion path updated the aggregate view in 13-23 ms without adding startup
+listener fanout.
+
 Initial focused profiling was run on May 20, 2026 using generated list data. These measurements are not a substitute for profiling the real Svelte/Firebase app. They are a first pass to rank hypotheses before changing code.
 
 ### Synthetic Reducer And List Rebuild Timing
@@ -366,21 +388,21 @@ These measurements make Redux DevTools and whole-state cache/write paths importa
 
 The initial data supports this ranking:
 
-1. Most likely to explain the first cold click: cached UI becomes interactive before the selected-list Firestore listener is attached.
-2. Still likely to matter after the action reaches Redux: whole-state processing around store dispatch, Redux DevTools, and cache persistence.
-3. Still likely to matter: reducer object copying and `deepFreeze` on large list structures.
-4. Likely smaller by itself: hidden completed `ItemList` display-object construction.
-
-The current-list-first experiment confirms the cold-watcher hypothesis. The next required step is
-to review the startup/lifecycle edge cases around this implementation and capture a
-production-device trace to measure any secondary reducer/rendering work.
+1. Confirmed cause of the first cold click: completion depended on a live Firestore watcher, while
+   aggregate routes can render tasks whose source lists have no watcher.
+2. Confirmed narrower direct-list issue: cached UI could appear before the selected-list watcher.
+3. Secondary cost: whole-state processing around store dispatch, Redux DevTools, and cache
+   persistence.
+4. Smaller measured costs: reducer copying, `deepFreeze`, and hidden completed-list rebuilding.
 
 ## Likely Fix Directions
 
 The likely fixes are structural:
 
-- On cached startup, attach the selected-list live watcher before the editor existence check and
-  before exposing cached UI; retain setup-first ordering for genuinely new lists.
+- Apply checkbox completion through the existing local-action rebasing layer, then reconcile it by
+  Firestore document ID. Roll back the local action if the write fails.
+- On cached startup, retain the selected-list-first watcher improvement, while avoiding live
+  watcher fanout across every cached list.
 - Do not rebuild the hidden completed list when `showCompleted` is false.
 - Maintain separate active/completed item id indexes so active views do not scan all historical completed items.
 - Avoid copying the entire `itemIdToItem` map for a single-item update.
@@ -388,5 +410,5 @@ The likely fixes are structural:
 - Consider virtualizing completed/history-heavy views.
 - Consider archiving or compacting old completed items so current-task interactions do not pay for old history.
 
-Retain the verified current-list-first ordering, then use a production-device profile to decide
+Verify the aggregate Today path on the preview, then use a production-device profile to decide
 which secondary structural optimizations are justified.

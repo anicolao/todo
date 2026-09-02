@@ -47,7 +47,7 @@ async function createTask(page: Page, description: string) {
 	const newTask = page.getByLabel('New task');
 	await newTask.fill(description);
 	await newTask.blur();
-	await expect(page.getByLabel(`Task ${description}`)).toBeVisible();
+	await expect(page.getByLabel(`Task ${description}`)).toBeVisible({ timeout: 15000 });
 }
 
 async function cachedTaskDescriptions(page: Page, listId: string) {
@@ -70,6 +70,29 @@ async function cachedTaskDescriptions(page: Page, listId: string) {
 			);
 		},
 		{ email: user.email, listId }
+	);
+}
+
+async function cachedTask(page: Page, listId: string, description: string) {
+	return page.evaluate(
+		async ({ email, listId, description }) => {
+			const db = await new Promise<IDBDatabase>((resolve, reject) => {
+				const request = indexedDB.open('TODOS', 1);
+				request.onerror = () => reject(request.error);
+				request.onsuccess = () => resolve(request.result);
+			});
+			const state = await new Promise<any>((resolve, reject) => {
+				const transaction = db.transaction('state', 'readonly');
+				const request = transaction.objectStore('state').get(email);
+				request.onerror = () => reject(request.error);
+				request.onsuccess = () => resolve(request.result);
+			});
+			db.close();
+			return Object.values(state?.items?.listIdToListOfItems?.[listId]?.itemIdToItem || {}).find(
+				(item: any) => item.description === description
+			);
+		},
+		{ email: user.email, listId, description }
 	);
 }
 
@@ -218,4 +241,76 @@ test('a cached list watcher is active before the first checkbox click', async ({
 
 	expect(firstClickMs).toBeLessThan(500);
 	expect(secondClickMs).toBeLessThan(500);
+});
+
+test('the first aggregate-view checkbox updates before its list watcher starts', async ({
+	page,
+	context,
+	request
+}, testInfo) => {
+	const seedConsoleMessages: string[] = [];
+	page.on('console', (message) => seedConsoleMessages.push(message.text()));
+	await openSignedInApp(page, request);
+
+	const aggregateTask = 'Starred task from unwatched list';
+	const aggregateListId = await createList(page, 'Aggregate source list', seedConsoleMessages);
+	await createTask(page, aggregateTask);
+	await page.getByRole('button', { name: `Star ${aggregateTask}` }).click();
+	await expect(page.getByRole('button', { name: `Unstar ${aggregateTask}` })).toBeVisible();
+
+	// Leave another list selected so startup cannot satisfy this test by watching only ui.listId.
+	await createList(page, 'Selected startup list', seedConsoleMessages);
+	await expect
+		.poll(() => cachedTask(page, aggregateListId, aggregateTask), {
+			timeout: 15000,
+			message: 'Wait for the starred task to reach the app-level IndexedDB cache'
+		})
+		.toMatchObject({ starred: true });
+
+	const origin = new URL(page.url()).origin;
+	await page.close();
+	const deletedDatabases = await deleteFirestoreIndexedDb(context, origin);
+	expect(deletedDatabases.length).toBeGreaterThan(0);
+
+	const coldPage = await context.newPage();
+	const watchedListIds: string[] = [];
+	coldPage.on('console', (message) => {
+		const match = message.text().match(/watch from time .* on (.*)$/);
+		if (match) watchedListIds.push(match[1]);
+	});
+	const cdp = await context.newCDPSession(coldPage);
+	await cdp.send('Network.enable');
+	await cdp.send('Network.emulateNetworkConditions', {
+		offline: false,
+		latency: NETWORK_LATENCY_MS,
+		downloadThroughput: -1,
+		uploadThroughput: -1,
+		connectionType: 'cellular3g'
+	});
+
+	await coldPage.goto(`${origin}/today`);
+	await expect(coldPage.locator('.drawer-container')).toBeVisible();
+	await expect(coldPage.getByLabel(`Task ${aggregateTask}`)).toBeVisible();
+	const watcherWasReadyAtFirstClick = watchedListIds.includes(aggregateListId);
+
+	const clickStart = Date.now();
+	await coldPage.getByRole('button', { name: `Complete ${aggregateTask}` }).click();
+	await expect.poll(() => taskIsVisible(coldPage, aggregateTask), { timeout: 5000 }).toBe(false);
+	const clickMs = Date.now() - clickStart;
+	console.log(
+		`Aggregate checkbox summary: ${JSON.stringify({
+			clickMs,
+			watcherWasReadyAtFirstClick,
+			watchedListIds
+		})}`
+	);
+	testInfo.annotations.push({
+		type: 'aggregate-checkbox-summary',
+		description: JSON.stringify({ clickMs, watcherWasReadyAtFirstClick, watchedListIds })
+	});
+
+	// Aggregate routes can render a cached item without opening its source list. The checkbox
+	// must not wait for the activity feed to discover that list and attach a live listener.
+	expect(watcherWasReadyAtFirstClick).toBe(false);
+	expect(clickMs).toBeLessThan(500);
 });
