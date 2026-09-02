@@ -65,8 +65,7 @@ public class AndroidTaskLifecycleE2ETest {
 
         openNavigation();
         UiObject2 newList = waitFor(input("New list"));
-        newList.click();
-        newList.setText("Lifecycle List");
+        setWebViewText(newList, "Lifecycle List");
         pressImeEnter();
         waitFor(input("New task"));
         dismissKeyboard();
@@ -123,10 +122,18 @@ public class AndroidTaskLifecycleE2ETest {
 
     private void createTask(String taskName) {
         UiObject2 taskInput = waitFor(input("New task"));
-        taskInput.click();
-        taskInput.setText(taskName);
-        pressImeEnter();
+        setWebViewText(taskInput, taskName);
+        device.click(device.getDisplayWidth() / 2, 73);
+        device.waitForIdle();
         waitFor(task(taskName));
+    }
+
+    private void setWebViewText(UiObject2 input, String value) {
+        input.click();
+        input.setText(value);
+        // Accessibility text replacement returns before WebView has necessarily delivered
+        // its JavaScript input event. Let Svelte receive the bound value before submitting.
+        SystemClock.sleep(500);
     }
 
     private void openNavigation() {
