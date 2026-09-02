@@ -29,6 +29,13 @@ export async function dispatch(type: string, id: string, uid: string, action: An
 	);
 }
 
+export async function dispatchLabelAction(id: string, uid: string, action: AnyAction) {
+	if (!id || action.payload?.label_id !== id) {
+		throw new Error(`Label action path does not match payload for ${action.type}`);
+	}
+	return dispatch('lists', id, uid, action);
+}
+
 /*
 const watching: { [k: string]: Unsubscribe } = {};
 export async function watchAll(type: string) {

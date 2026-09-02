@@ -7,7 +7,12 @@
 	import { flip, type AnimationConfig } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
-	import { resolveLabelQuery, type LabelsState, type ResolvedLabelEntry } from './labels';
+	import {
+		getLabelVisibility,
+		resolveLabelQuery,
+		type LabelsState,
+		type ResolvedLabelEntry
+	} from './labels';
 	import {
 		buildExpandedLabelIds,
 		buildRouteExpandedLabelIds,
@@ -61,9 +66,11 @@
 		return hiddenListIds;
 	}
 
-	function buildDisplayItems(lists: ListsState, hiddenListIds: Set<string>) {
-		return lists.visibleLists.filter(
-			(listId) => lists.listIdToType[listId] === 'label' || !hiddenListIds.has(listId)
+	function buildDisplayItems(lists: ListsState, labels: LabelsState, hiddenListIds: Set<string>) {
+		return lists.visibleLists.filter((listId) =>
+			lists.listIdToType[listId] === 'label'
+				? getLabelVisibility(labels.labelIdToLabel[listId]) !== 'fully_hidden'
+				: !hiddenListIds.has(listId)
 		);
 	}
 
@@ -98,9 +105,13 @@
 		$store.lists,
 		labelEntriesById
 	);
-	$: expandedLabelIds = buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds);
+	$: expandedLabelIds = new Set(
+		[...buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds)].filter(
+			(labelId) => getLabelVisibility($store.labels.labelIdToLabel[labelId]) !== 'fully_hidden'
+		)
+	);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
-	$: displayItems = buildDisplayItems($store.lists, hiddenListIds);
+	$: displayItems = buildDisplayItems($store.lists, $store.labels, hiddenListIds);
 	$: updateItems(displayItems);
 	let dragTo: string;
 

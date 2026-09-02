@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
-	import { dispatch } from '$lib/components/ActionLog';
+	import { dispatch, dispatchLabelAction } from '$lib/components/ActionLog';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
@@ -14,6 +14,7 @@
 	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
 		add_label_predicate,
+		getLabelVisibility,
 		queryHasId,
 		remove_label_predicate,
 		set_label_query
@@ -217,7 +218,9 @@
 	}
 	$: currentDocumentType = $store.lists.listIdToType[$store.ui.listId];
 	$: visibleLabelIds = $store.lists.visibleLists.filter(
-		(id: string) => $store.lists.listIdToType[id] === 'label'
+		(id: string) =>
+			$store.lists.listIdToType[id] === 'label' &&
+			getLabelVisibility($store.labels.labelIdToLabel[id]) !== 'fully_hidden'
 	);
 	$: showLabelControls = !!$store.ui.listId && currentDocumentType !== 'label';
 	type DraftLabel = { id: string; name: string };
@@ -292,7 +295,7 @@
 			if (!selectedSet.has(labelId)) {
 				const action = remove_label_predicate({ label_id: labelId, predicate });
 				store.dispatch(action);
-				await dispatch('lists', labelId, uid, action);
+				await dispatchLabelAction(labelId, uid, action);
 			}
 		}
 
@@ -300,7 +303,7 @@
 			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
 				const action = add_label_predicate({ label_id: labelId, predicate });
 				store.dispatch(action);
-				await dispatch('lists', labelId, uid, action);
+				await dispatchLabelAction(labelId, uid, action);
 			}
 		}
 
@@ -320,7 +323,7 @@
 				}
 			});
 			store.dispatch(queryAction);
-			await dispatch('lists', label.id, uid, queryAction);
+			await dispatchLabelAction(label.id, uid, queryAction);
 		}
 	}
 
