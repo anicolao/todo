@@ -1,0 +1,66 @@
+# Todo CLI
+
+The Todo CLI is a short-lived client for a resident local service. The service signs in as a
+normal Firebase user, keeps the existing Redux projection hydrated through Firestore
+listeners, and appends the same actions as the web application.
+
+## Run from the repository
+
+Bun 1.3.10 or newer is required.
+
+```sh
+npm ci
+npm run todo -- service start
+npm run todo -- auth login
+npm run todo -- lists
+npm run todo -- add --list Groceries "oat milk"
+npm run todo -- list --list Groceries
+```
+
+`npm link` exposes the root package's `todo` and `todo-service` binaries for local development.
+Ordinary commands start the service automatically, so an explicit `service start` is optional.
+
+Item commands currently include `add`, `list`, `complete`, `uncomplete`, `edit`, `star`,
+`unstar`, `due`, and `undue`. Run `todo help` for their arguments. Item IDs may be shortened to
+an unambiguous prefix.
+
+## Production login
+
+Create a Google OAuth desktop client in the same Google Cloud project and provide its client
+ID to the service environment:
+
+```sh
+export TODO_GOOGLE_CLIENT_ID=example.apps.googleusercontent.com
+todo auth login
+```
+
+Set `TODO_GOOGLE_CLIENT_SECRET` only when the client registration requires it. The Google
+refresh credential is stored in macOS Keychain or the Linux Secret Service; it is not written
+to the Todo snapshot. Linux requires `secret-tool`.
+
+## Emulator login
+
+The emulator path accepts email/password credentials only when every endpoint is loopback:
+
+```sh
+export TODO_FIREBASE_EMULATOR=true
+export TODO_AUTH_EMAIL=cli@example.test
+export TODO_AUTH_PASSWORD=test-password
+todo service stop
+todo service start
+```
+
+The service uses Auth at `127.0.0.1:9099` and Firestore at `127.0.0.1:8080` by default. Override
+them with `TODO_AUTH_EMULATOR_URL`, `TODO_FIRESTORE_EMULATOR_HOST`, and
+`TODO_FIRESTORE_EMULATOR_PORT`.
+
+## Local data
+
+The owner-only Unix socket lives below `XDG_RUNTIME_DIR` when available and otherwise in the
+system temporary directory. Configuration, logs, and the optional derived-state snapshot use
+`~/Library/Application Support/todo-cli` on macOS or `XDG_STATE_HOME/todo-cli` on Linux.
+
+`TODO_CLI_HOME` and `TODO_CLI_RUNTIME_DIR` override those locations for testing. Snapshots
+contain task descriptions and should be treated as private user data. Firestore remains the
+source of truth; there is no offline write queue. Set `TODO_CLI_DISABLE_SNAPSHOT=true` before
+starting the service to disable the disk snapshot.
