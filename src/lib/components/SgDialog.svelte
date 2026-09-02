@@ -5,6 +5,7 @@
 	export let cancelDialog: CallableFunction | undefined;
 	export let labelledby: string = '';
 	export let describedby: string = '';
+	export let className: string = '';
 
 	function closeHandler(e: CustomEvent<{ action: string }>) {
 		switch (e.detail.action) {
@@ -20,6 +21,7 @@
 	on:SMUIDialog:closed={closeHandler}
 	aria-labelledby={labelledby}
 	aria-describedby={describedby}
+	class={className}
 >
 	<slot />
 </Dialog>

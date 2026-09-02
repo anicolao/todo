@@ -1,6 +1,7 @@
 <script lang="ts">
 	console.log('(app)/profile/+page.svelte');
 	import Login from '$lib/components/Login.svelte';
+	import HiddenListSettings from '$lib/components/HiddenListSettings.svelte';
 	import { set_icon, set_title } from '$lib/components/ui';
 	import UiSettings from '$lib/components/UiSettings.svelte';
 	import { store } from '$lib/store';
@@ -12,6 +13,7 @@
 
 <div id="content">
 	<UiSettings />
+	<HiddenListSettings />
 
 	<Paper style="margin-top: 2em; opacity: 0.8;">
 		<Login />
