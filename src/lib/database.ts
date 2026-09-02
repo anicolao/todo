@@ -102,6 +102,7 @@ export function load() {
 	let unsubscribeOnline: (() => void) | undefined = undefined;
 	let listListeners: { [id: string]: Unsubscribe | null } = {};
 	let listLoadAttempts: { [id: string]: number } = {};
+	let listActionsStartupStarted = false;
 	function cleanupSubscriptions() {
 		console.log('src/lib/database.ts: CLEANING UP');
 		if (unsubscribeUsers) {
@@ -132,6 +133,7 @@ export function load() {
 		});
 		listListeners = {};
 		listLoadAttempts = {};
+		listActionsStartupStarted = false;
 		if (loadingSubscription) {
 			loadingSubscription();
 			console.log('src/lib/database.ts: UN SUBSCRIBED to loadingSubscription');
@@ -171,6 +173,7 @@ export function load() {
 			let lastCompletedRequests: string[] | undefined = undefined;
 			let initialListsLoading: string[] | null | undefined = undefined;
 			let numberOfInitialLists = 0;
+			const initialListsLoadedBeforeDiscovery = new Set<string>();
 			const activityStartTime = Math.floor(Date.now() / 1000);
 			const activity = collection(firebase.firestore, 'activity');
 			console.log(`Watching for activity from server since ${activityStartTime}`);
@@ -274,6 +277,10 @@ export function load() {
 				}
 			};
 			const handleInitialListLoaded = (id: string, name: string | undefined) => {
+				if (initialListsLoading === undefined) {
+					initialListsLoadedBeforeDiscovery.add(id);
+					return;
+				}
 				if (initialListsLoading) {
 					const idIndex = initialListsLoading.indexOf(id);
 					if (idIndex >= 0) {
@@ -326,19 +333,30 @@ export function load() {
 					listLoadAttempts[id] = attempt;
 					const name = nameOverride || store.getState().lists.listIdToList[id];
 					console.log('Loading for ' + id + ' ' + name);
-					try {
-						setCurrentListLoadingStatus(id, name);
-						await createFirebaseListActions(id, user, name);
-						if (listLoadAttempts[id] !== attempt) {
-							return;
-						}
-						listListeners[id] = watch('lists', id, async (snapshot) => {
+					const attachListener = () =>
+						watch('lists', id, async (snapshot) => {
 							logTime('Calling handleDocChanges for ' + id + ' ' + name);
 							await handleListDocChanges(id, name, snapshot);
 							handleInitialListLoaded(id, name);
 						});
+					try {
+						setCurrentListLoadingStatus(id, name);
+						// A list restored from the app cache has already been created and shared with this
+						// user. Attach its read listener without waiting for the editor existence check.
+						// New lists retain setup-first ordering so their security-rule prerequisites exist.
+						if (getListCurrentTime(id) > 0) {
+							listListeners[id] = attachListener();
+						}
+						await createFirebaseListActions(id, user, name);
+						if (listLoadAttempts[id] !== attempt) {
+							return;
+						}
+						if (listListeners[id] === null) {
+							listListeners[id] = attachListener();
+						}
 					} catch (error) {
 						if (listLoadAttempts[id] === attempt) {
+							listListeners[id]?.();
 							delete listListeners[id];
 							delete listLoadAttempts[id];
 						}
@@ -400,8 +418,10 @@ export function load() {
 					isStartup
 				});
 				if (isStartup) {
-					initialListsLoading = listsToLoad.slice();
-					numberOfInitialLists = initialListsLoading.length || 1;
+					numberOfInitialLists = listsToLoad.length || 1;
+					initialListsLoading = listsToLoad.filter(
+						(id) => !initialListsLoadedBeforeDiscovery.has(id)
+					);
 					if (initialListsLoading.length === 0) {
 						logTime('Initial data load for UI complete.');
 						loadComplete();
@@ -511,6 +531,13 @@ export function load() {
 			});
 		}
 
+		const startListActionsAtStartup = (user: AuthState) => {
+			if (!listActionsStartupStarted) {
+				listActionsStartupStarted = true;
+				loadListActionsAtStartup(user);
+			}
+		};
+
 		let lastSignInState: any = undefined;
 
 		loadingSubscription = store.subscribe(async (state: any) => {
@@ -528,6 +555,7 @@ export function load() {
 							logTime(`timestamp after ${store.getState()?.cache?.timestamp || 0}`);
 							const startTime = store.getState()?.cache?.timestamp || 0;
 							if (!isResolved && startTime > 0) {
+								startListActionsAtStartup(user);
 								logTime(`database.ts: Display cached state in ui.`);
 								isResolved = true;
 								resolve(true);
@@ -560,7 +588,7 @@ export function load() {
 									);
 								}
 								if (isStartupReplay) {
-									loadListActionsAtStartup(user);
+									startListActionsAtStartup(user);
 								}
 								isFirstRequestsSnapshot = false;
 							});
