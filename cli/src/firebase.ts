@@ -41,6 +41,16 @@ export interface LoginParams {
 	password?: string;
 }
 
+export interface BrowserLoginStart {
+	id: string;
+	url: string;
+}
+
+interface PendingBrowserLogin extends BrowserLoginStart {
+	completion: Promise<User>;
+	cancel: (error: Error) => void;
+}
+
 function base64url(value: Buffer) {
 	return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
@@ -74,6 +84,7 @@ export class FirebaseRuntime {
 	readonly firestore: Firestore;
 	readonly emulator: boolean;
 	readonly credentials: CredentialStore;
+	#pendingBrowserLogin?: PendingBrowserLogin;
 
 	constructor() {
 		this.projectId = process.env.TODO_FIREBASE_PROJECT_ID || DEFAULT_PROJECT_ID;
@@ -147,17 +158,9 @@ export class FirebaseRuntime {
 			}
 			return (await signInWithEmailAndPassword(this.auth, params.email, params.password)).user;
 		}
-		const clientId = process.env.TODO_GOOGLE_CLIENT_ID;
-		if (!clientId) {
-			throw new TodoServiceError(
-				'configuration',
-				'TODO_GOOGLE_CLIENT_ID must name a Google OAuth desktop client'
-			);
-		}
-		const tokens = await this.browserLogin(clientId);
-		const user = await this.signInWithGoogle(tokens);
-		if (tokens.refresh_token) await this.credentials.write(tokens.refresh_token);
-		return user;
+		const pending = await this.beginBrowserLogin();
+		openBrowser(pending.url);
+		return this.finishBrowserLogin(pending.id);
 	}
 
 	private async signInWithGoogle(tokens: OAuthTokens): Promise<User> {
@@ -165,7 +168,18 @@ export class FirebaseRuntime {
 		return (await signInWithCredential(this.auth, credential)).user;
 	}
 
-	private async browserLogin(clientId: string): Promise<OAuthTokens> {
+	async beginBrowserLogin(): Promise<BrowserLoginStart> {
+		if (this.emulator) {
+			throw new TodoServiceError('usage', 'Browser login is unavailable with Firebase emulators');
+		}
+		const clientId = process.env.TODO_GOOGLE_CLIENT_ID;
+		if (!clientId) {
+			throw new TodoServiceError(
+				'configuration',
+				'TODO_GOOGLE_CLIENT_ID must name a Google OAuth desktop client'
+			);
+		}
+		this.cancelBrowserLogin('A newer Google login was started');
 		const state = base64url(randomBytes(24));
 		const verifier = base64url(randomBytes(48));
 		const challenge = base64url(createHash('sha256').update(verifier).digest());
@@ -212,9 +226,9 @@ export class FirebaseRuntime {
 			code_challenge: challenge,
 			code_challenge_method: 'S256'
 		}).toString();
-		openBrowser(authorization.toString());
+		const id = crypto.randomUUID();
 		const timeout = setTimeout(() => rejectCode(new Error('Google login timed out')), 120_000);
-		try {
+		const completion = (async () => {
 			const code = await codePromise;
 			const body = new URLSearchParams({
 				client_id: clientId,
@@ -226,14 +240,43 @@ export class FirebaseRuntime {
 			if (process.env.TODO_GOOGLE_CLIENT_SECRET) {
 				body.set('client_secret', process.env.TODO_GOOGLE_CLIENT_SECRET);
 			}
-			return await tokenRequest(body);
-		} finally {
+			const tokens = await tokenRequest(body);
+			const user = await this.signInWithGoogle(tokens);
+			if (tokens.refresh_token) await this.credentials.write(tokens.refresh_token);
+			return user;
+		})().finally(() => {
 			clearTimeout(timeout);
 			server.close();
+		});
+		void completion.catch(() => undefined);
+		this.#pendingBrowserLogin = {
+			id,
+			url: authorization.toString(),
+			completion,
+			cancel: rejectCode
+		};
+		return { id, url: authorization.toString() };
+	}
+
+	async finishBrowserLogin(id: string): Promise<User> {
+		const pending = this.#pendingBrowserLogin;
+		if (!pending || pending.id !== id) {
+			throw new TodoServiceError('authentication', 'Google login is no longer pending');
+		}
+		try {
+			return await pending.completion;
+		} finally {
+			if (this.#pendingBrowserLogin?.id === id) this.#pendingBrowserLogin = undefined;
 		}
 	}
 
+	cancelBrowserLogin(message = 'Google login was cancelled') {
+		this.#pendingBrowserLogin?.cancel(new Error(message));
+		this.#pendingBrowserLogin = undefined;
+	}
+
 	async logout() {
+		this.cancelBrowserLogin();
 		await signOut(this.auth);
 		if (!this.emulator) await this.credentials.remove();
 	}
