@@ -64,7 +64,9 @@ export async function startService() {
 	if (await serviceAvailable()) return;
 	const log = openSync(paths.log, 'a', 0o600);
 	fchmodSync(log, 0o600);
-	const service = fileURLToPath(new URL('./service.ts', import.meta.url));
+	const service =
+		process.env.TODO_CLI_SERVICE_ENTRYPOINT ||
+		fileURLToPath(new URL('./service.ts', import.meta.url));
 	const child = spawn(process.execPath, [service], {
 		cwd: fileURLToPath(new URL('../..', import.meta.url)),
 		detached: true,

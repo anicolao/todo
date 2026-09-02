@@ -22,6 +22,26 @@ npm run todo -- search "oat milk"
 `npm link` exposes the root package's `todo` and `todo-service` binaries for local development.
 Ordinary commands start the service automatically, so an explicit `service start` is optional.
 
+## Run with Nix
+
+The root flake packages the CLI and its resident service as the default app and as the `todo`
+app. Once this branch is merged, run either form directly from GitHub:
+
+```sh
+nix run github:anicolao/todo -- help
+nix run github:anicolao/todo#todo -- today
+```
+
+To try the pull-request branch before it is merged:
+
+```sh
+nix run 'github:anicolao/todo?ref=agent/cli-design#todo' -- help
+```
+
+Nix caches the built package, while the service continues to keep its writable configuration,
+credentials, logs, and snapshot in the platform-specific locations described below. Install the
+command into your profile with `nix profile install github:anicolao/todo#todo`.
+
 Item commands currently include `add`, `list`, `complete`, `uncomplete`, `edit`, `star`,
 `unstar`, `due`, and `undue`. Run `todo help` for their arguments. Item IDs may be shortened to
 an unambiguous prefix.
