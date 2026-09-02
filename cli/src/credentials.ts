@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
+import { readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { platform } from 'node:os';
+import { join } from 'node:path';
 import { TodoServiceError } from './errors';
+import { ensurePrivateDirectories, runtimePaths, type RuntimePaths } from './paths';
 
 interface CommandResult {
 	stdout: string;
@@ -25,6 +28,33 @@ export interface CredentialStore {
 	read(): Promise<string | undefined>;
 	write(value: string): Promise<void>;
 	remove(): Promise<void>;
+}
+
+export function fileCredentialStore(
+	projectId: string,
+	paths: RuntimePaths = runtimePaths()
+): CredentialStore {
+	const safeProjectId = projectId.replace(/[^A-Za-z0-9._-]/g, '_');
+	const path = join(paths.root, `google-refresh-${safeProjectId}.token`);
+	return {
+		async read() {
+			try {
+				return (await readFile(path, 'utf8')).trim() || undefined;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+				throw error;
+			}
+		},
+		async write(value) {
+			await ensurePrivateDirectories(paths);
+			const temporary = `${path}.${process.pid}.tmp`;
+			await writeFile(temporary, `${value}\n`, { mode: 0o600 });
+			await rename(temporary, path);
+		},
+		async remove() {
+			await rm(path, { force: true });
+		}
+	};
 }
 
 export function credentialStore(projectId: string): CredentialStore {
@@ -64,32 +94,33 @@ export function credentialStore(projectId: string): CredentialStore {
 	}
 	if (platform() === 'linux') {
 		const attributes = ['service', 'todo-cli', 'project', projectId];
+		const fallback = fileCredentialStore(projectId);
 		return {
 			async read() {
 				try {
 					const result = await run('secret-tool', ['lookup', ...attributes]);
-					return result.code === 0 ? result.stdout.trim() : undefined;
+					if (result.code === 0 && result.stdout.trim()) return result.stdout.trim();
 				} catch {
-					throw new TodoServiceError(
-						'credential_store',
-						'secret-tool is required to restore Todo login on Linux'
-					);
+					// Minimal and headless Linux sessions often have no Secret Service.
 				}
+				return fallback.read();
 			},
 			async write(value) {
-				let result: CommandResult;
 				try {
-					result = await run(
+					const result = await run(
 						'secret-tool',
 						['store', '--label', 'Todo CLI Google login', ...attributes],
 						value
 					);
+					if (result.code === 0) {
+						await fallback.remove();
+						return;
+					}
 				} catch {
-					throw new TodoServiceError('credential_store', 'secret-tool is required on Linux');
+					// Fall through to the private file credential store.
 				}
-				if (result.code !== 0) {
-					throw new TodoServiceError('credential_store', 'Could not save login in the keyring');
-				}
+				console.warn('Secret Service unavailable; using the private file credential store');
+				await fallback.write(value);
 			},
 			async remove() {
 				try {
@@ -97,6 +128,7 @@ export function credentialStore(projectId: string): CredentialStore {
 				} catch {
 					// There is nothing useful to remove when secret-tool is unavailable.
 				}
+				await fallback.remove();
 			}
 		};
 	}

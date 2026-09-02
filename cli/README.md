@@ -81,7 +81,8 @@ before opening it locally.
 
 Set `TODO_GOOGLE_CLIENT_SECRET` only when the client registration requires it. The Google
 refresh credential is stored in macOS Keychain or the Linux Secret Service; it is not written
-to the Todo snapshot. Linux requires `secret-tool`.
+to the Todo snapshot. When a Linux Secret Service is unavailable, the CLI falls back to a
+`0600` token file inside its owner-only state directory.
 
 ## Emulator login
 
