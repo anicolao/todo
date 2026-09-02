@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+needs_oauth=true
+case "${1:-help} ${2:-}" in
+	"help "|"--help "|"service status"|"service stop"|"service logs") needs_oauth=false ;;
+esac
+if [[ "${TODO_FIREBASE_EMULATOR:-false}" == true ]]; then
+	needs_oauth=false
+fi
+
+if $needs_oauth &&
+	[[ -z "${TODO_GOOGLE_CLIENT_ID:-}" || -z "${TODO_GOOGLE_CLIENT_SECRET:-}" ]]; then
+	if ! oauth_environment="$("@sops@" decrypt --output-type dotenv "@oauthConfig@")"; then
+		printf '%s\n' "Could not decrypt the Todo OAuth configuration." >&2
+		printf '%s\n' "Set SOPS_AGE_SSH_PRIVATE_KEY_FILE to an authorized SSH private key." >&2
+		exit 1
+	fi
+	while IFS='=' read -r name value; do
+		case "$name" in
+			TODO_GOOGLE_CLIENT_ID)
+				if [[ -z "${TODO_GOOGLE_CLIENT_ID:-}" ]]; then
+					export TODO_GOOGLE_CLIENT_ID="$value"
+				fi
+				;;
+			TODO_GOOGLE_CLIENT_SECRET)
+				if [[ -z "${TODO_GOOGLE_CLIENT_SECRET:-}" ]]; then
+					export TODO_GOOGLE_CLIENT_SECRET="$value"
+				fi
+				;;
+		esac
+	done <<< "$oauth_environment"
+	unset oauth_environment
+fi
+unset needs_oauth
+
+export TODO_CLI_SERVICE_ENTRYPOINT="@service@"
+export PATH="@runtimePath@${PATH:+:$PATH}"
+exec "@bun@" "@cli@" "$@"

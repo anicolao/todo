@@ -42,6 +42,19 @@ Nix caches the built package, while the service continues to keep its writable c
 credentials, logs, and snapshot in the platform-specific locations described below. Install the
 command into your profile with `nix profile install github:anicolao/todo#todo`.
 
+The Nix package also contains the production OAuth client configuration encrypted with SOPS for
+Alex's and Andrew's GitHub SSH keys. SOPS automatically tries `~/.ssh/id_ed25519` and
+`~/.ssh/id_rsa`. When the matching private key has another name, select it explicitly:
+
+```sh
+SOPS_AGE_SSH_PRIVATE_KEY_FILE=~/.ssh/other_key nix run github:anicolao/todo -- auth login
+```
+
+Only the encrypted document enters Git and the Nix store. The launcher decrypts it into its
+process environment, and the resident service inherits it without writing the OAuth values to
+disk. To rotate or add recipients, update `.sops.yaml` and run
+`sops updatekeys cli/secrets/oauth.enc.json`.
+
 Item commands currently include `add`, `list`, `complete`, `uncomplete`, `edit`, `star`,
 `unstar`, `due`, and `undue`. Run `todo help` for their arguments. Item IDs may be shortened to
 an unambiguous prefix.
@@ -52,8 +65,8 @@ Use `--verbose` to include IDs, state, due dates, and list types, or `--json` fo
 
 ## Production login
 
-Create a Google OAuth desktop client in the same Google Cloud project and provide its client
-ID to the service environment:
+Repository and Bun-based development still reads the Google OAuth desktop client from the
+environment:
 
 ```sh
 export TODO_GOOGLE_CLIENT_ID=example.apps.googleusercontent.com
