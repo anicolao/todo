@@ -241,7 +241,75 @@ Expected profile if this hypothesis is right:
 
 ## Profiling Results
 
-No full app browser profile has been captured yet.
+A focused full-app browser test was added on September 2, 2026 in
+`tests/e2e/011-cold-listener-checkbox/011-cold-listener-checkbox.spec.ts`.
+
+### Cold Listener Timing
+
+The baseline characterization used the startup state most relevant to the reported "first click in
+the morning" symptom:
+
+1. It creates tasks and waits for them to reach the app-level `TODOS` IndexedDB cache.
+2. It closes the page and removes only Firestore's IndexedDB cache, retaining the app cache and
+   authentication session.
+3. It applies 1,200 ms of network latency and reloads the selected list.
+4. It clicks one cached task immediately and records whether the selected-list listener is attached.
+5. It clicks a second task after that listener is active, under the same network conditions.
+
+Three Chromium executions produced:
+
+| Run | Listener ready at first click | First click | Second click |
+| --: | :---------------------------: | ----------: | -----------: |
+|   1 |              no               |    4,141 ms |       116 ms |
+|   2 |              no               |    4,133 ms |       120 ms |
+|   3 |              no               |    4,130 ms |       120 ms |
+
+In the repeated run, the cached UI became visible at about 3,665 ms after navigation and the first
+click happened about 80 ms later. `watch from time ... on <list id>` did not appear until about
+7,340 ms. The first task remained visible until about 7,875 ms. Once that watcher existed, the
+second task disappeared in about 120 ms despite unchanged network latency.
+
+This confirms the causal mechanism under controlled cold-start conditions: a checkbox action made
+while the selected list has no watcher cannot reach Redux through the Firestore snapshot path.
+The UI catches up only after startup attaches the watcher and Firestore delivers the action. The
+artificial latency amplifies the window, so this test does not by itself establish the exact
+production delay, but its first-only behavior matches the reported symptom closely.
+
+### When The Watcher Became Delayed
+
+The original eager watcher was introduced in `a781036` on November 9, 2022 (`Subscribe and unsub
+for each list`). A `ListMenuItem` instantiated `watch('lists', listId)` synchronously. Commit
+`2cc0b67` on November 16, 2022 (`Fix race condition for list creation`) moved that call behind the
+editor and initial-list writes. Commit `4a119cf` on March 29, 2023 (`Attempt to reduce firebase
+writes during app load`) replaced the unconditional writes with an editor `getDoc`, but continued
+to await that remote operation before calling `watch`. Commit `9a53422` on May 3, 2023 moved the
+logic into the central database startup path with the same setup-before-watch ordering.
+
+Later activity-refresh changes appeared to add another gate, but detailed timing disproved that
+interpretation on current main. The store's `subscribe` implementation invokes its callback
+immediately, and the loading-status dispatch re-enters that callback. Consequently,
+`loadList(currentListId)` starts while the activity query is still pending. In the controlled
+baseline, `Refresh list subscriptions`, `Loading for`, and `Firebase: Setting up list` all logged at
+6,145 ms. The editor `getDoc` completed at 7,361 ms and `watch` was called in the same millisecond.
+The measured 1,216 ms watcher-setup gap was therefore the editor lookup, not the activity query.
+
+The other large gap was before `loadList`: cached UI appeared at 3,675 ms, but list startup waited
+for the first global-requests snapshot and did not begin until 6,145 ms. For cached sessions, those
+two gates combined to make the UI interactive several seconds before its selected-list listener
+existed.
+
+### Current-List-First Experiment
+
+The experiment now starts list loading immediately after app-cache hydration. For a list with a
+cached action timestamp, it attaches the listener before the editor existence check; genuinely new
+lists retain setup-before-watch ordering so the list-creation race remains guarded. It also records
+an initial snapshot that arrives before activity discovery finishes, so startup completion cannot
+miss that event.
+
+Under the same 1,200 ms artificial latency, the selected-list watcher was registered before the
+cached UI was displayed. Three repeated runs measured first-click updates of 120 ms, 113 ms, and
+114 ms. Second-click updates were 111 ms, 114 ms, and 113 ms. The earlier baseline was approximately
+4,140 ms for the first click and 120 ms for the second.
 
 Initial focused profiling was run on May 20, 2026 using generated list data. These measurements are not a substitute for profiling the real Svelte/Firebase app. They are a first pass to rank hypotheses before changing code.
 
@@ -298,17 +366,21 @@ These measurements make Redux DevTools and whole-state cache/write paths importa
 
 The initial data supports this ranking:
 
-1. Most likely to matter: whole-state processing around store dispatch, Redux DevTools, and cache persistence.
-2. Still likely to matter: reducer object copying and `deepFreeze` on large list structures.
-3. Likely smaller by itself: hidden completed `ItemList` display-object construction.
-4. Still unmeasured: actual Svelte DOM update, FLIP animation, and browser layout cost on the real route.
+1. Most likely to explain the first cold click: cached UI becomes interactive before the selected-list Firestore listener is attached.
+2. Still likely to matter after the action reaches Redux: whole-state processing around store dispatch, Redux DevTools, and cache persistence.
+3. Still likely to matter: reducer object copying and `deepFreeze` on large list structures.
+4. Likely smaller by itself: hidden completed `ItemList` display-object construction.
 
-The next required step is a full browser Performance profile of the real app interaction on a large list.
+The current-list-first experiment confirms the cold-watcher hypothesis. The next required step is
+to review the startup/lifecycle edge cases around this implementation and capture a
+production-device trace to measure any secondary reducer/rendering work.
 
 ## Likely Fix Directions
 
 The likely fixes are structural:
 
+- On cached startup, attach the selected-list live watcher before the editor existence check and
+  before exposing cached UI; retain setup-first ordering for genuinely new lists.
 - Do not rebuild the hidden completed list when `showCompleted` is false.
 - Maintain separate active/completed item id indexes so active views do not scan all historical completed items.
 - Avoid copying the entire `itemIdToItem` map for a single-item update.
@@ -316,4 +388,5 @@ The likely fixes are structural:
 - Consider virtualizing completed/history-heavy views.
 - Consider archiving or compacting old completed items so current-task interactions do not pay for old history.
 
-No fix should be selected until the profiling results identify the actual bottleneck.
+Retain the verified current-list-first ordering, then use a production-device profile to decide
+which secondary structural optimizations are justified.
