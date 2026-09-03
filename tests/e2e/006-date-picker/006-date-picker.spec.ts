@@ -248,6 +248,7 @@ test('date picker dialog', async ({ page }, testInfo) => {
 	await repeatInterval.press('End');
 	await repeatInterval.press('Backspace');
 	await expect(repeatInterval).toHaveValue('');
+	await expect(openDialog(page).getByText('Every ? Weeks', { exact: true })).toBeVisible();
 	await repeatInterval.pressSequentially('2');
 
 	await helper.step('repeat_configured', {
