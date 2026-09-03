@@ -140,15 +140,15 @@
 		'Every # Weekdays'
 	];
 	function normalizeRepeatEvery(every: number | undefined) {
-		return every === undefined || every < 1 || every > 365 ? 1 : every;
+		return every === undefined || Number.isNaN(every) || every < 1 || every > 365 ? 1 : every;
 	}
 	function getRepeatEveryDesciption(kind: string, every: number | undefined) {
 		const idx = repeatKind.indexOf(kind);
 		let desc = '';
 		if (idx > 0) {
-			const normalizedEvery = normalizeRepeatEvery(every);
-			desc = repeatDescription[idx].replaceAll('#', '' + normalizedEvery);
-			if (normalizedEvery === 1) {
+			const displayEvery = every === undefined || Number.isNaN(every) ? '?' : every;
+			desc = repeatDescription[idx].replaceAll('#', '' + displayEvery);
+			if (every === 1) {
 				desc = desc.replace(/s$/, '');
 			}
 		}
