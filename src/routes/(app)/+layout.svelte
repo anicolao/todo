@@ -139,12 +139,16 @@
 		'Every # Years',
 		'Every # Weekdays'
 	];
-	function getRepeatEveryDesciption(kind: string, every: number) {
+	function normalizeRepeatEvery(every: number | undefined) {
+		return every === undefined || every < 1 || every > 365 ? 1 : every;
+	}
+	function getRepeatEveryDesciption(kind: string, every: number | undefined) {
 		const idx = repeatKind.indexOf(kind);
 		let desc = '';
 		if (idx > 0) {
-			desc = repeatDescription[idx].replaceAll('#', '' + every);
-			if (every === 1) {
+			const normalizedEvery = normalizeRepeatEvery(every);
+			desc = repeatDescription[idx].replaceAll('#', '' + normalizedEvery);
+			if (normalizedEvery === 1) {
 				desc = desc.replace(/s$/, '');
 			}
 		}
@@ -158,8 +162,8 @@
 		RepeatType.YEARLY,
 		RepeatType.WEEKDAYS
 	];
-	let repeatEvery = 1;
-	$: if (!repeatEvery || repeatEvery < 1 || repeatEvery > 365) {
+	let repeatEvery: number | undefined = 1;
+	$: if (repeatEvery !== undefined && (repeatEvery < 1 || repeatEvery > 365)) {
 		repeatEvery = 1;
 	}
 
@@ -406,7 +410,7 @@
 			const day = parseInt(ymd[2]);
 			const indexOfRepeat = repeatKind.indexOf(repeatValue);
 			const type = repeatType[indexOfRepeat];
-			const every = repeatEvery;
+			const every = normalizeRepeatEvery(repeatEvery);
 			if (
 				useDueDate !== origUseDueDate ||
 				(useDueDate &&
@@ -627,6 +631,7 @@
 									input$step="1"
 									disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
 									style="width: 6em;"
+									on:blur={() => (repeatEvery = normalizeRepeatEvery(repeatEvery))}
 								/>
 							</Paper>
 						</Content>

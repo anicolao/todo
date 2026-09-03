@@ -242,14 +242,20 @@ test('date picker dialog', async ({ page }, testInfo) => {
 	});
 
 	await page.getByRole('option', { name: 'Weekly', exact: true }).click();
-	await openDialog(page).locator('input[type="number"]').fill('2');
+	const repeatInterval = openDialog(page).locator('input[type="number"]');
+	await expect(repeatInterval).toHaveValue('1');
+	await repeatInterval.focus();
+	await repeatInterval.press('End');
+	await repeatInterval.press('Backspace');
+	await expect(repeatInterval).toHaveValue('');
+	await repeatInterval.pressSequentially('2');
 
 	await helper.step('repeat_configured', {
 		description: 'A "Weekly" repeat is selected and configured to recur every 2 weeks.',
 		verifications: [
 			{
 				spec: 'Repeat interval is set to 2',
-				check: async () => expect(openDialog(page).locator('input[type="number"]')).toHaveValue('2')
+				check: async () => expect(repeatInterval).toHaveValue('2')
 			}
 		]
 	});
