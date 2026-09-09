@@ -17,4 +17,4 @@ if ! command -v pod >/dev/null 2>&1; then
 	exit 1
 fi
 
-npx cap sync ios
+CAPACITOR_APP_ID="${TODO_IOS_BUNDLE_ID:-com.spnss.todo}" npx cap sync ios

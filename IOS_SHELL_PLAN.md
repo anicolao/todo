@@ -111,10 +111,11 @@ The following are compatibility requirements:
 - Preserve server-side removal of invalid FCM tokens after multicast failures.
 - Do not introduce a new persisted action or change action-log schemas as part
   of the shell work.
-- Keep bundle identifier `com.stockgamblers.todo`, because APNs tokens and the
-  Firebase Apple app are scoped to the application identity.
-- Keep the existing Firebase project and the matching
-  `GoogleService-Info.plist` application entry.
+- Use bundle identifier `com.spnss.todo` under Dobutsu/SPNSS Apple team
+  `ZHQLA4T47N`. The former `com.stockgamblers.todo` identifier is unavailable
+  to the new team.
+- Keep the existing Firebase project, but use a matching `com.spnss.todo`
+  Firebase Apple app and `GoogleService-Info.plist` entry.
 
 ## Current iOS gaps
 
