@@ -170,11 +170,11 @@
 	}
 	.list-menu-item :global(.mdc-deprecated-list-item) {
 		flex: 1 1 auto;
+		margin: 0;
 		min-width: 0;
-		padding-left: 8px;
+		padding: 0;
 	}
 	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
-		margin: 0;
 		min-height: 40px;
 	}
 	.sidebar-row-icon {
