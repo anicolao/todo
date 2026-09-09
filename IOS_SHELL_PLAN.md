@@ -1,6 +1,6 @@
 # iOS Shell Plan
 
-**Status:** Proposed for review
+**Status:** Approved; implementation in progress
 
 **Decision:** Keep Capacitor as TODO's iOS runtime and rebuild the existing iOS
 target into a deliberate, tested shell. Borrow the deterministic project,
@@ -8,8 +8,9 @@ release, loading, recovery, and test practices from `../hunger` and
 `../games/np/npa`, but do not replace Capacitor's bridge with a bespoke
 `WKWebView` bridge.
 
-This document is the only change on the planning branch. Implementation begins
-only after review.
+The build normalization and auth/notification contract are implemented on this
+branch. Physical-device acceptance remains the gate before adding shell polish,
+as specified below.
 
 ## Executive summary
 
