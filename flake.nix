@@ -147,6 +147,8 @@
               pkgs.google-cloud-sdk
               pkgs.jdk21
               pkgs.nodejs_22
+            ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+              pkgs.cocoapods
             ];
 
             ANDROID_HOME = "${androidSdk}/libexec/android-sdk";
