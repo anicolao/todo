@@ -50,7 +50,7 @@
 			// only fires for taps — navigate regardless of how long the press was.
 			const isLabel = $store.lists.listIdToType[listId] === 'label';
 			if (isLabel) {
-				setActive(`labels?labelId=${encodeURIComponent(listId)}`);
+				setActive(`labels?labelId=${encodeURIComponent(listId)}`, true);
 			} else {
 				const via = viaLabelId ? `&via=${encodeURIComponent(viaLabelId)}` : '';
 				setActive(`lists?listId=${encodeURIComponent(listId)}${via}`);
