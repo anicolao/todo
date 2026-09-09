@@ -171,10 +171,10 @@
 	.list-menu-item :global(.mdc-deprecated-list-item) {
 		flex: 1 1 auto;
 		min-width: 0;
+		padding-left: 8px;
 	}
 	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
 		min-height: 40px;
-		padding-left: 8px;
 	}
 	.sidebar-row-icon {
 		display: block;
