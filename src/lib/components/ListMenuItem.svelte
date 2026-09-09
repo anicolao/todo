@@ -174,6 +174,7 @@
 		padding-left: 8px;
 	}
 	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
+		margin: 0;
 		min-height: 40px;
 	}
 	.sidebar-row-icon {
