@@ -72,35 +72,8 @@ async function openNestedListFromActiveLabel(
 }
 
 async function clickDrawerLabel(page: import('@playwright/test').Page, labelName: string) {
-	const drawer = page.locator('.mdc-drawer');
-	const waitForDrawerClose = await drawer.evaluate((element) => {
-		if (!element.classList.contains('mdc-drawer--modal')) {
-			return false;
-		}
-		const state = window as typeof window & { drawerCloseCompleted?: boolean };
-		state.drawerCloseCompleted = false;
-		element.addEventListener(
-			'SMUIDrawer:closed',
-			() => {
-				state.drawerCloseCompleted = true;
-			},
-			{ once: true }
-		);
-		return true;
-	});
 	await page.locator('.mdc-drawer .list-menu-item').filter({ hasText: labelName }).first().click();
-	if (waitForDrawerClose) {
-		await expect
-			.poll(() =>
-				page.evaluate(
-					() =>
-						(window as typeof window & { drawerCloseCompleted?: boolean }).drawerCloseCompleted ||
-						false
-				)
-			)
-			.toBe(true);
-	}
-	await expectMobileDrawerClosed(page);
+	await expectMobileDrawerOpen(page);
 }
 
 async function startSidebarAnimationCapture(page: import('@playwright/test').Page) {
@@ -233,7 +206,7 @@ async function toggleDraftLabelMembership(
 	await expect(checkbox).toBeChecked({ checked });
 }
 
-async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
+async function expectMobileDrawerOpen(page: import('@playwright/test').Page) {
 	const drawer = page.locator('.mdc-drawer');
 	const isModal = await drawer.evaluate((element) =>
 		element.classList.contains('mdc-drawer--modal')
@@ -241,7 +214,7 @@ async function expectMobileDrawerClosed(page: import('@playwright/test').Page) {
 	if (!isModal) {
 		return;
 	}
-	await expect(drawer).not.toHaveClass(/mdc-drawer--open/);
+	await expect(drawer).toHaveClass(/mdc-drawer--open/);
 }
 
 async function expectPersistedGlobalAction(
@@ -414,8 +387,8 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 				check: async () => expect(page).toHaveURL(/labels\?labelId=/)
 			},
 			{
-				spec: 'Mobile drawer is dismissed after selecting the label',
-				check: async () => expectMobileDrawerClosed(page)
+				spec: 'Mobile drawer stays open after selecting the label',
+				check: async () => expectMobileDrawerOpen(page)
 			},
 			{
 				spec: 'Source list group name is visible',
