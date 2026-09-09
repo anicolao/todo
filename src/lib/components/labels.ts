@@ -46,6 +46,10 @@ export const add_label_predicate = createAction<{ label_id: string; predicate: L
 export const remove_label_predicate = createAction<{ label_id: string; predicate: LabelQuery }>(
 	'remove_label_predicate'
 );
+export const reorder_label_predicates = createAction<{
+	label_id: string;
+	predicates: LabelQuery[];
+}>('reorder_label_predicates');
 export const set_label_visibility = createAction<{
 	label_id: string;
 	visibility: LabelVisibility;
@@ -55,7 +59,7 @@ export const initialState = {
 	labelIdToLabel: {}
 } as LabelsState;
 
-function sameQuery(a: LabelQuery, b: LabelQuery): boolean {
+function sameLabelQuery(a: LabelQuery, b: LabelQuery): boolean {
 	if (a.type !== b.type) {
 		return false;
 	}
@@ -68,7 +72,7 @@ function sameQuery(a: LabelQuery, b: LabelQuery): boolean {
 		}
 		const remaining = [...b.predicates];
 		return a.predicates.every((predicate) => {
-			const index = remaining.findIndex((candidate) => sameQuery(predicate, candidate));
+			const index = remaining.findIndex((candidate) => sameLabelQuery(predicate, candidate));
 			if (index === -1) {
 				return false;
 			}
@@ -83,15 +87,15 @@ function queryWithoutPredicate(query: LabelQuery, predicate: LabelQuery): LabelQ
 	if (query.type === 'or') {
 		return {
 			type: 'or',
-			predicates: query.predicates.filter((p) => !sameQuery(p, predicate))
+			predicates: query.predicates.filter((p) => !sameLabelQuery(p, predicate))
 		};
 	}
-	return sameQuery(query, predicate) ? { ...emptyLabelQuery } : query;
+	return sameLabelQuery(query, predicate) ? { ...emptyLabelQuery } : query;
 }
 
 function queryWithPredicate(query: LabelQuery, predicate: LabelQuery): LabelQuery {
 	const orQuery = query.type === 'or' ? query : ({ type: 'or', predicates: [query] } as OrQuery);
-	if (orQuery.predicates.some((p) => sameQuery(p, predicate))) {
+	if (orQuery.predicates.some((p) => sameLabelQuery(p, predicate))) {
 		return orQuery;
 	}
 	return {
@@ -108,6 +112,47 @@ export function queryHasId(query: LabelQuery | undefined, id: string): boolean {
 		return query.id === id;
 	}
 	return query.predicates.some((predicate) => queryHasId(predicate, id));
+}
+
+export function getLabelPredicates(query: LabelQuery | undefined): LabelQuery[] {
+	if (!query) return [];
+	return query.type === 'or' ? query.predicates : [query];
+}
+
+function isLabelQuery(value: unknown): value is LabelQuery {
+	if (!value || typeof value !== 'object') return false;
+	const candidate = value as Partial<LabelQuery>;
+	if (candidate.type === 'id') {
+		return typeof (candidate as Partial<IdPredicate>).id === 'string';
+	}
+	return (
+		candidate.type === 'or' &&
+		Array.isArray((candidate as Partial<OrQuery>).predicates) &&
+		(candidate as OrQuery).predicates.every(isLabelQuery)
+	);
+}
+
+function queryWithReorderedPredicates(query: LabelQuery, predicates: LabelQuery[]): LabelQuery {
+	if (
+		query.type !== 'or' ||
+		predicates.length < 2 ||
+		predicates.length !== query.predicates.length
+	) {
+		return query;
+	}
+	const remaining = [...query.predicates];
+	const reordered: LabelQuery[] = [];
+	for (const requested of predicates) {
+		const index = remaining.findIndex((candidate) => sameLabelQuery(candidate, requested));
+		if (index === -1) return query;
+		reordered.push(remaining[index]);
+		remaining.splice(index, 1);
+	}
+	if (reordered.every((predicate, index) => predicate === query.predicates[index])) return query;
+	return {
+		type: 'or',
+		predicates: reordered
+	};
 }
 
 export function getLabelVisibility(label: LabelState | undefined): LabelVisibility {
@@ -248,6 +293,32 @@ export const labels = createReducer(initialState, (r) => {
 			visibility: getLabelVisibility(label)
 		};
 		return state;
+	});
+	r.addCase(reorder_label_predicates, (state, action) => {
+		const payload = action.payload;
+		if (
+			!payload ||
+			typeof payload.label_id !== 'string' ||
+			!Array.isArray(payload.predicates) ||
+			!payload.predicates.every(isLabelQuery)
+		) {
+			return state;
+		}
+		const label = state.labelIdToLabel[payload.label_id];
+		if (!label) {
+			return state;
+		}
+		const query = queryWithReorderedPredicates(label.query, payload.predicates);
+		if (query === label.query) {
+			return state;
+		}
+		return {
+			...state,
+			labelIdToLabel: {
+				...state.labelIdToLabel,
+				[payload.label_id]: { ...label, query }
+			}
+		};
 	});
 	r.addCase(set_label_visibility, (state, action) => {
 		if (

@@ -2,10 +2,13 @@ import { expect } from 'chai';
 import { describe, it } from 'vitest';
 
 import {
+	buildLabelPredicateGroups,
 	buildExpandedLabelIds,
 	buildRouteExpandedLabelIds,
+	mergeVisiblePredicateOrder,
 	type LabelEntriesById
 } from '$lib/components/label-sidebar';
+import type { LabelQuery, LabelsState } from '$lib/components/labels';
 import type { ListsState } from '$lib/components/lists';
 
 const lists: ListsState = {
@@ -35,6 +38,73 @@ const labelEntriesById: LabelEntriesById = {
 };
 
 describe('label sidebar expansion', () => {
+	it('groups every top-level expression with the flattened lists it contributes', () => {
+		const parentId = 'label-parent';
+		const nestedId = 'label-nested';
+		const parentLists: ListsState = {
+			...lists,
+			visibleLists: [parentId, nestedId, 'list-a', 'list-b', 'list-c'],
+			listIdToList: {
+				[parentId]: 'Parent',
+				[nestedId]: 'Nested',
+				'list-a': 'A',
+				'list-b': 'B',
+				'list-c': 'C'
+			},
+			listIdToType: {
+				[parentId]: 'label',
+				[nestedId]: 'label',
+				'list-a': 'list',
+				'list-b': 'list',
+				'list-c': 'list'
+			}
+		};
+		const predicates: LabelQuery[] = [
+			{ type: 'id', id: 'list-a' },
+			{ type: 'id', id: nestedId },
+			{ type: 'id', id: 'list-c' }
+		];
+		const labelState: LabelsState = {
+			labelIdToLabel: {
+				[parentId]: { query: { type: 'or', predicates }, visibility: 'visible' },
+				[nestedId]: {
+					query: {
+						type: 'or',
+						predicates: [
+							{ type: 'id', id: 'list-b' },
+							{ type: 'id', id: 'list-c' }
+						]
+					},
+					visibility: 'visible'
+				}
+			}
+		};
+
+		const groups = buildLabelPredicateGroups(parentId, predicates, parentLists, labelState);
+		expect(groups.map((group) => group.entries.map((entry) => entry.id))).to.deep.equal([
+			['list-a'],
+			['list-b', 'list-c']
+		]);
+	});
+
+	it('moves visible expressions as blocks while retaining invisible expression slots', () => {
+		const first: LabelQuery = { type: 'id', id: 'first' };
+		const invisible: LabelQuery = { type: 'id', id: 'invisible' };
+		const nested: LabelQuery = {
+			type: 'or',
+			predicates: [
+				{ type: 'id', id: 'nested-a' },
+				{ type: 'id', id: 'nested-b' }
+			]
+		};
+
+		expect(mergeVisiblePredicateOrder([first, invisible, nested], [nested, first])).to.deep.equal([
+			nested,
+			invisible,
+			first
+		]);
+	});
+
 	it('expands the selected label route', () => {
 		const expanded = buildRouteExpandedLabelIds(
 			'/labels',

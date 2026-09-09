@@ -284,6 +284,168 @@ async function expectPersistedGlobalAction(
 		.toBe(true);
 }
 
+async function expectPersistedLabelOrder(
+	request: APIRequestContext,
+	labelId: string,
+	expressionIds: string[][]
+) {
+	const authResponse = await request.post(
+		`${authEmulatorOrigin}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,
+		{
+			data: {
+				email: process.env.VITE_TEST_LOGIN_EMAIL || 'test@example.com',
+				password: process.env.VITE_TEST_LOGIN_PASSWORD || 'password',
+				returnSecureToken: true
+			}
+		}
+	);
+	expect(authResponse.ok()).toBe(true);
+	const { idToken } = (await authResponse.json()) as { idToken: string };
+
+	await expect
+		.poll(
+			async () => {
+				const response = await request.get(
+					`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents/lists/${labelId}/actions`,
+					{ headers: { Authorization: `Bearer ${idToken}` } }
+				);
+				if (!response.ok()) {
+					return false;
+				}
+				const body = (await response.json()) as {
+					documents?: Array<{ fields?: Record<string, any> }>;
+				};
+				return (body.documents || []).some((document) => {
+					const fields = document.fields;
+					const payload = fields?.payload?.mapValue?.fields;
+					const predicateIds = (value: any): string[] => {
+						const predicate = value?.mapValue?.fields;
+						if (predicate?.type?.stringValue === 'id') {
+							return [predicate.id?.stringValue];
+						}
+						return (predicate?.predicates?.arrayValue?.values || []).flatMap(predicateIds);
+					};
+					const persistedExpressionIds = payload?.predicates?.arrayValue?.values?.map(predicateIds);
+					return (
+						fields?.type?.stringValue === 'reorder_label_predicates' &&
+						payload?.label_id?.stringValue === labelId &&
+						JSON.stringify(persistedExpressionIds) === JSON.stringify(expressionIds) &&
+						!!fields?.timestamp?.timestampValue
+					);
+				});
+			},
+			{ timeout: 15000 }
+		)
+		.toBe(true);
+}
+
+function firestoreValue(value: any): any {
+	if (typeof value === 'string') return { stringValue: value };
+	if (Array.isArray(value)) return { arrayValue: { values: value.map(firestoreValue) } };
+	return {
+		mapValue: {
+			fields: Object.fromEntries(
+				Object.entries(value).map(([key, nestedValue]) => [key, firestoreValue(nestedValue)])
+			)
+		}
+	};
+}
+
+async function setNestedLabelQuery(
+	request: APIRequestContext,
+	labelId: string,
+	listAId: string,
+	listBId: string,
+	listCId: string
+) {
+	const authResponse = await request.post(
+		`${authEmulatorOrigin}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,
+		{
+			data: {
+				email: process.env.VITE_TEST_LOGIN_EMAIL || 'test@example.com',
+				password: process.env.VITE_TEST_LOGIN_PASSWORD || 'password',
+				returnSecureToken: true
+			}
+		}
+	);
+	expect(authResponse.ok()).toBe(true);
+	const { idToken, localId } = (await authResponse.json()) as {
+		idToken: string;
+		localId: string;
+	};
+	const action = {
+		type: 'set_label_query',
+		payload: {
+			label_id: labelId,
+			query: {
+				type: 'or',
+				predicates: [
+					{
+						type: 'or',
+						predicates: [
+							{ type: 'id', id: listAId },
+							{ type: 'id', id: listBId }
+						]
+					},
+					{ type: 'id', id: listCId }
+				]
+			}
+		},
+		creator: localId
+	};
+	const fields = firestoreValue(action).mapValue.fields;
+	fields.timestamp = { timestampValue: new Date().toISOString() };
+	const response = await request.patch(
+		`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents/lists/${labelId}/actions/${crypto.randomUUID()}`,
+		{
+			headers: { Authorization: `Bearer ${idToken}` },
+			data: { fields }
+		}
+	);
+	expect(response.ok()).toBe(true);
+}
+
+function nestedListRowsUnderLabel(page: import('@playwright/test').Page, labelName: string) {
+	return drawerTopLevelItem(page, labelName).locator('.nested-list-item');
+}
+
+function nestedExpressionGroupsUnderLabel(
+	page: import('@playwright/test').Page,
+	labelName: string
+) {
+	return drawerTopLevelItem(page, labelName).locator('.nested-query-expression');
+}
+
+async function nestedListOrder(page: import('@playwright/test').Page, labelName: string) {
+	return nestedListRowsUnderLabel(page, labelName).evaluateAll((rows) =>
+		rows.map((row) => row.textContent?.trim() || '')
+	);
+}
+
+async function dragNestedListBefore(
+	page: import('@playwright/test').Page,
+	labelName: string,
+	listName: string,
+	beforeListName: string
+) {
+	const groups = nestedExpressionGroupsUnderLabel(page, labelName);
+	const source = groups.filter({ has: page.getByText(listName, { exact: true }) });
+	const destination = groups.filter({ has: page.getByText(beforeListName, { exact: true }) });
+	const sourceBox = await source.getByText(listName, { exact: true }).boundingBox();
+	const destinationBox = await destination.boundingBox();
+	if (!sourceBox || !destinationBox) {
+		throw new Error('Cannot reorder nested lists without visible source and destination rows.');
+	}
+	const startX = sourceBox.x + sourceBox.width / 2;
+	const startY = sourceBox.y + sourceBox.height / 2;
+	await page.mouse.move(startX, startY);
+	await page.mouse.down();
+	await page.mouse.move(startX + 12, startY, { steps: 2 });
+	await expect(source).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
+	await page.mouse.move(startX, destinationBox.y + destinationBox.height / 2, { steps: 10 });
+	await page.mouse.up();
+}
+
 test('create a label containing a list', async ({ page, request }, testInfo) => {
 	const helper = new TestStepHelper(page, testInfo);
 	helper.setMetadata(
@@ -662,4 +824,63 @@ test('active list expands every containing label', async ({ page }) => {
 	await expectNestedListVisibleUnderLabel(page, labelA, listA);
 	await expectNestedListVisibleUnderLabel(page, labelAB, listA);
 	await expectNestedListHiddenUnderLabel(page, labelB, listB);
+});
+
+test('query expressions can be reordered inside a label', async ({ page, request }, testInfo) => {
+	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only drag regression coverage.');
+
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+	await expect(page).toHaveURL(/\/profile/, { timeout: 10000 });
+	await openDrawerIfNeeded(page);
+
+	const listA = 'Ordered List A';
+	const listB = 'Ordered List B';
+	const labelName = 'Ordered Label';
+	await page.getByLabel('New list').fill(listA);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listA)).toBeVisible({ timeout: 10000 });
+	const listAId = new URL(page.url()).searchParams.get('listId');
+	if (!listAId) throw new Error('Ordered List A route did not include listId');
+	await openCurrentListEditDialog(page, listA);
+	await createDraftLabel(page, labelName);
+	await saveCurrentListEditDialog(page);
+
+	await openDrawerIfNeeded(page);
+	const labelId = await drawerTopLevelItem(page, labelName).getAttribute('data-id');
+	if (!labelId) {
+		throw new Error('Ordered Label sidebar item did not include data-id');
+	}
+	await page.getByLabel('New list').fill(listB);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listB)).toBeVisible({ timeout: 10000 });
+	const listBId = new URL(page.url()).searchParams.get('listId');
+	if (!listBId) throw new Error('Ordered List B route did not include listId');
+	await openCurrentListEditDialog(page, listB);
+	await toggleDraftLabelMembership(page, labelName, true);
+	await saveCurrentListEditDialog(page);
+
+	await openDrawerIfNeeded(page);
+	const listC = 'Ordered List C';
+	await page.getByLabel('New list').fill(listC);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listC)).toBeVisible({ timeout: 10000 });
+	const listCId = new URL(page.url()).searchParams.get('listId');
+	if (!listCId) throw new Error('Ordered List C route did not include listId');
+
+	await setNestedLabelQuery(request, labelId, listAId, listBId, listCId);
+	await openDrawerIfNeeded(page);
+	await clickDrawerLabel(page, labelName);
+	await expect.poll(() => nestedListOrder(page, labelName)).toEqual([listA, listB, listC]);
+	await expect(nestedExpressionGroupsUnderLabel(page, labelName)).toHaveCount(2);
+	await page.waitForTimeout(650);
+	await dragNestedListBefore(page, labelName, listC, listA);
+	await expect.poll(() => nestedListOrder(page, labelName)).toEqual([listC, listA, listB]);
+
+	await expectPersistedLabelOrder(request, labelId, [[listCId], [listAId, listBId]]);
+	await page.reload();
+	await openDrawerIfNeeded(page);
+	await expect
+		.poll(() => nestedListOrder(page, labelName), { timeout: 15000 })
+		.toEqual([listC, listA, listB]);
 });
