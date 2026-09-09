@@ -1,15 +1,13 @@
 <script lang="ts">
 	console.log('Login.svelte');
 	import { error } from '$lib/components/auth';
+	import { signInWithNativeGoogle } from '$lib/auth/google';
 	import firebase from '$lib/firebase';
 	import { store } from '$lib/store';
 	import Button, { Label } from '@smui/button';
 
-	import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 	import {
 		getAuth,
-		GoogleAuthProvider,
-		signInWithCredential,
 		signOut,
 		signInWithEmailAndPassword,
 		createUserWithEmailAndPassword,
@@ -24,15 +22,7 @@
 		`https://i.pravatar.cc/150?u=${encodeURIComponent(testLoginEmail)}`;
 
 	const signInWithGoogle = async () => {
-		// 1. Create credentials on the native layer
-		const result = await FirebaseAuthentication.signInWithGoogle({
-			skipNativeAuth: true
-		});
-		// 2. Sign in on the web layer using the id token
-		const credential = GoogleAuthProvider.credential(result.credential?.idToken);
-		const auth = getAuth();
-		console.log({ auth, credential });
-		await signInWithCredential(auth, credential);
+		await signInWithNativeGoogle(firebase.auth);
 	};
 
 	async function testSignIn() {
@@ -73,8 +63,8 @@
 			.then(() => {
 				console.log('signed in!');
 			})
-			.catch((message) => {
-				store.dispatch(error(message));
+			.catch((message: unknown) => {
+				store.dispatch(error(message instanceof Error ? message.message : String(message)));
 			});
 	}
 	function signout() {

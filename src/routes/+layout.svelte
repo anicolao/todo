@@ -3,27 +3,43 @@
 	import { goto } from '$app/navigation';
 	import { signed_in, signed_out } from '$lib/components/auth';
 	import firebase from '$lib/firebase';
+	import { getNotificationCoordinator } from '$lib/notifications';
 	import { store } from '$lib/store';
+	import { onMount } from 'svelte';
 	import { onAuthStateChanged } from 'firebase/auth';
 	import { doc, setDoc } from 'firebase/firestore';
-	import { getToken, onMessage } from 'firebase/messaging';
-	import { Capacitor } from '@capacitor/core';
-	import { PushNotifications } from '@capacitor/push-notifications';
-	import { FCM } from '@capacitor-community/fcm';
 
-	let count = 0;
-	function load() {
-		console.log('src/routes/+layout.svelte load function', count++);
-		const auth = firebase.auth;
+	const notifications = getNotificationCoordinator({
+		disabled: import.meta.env.VITE_DISABLE_NOTIFICATIONS === 'true',
+		messaging: firebase.messaging,
+		vapidKey: firebase.vapidKey
+	});
+
+	async function persistNotificationToken(token: string) {
+		const user = firebase.auth.currentUser;
+		if (!user?.email) return;
+		await setDoc(
+			doc(firebase.firestore, 'users', user.email),
+			{
+				notificationToken: token,
+				activity_timestamp: new Date().getTime()
+			},
+			{ merge: true }
+		);
+	}
+
+	onMount(() => {
 		console.log('src/routes/+layout.svelte set up auth state callback');
-		/*const unsubAuth =*/ onAuthStateChanged(auth, async (user) => {
+		const stopTokenUpdates = notifications.onToken(persistNotificationToken);
+		const stopForegroundRefresh = notifications.startForegroundRefresh(
+			() => firebase.auth.currentUser !== null
+		);
+		const unsubscribeAuth = onAuthStateChanged(firebase.auth, async (user) => {
 			if (user) {
-				console.log('src/routes/+layout.svelte auth callback for user ', { user });
-				const uid = user.uid;
 				console.log('src/routes/+layout.svelte onAuthStateChanged   sign in ');
 				store.dispatch(
 					signed_in({
-						uid: uid,
+						uid: user.uid,
 						name: user.displayName,
 						email: user.email,
 						photo: user.photoURL,
@@ -32,59 +48,30 @@
 					})
 				);
 				if (user.email) {
-					// always true
-					let notificationToken = '';
-					if (import.meta.env.VITE_DISABLE_NOTIFICATIONS === 'true') {
-						console.log('Notification registration disabled for deterministic testing.');
-					} else if (Capacitor.isNativePlatform()) {
-						const permission = await PushNotifications.requestPermissions();
-						if (permission.receive === 'granted') {
-							await PushNotifications.requestPermissions();
-							notificationToken = (await FCM.getToken()).token;
-							// FCM.subscribeTo({topic: "todo"});
-							PushNotifications.addListener('pushNotificationReceived', (notification) => {
-								console.log('Push notification received: ', notification);
-							});
-						}
-					} else {
-						const permission = await Notification.requestPermission();
-						if (permission === 'granted' && firebase.messaging !== null) {
-							console.log('Notification permission granted.');
-							notificationToken = await getToken(firebase.messaging, {
-								vapidKey: firebase.vapidKey
-							});
-							// Handle incoming FCM messages. Called when:
-							// - a message is received while the app has focus
-							// - the user clicks on an app notification created by a service worker
-							//   `messaging.onBackgroundMessage` handler.
-							onMessage(firebase.messaging, (payload) => {
-								console.log('Message received. ', payload);
-							});
-						} else {
-							console.error("notification permission denied")
-						}
-					}
-
-					setDoc(doc(firebase.firestore, 'users', user.email), {
-						uid: user.uid,
-						name: user.displayName,
-						email: user.email,
-						photo: user.photoURL,
-						notificationToken,
-						activity_timestamp: new Date().getTime()
-					}).catch((message) => {
-						// TODO: Surface this error state in the UI.
-						console.error(message);
-					});
+					await setDoc(
+						doc(firebase.firestore, 'users', user.email),
+						{
+							uid: user.uid,
+							name: user.displayName,
+							email: user.email,
+							photo: user.photoURL,
+							activity_timestamp: new Date().getTime()
+						},
+						{ merge: true }
+					).catch((message) => console.error('Could not update the user profile.', message));
+					void notifications.register();
 				}
 			} else {
 				console.log('src/routes/+layout.svelte onAuthStateChanged   sign out ');
 				store.dispatch(signed_out());
 			}
 		});
-		// onDestroy(unsubAuth);
-	}
-	load();
+		return () => {
+			unsubscribeAuth();
+			stopForegroundRefresh();
+			stopTokenUpdates();
+		};
+	});
 
 	$: if ($store.auth.signedIn === false) {
 		console.log('...redirect to /login', { 'signedIn?': $store.auth.signedIn });
