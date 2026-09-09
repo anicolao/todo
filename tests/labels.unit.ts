@@ -8,6 +8,7 @@ import {
 	labels,
 	queryHasId,
 	remove_label_predicate,
+	reorder_label_predicates,
 	resolveLabelQuery,
 	resolveSearchableLabelQuery,
 	selectExcludedSearchListIds,
@@ -176,6 +177,90 @@ describe('labels', () => {
 		);
 
 		expect(queryHasId(state.labelIdToLabel.label1.query, 'list1')).to.equal(false);
+	});
+
+	it('reorders complete query predicates, including nested expressions and labels', () => {
+		const query: LabelQuery = {
+			type: 'or',
+			predicates: [
+				{ type: 'id', id: 'list1' },
+				{ type: 'id', id: 'nested' },
+				{ type: 'or', predicates: [{ type: 'id', id: 'list2' }] },
+				{ type: 'id', id: 'list2' }
+			]
+		};
+		let state = labels(initialState, set_label_query({ label_id: 'label1', query }));
+		state = labels(state, set_label_visibility({ label_id: 'label1', visibility: 'hidden' }));
+
+		state = labels(
+			state,
+			reorder_label_predicates({
+				label_id: 'label1',
+				predicates: [
+					query.predicates[2],
+					query.predicates[3],
+					query.predicates[0],
+					query.predicates[1]
+				]
+			})
+		);
+
+		expect(state.labelIdToLabel.label1.query).to.deep.equal({
+			type: 'or',
+			predicates: [
+				{ type: 'or', predicates: [{ type: 'id', id: 'list2' }] },
+				{ type: 'id', id: 'list2' },
+				{ type: 'id', id: 'list1' },
+				{ type: 'id', id: 'nested' }
+			]
+		});
+		expect(state.labelIdToLabel.label1.visibility).to.equal('hidden');
+	});
+
+	it('ignores incomplete, duplicate, unknown, malformed, and no-op predicate orders', () => {
+		const query: LabelQuery = {
+			type: 'or',
+			predicates: [
+				{ type: 'id', id: 'list1' },
+				{ type: 'id', id: 'list2' }
+			]
+		};
+		const state = labels(initialState, set_label_query({ label_id: 'label1', query }));
+
+		expect(
+			labels(
+				state,
+				reorder_label_predicates({ label_id: 'label1', predicates: [query.predicates[0]] })
+			)
+		).to.equal(state);
+		expect(
+			labels(
+				state,
+				reorder_label_predicates({
+					label_id: 'label1',
+					predicates: [query.predicates[0], query.predicates[0]]
+				})
+			)
+		).to.equal(state);
+		expect(
+			labels(
+				state,
+				reorder_label_predicates({
+					label_id: 'label1',
+					predicates: [query.predicates[0], { type: 'id', id: 'missing' }]
+				})
+			)
+		).to.equal(state);
+		expect(
+			labels(state, reorder_label_predicates({ label_id: 'label1', predicates: query.predicates }))
+		).to.equal(state);
+		expect(labels(state, { type: 'reorder_label_predicates' } as any)).to.equal(state);
+		expect(
+			labels(state, {
+				type: 'reorder_label_predicates',
+				payload: { label_id: 'label1', predicates: [{ type: 'id', id: 'list2' }, null] }
+			} as any)
+		).to.equal(state);
 	});
 
 	it('treats or predicates as equivalent regardless of predicate order', () => {

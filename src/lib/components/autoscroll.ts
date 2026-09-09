@@ -10,6 +10,7 @@ type DragTargetOptions = {
 	container: Element | null | undefined;
 	grabbed: HTMLElement | null | undefined;
 	itemCount: number;
+	itemSelector?: string;
 };
 
 function isScrollable(element: HTMLElement) {
@@ -42,15 +43,16 @@ export function findDragTarget({
 	edgeDirection = 0,
 	container,
 	grabbed,
-	itemCount
+	itemCount,
+	itemSelector = '.item'
 }: DragTargetOptions) {
 	const midPoint = clientY + offsetY + boxHeight / 2;
 	let target: HTMLElement | null | undefined = document
 		.elementFromPoint(clientX, midPoint)
-		?.closest('.item');
+		?.closest<HTMLElement>(itemSelector);
 	const candidates = Array.from(
-		container?.querySelectorAll<HTMLElement>('.item:not(#ghost):not(#grabbed)') || []
-	);
+		container?.querySelectorAll<HTMLElement>(itemSelector) || []
+	).filter((candidate) => candidate.id !== 'ghost' && candidate.id !== 'grabbed');
 	const grabbedIndex = Number(grabbed?.dataset.index ?? -1);
 	if (edgeDirection < 0 && candidates.length && grabbedIndex > 0) {
 		target = candidates[0];

@@ -8,19 +8,26 @@
 	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import {
+		getLabelPredicates,
 		getLabelVisibility,
+		reorder_label_predicates,
 		resolveLabelQuery,
+		type LabelQuery,
 		type LabelsState,
 		type ResolvedLabelEntry
 	} from './labels';
 	import {
+		buildLabelPredicateGroups,
 		buildExpandedLabelIds,
 		buildRouteExpandedLabelIds,
+		mergeVisiblePredicateOrder,
+		type LabelPredicateGroup,
 		type LabelEntriesById
 	} from './label-sidebar';
 	import { pin_label, reorder_list, unpin_label, type ListsState } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
+	import { dispatchLabelAction } from './ActionLog';
 
 	/*
 	export let send: (
@@ -51,6 +58,14 @@
 			lists.visibleLists
 				.filter((listId) => lists.listIdToType[listId] === 'label')
 				.map((labelId) => [labelId, resolveVisibleLabelEntries(labelId, lists, labels)])
+		);
+	}
+
+	function buildLabelPredicatesById(lists: ListsState, labels: LabelsState) {
+		return Object.fromEntries(
+			lists.visibleLists
+				.filter((listId) => lists.listIdToType[listId] === 'label')
+				.map((labelId) => [labelId, getLabelPredicates(labels.labelIdToLabel[labelId]?.query)])
 		);
 	}
 
@@ -87,16 +102,49 @@
 	}
 
 	let items: string[] = [];
+	let labelPredicatesById: Record<string, LabelQuery[]> = {};
+	let labelPredicateGroupsById: Record<string, LabelPredicateGroup[]> = {};
+	let grabbedLabelId = '';
 	function updateItems(displayItems: string[]) {
 		if (!arraysEqual(items, displayItems)) {
 			console.log('ListMenu.updateItems');
 			items = displayItems;
 		}
 	}
+	function predicateArraysEqual(a: LabelQuery[], b: LabelQuery[]) {
+		return a.length === b.length && a.every((predicate, index) => predicate === b[index]);
+	}
+	function updateLabelPredicates(nextPredicatesById: Record<string, LabelQuery[]>) {
+		let changed = false;
+		const next = { ...labelPredicatesById };
+		Object.entries(nextPredicatesById).forEach(([labelId, predicates]) => {
+			if (labelId !== grabbedLabelId && !predicateArraysEqual(next[labelId] || [], predicates)) {
+				next[labelId] = predicates;
+				changed = true;
+			}
+		});
+		Object.keys(next).forEach((labelId) => {
+			if (!(labelId in nextPredicatesById)) {
+				delete next[labelId];
+				changed = true;
+			}
+		});
+		if (changed) {
+			labelPredicatesById = next;
+		}
+	}
 	$: pageListId = $page.url.searchParams.get('listId') || '';
 	$: pageLabelId = $page.url.searchParams.get('labelId') || '';
 	$: viaLabelId = $page.url.searchParams.get('via') || '';
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
+	$: storedLabelPredicatesById = buildLabelPredicatesById($store.lists, $store.labels);
+	$: updateLabelPredicates(storedLabelPredicatesById);
+	$: labelPredicateGroupsById = Object.fromEntries(
+		Object.entries(labelPredicatesById).map(([labelId, predicates]) => [
+			labelId,
+			buildLabelPredicateGroups(labelId, predicates, $store.lists, $store.labels)
+		])
+	);
 	$: routeExpandedLabelIds = buildRouteExpandedLabelIds(
 		$page.url.pathname,
 		pageLabelId,
@@ -117,10 +165,16 @@
 
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
-	let grabbedItem: string;
+	let grabbedItem = '';
+	let grabbedLabelEntries: ResolvedLabelEntry[] = [];
 	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
+	let dragContainer: Element | undefined;
+
+	function currentDragItemCount() {
+		return grabbedLabelId ? (labelPredicateGroupsById[grabbedLabelId] || []).length : items.length;
+	}
 
 	function flipWhileDragging(
 		node: Element,
@@ -132,15 +186,25 @@
 	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
 	let offsetY = 0; // negative y distance from top of grabbed element to pointer
 	let layerY = 0; // distance from top of list to top of client
+	let ghostOffsetX = 0;
+	let ghostWidth = '100%';
 
 	function grab(clientY: number, element: HTMLElement) {
 		// modify grabbed element
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
+		grabbedLabelId = dataMap.labelId || '';
+		dragContainer = grabbedLabelId ? grabbed.parentElement || undefined : container;
 		startIndex = Number(dataMap.index);
-		grabbedItem = items[startIndex];
-		if (startIndex + 1 < items.length) {
+		if (grabbedLabelId) {
+			grabbedLabelEntries = labelPredicateGroupsById[grabbedLabelId]?.[startIndex]?.entries || [];
+			grabbedItem = '';
+		} else {
+			grabbedLabelEntries = [];
+			grabbedItem = dataMap.id || items[startIndex];
+		}
+		if (!grabbedLabelId && startIndex + 1 < items.length) {
 			dragTo = items[startIndex + 1];
 		} else {
 			dragTo = '';
@@ -150,6 +214,9 @@
 		const box = grabbed.getBoundingClientRect();
 		offsetY = box.y - clientY;
 		boxHeight = box.height;
+		const containerBox = container?.getBoundingClientRect();
+		ghostOffsetX = grabbedLabelId && containerBox ? box.x - containerBox.x : 0;
+		ghostWidth = grabbedLabelId ? `${box.width}px` : '100%';
 		drag(clientY);
 	}
 
@@ -181,7 +248,7 @@
 		if (
 			grabbed &&
 			target != grabbed &&
-			target.classList.contains('item') &&
+			target.dataset.dragScope === grabbed.dataset.dragScope &&
 			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
@@ -196,9 +263,10 @@
 			offsetY,
 			boxHeight,
 			edgeDirection,
-			container,
+			container: dragContainer || container,
 			grabbed,
-			itemCount: items.length
+			itemCount: currentDragItemCount(),
+			itemSelector: grabbedLabelId ? '.nested-query-expression' : '.item'
 		});
 		if (target && (target != lastTarget || edgeDirection !== 0)) {
 			lastTarget = target;
@@ -208,33 +276,68 @@
 
 	// does the actual moving of items in data
 	function moveDatum(from: number, to: number) {
-		let temp = items[from];
-		items = [...items.slice(0, from), ...items.slice(from + 1)];
-		if (to < items.length) {
-			dragTo = items[to];
+		if (!grabbedLabelId) {
+			const movedItem = items[from];
+			const remainingItems = [...items.slice(0, from), ...items.slice(from + 1)];
+			if (to < remainingItems.length) {
+				dragTo = remainingItems[to];
+			} else {
+				dragTo = '';
+			}
+			items = [...remainingItems.slice(0, to), movedItem, ...remainingItems.slice(to)];
 		} else {
-			dragTo = '';
+			const groups = labelPredicateGroupsById[grabbedLabelId] || [];
+			const movedGroup = groups[from];
+			const remainingGroups = [...groups.slice(0, from), ...groups.slice(from + 1)];
+			labelPredicateGroupsById = {
+				...labelPredicateGroupsById,
+				[grabbedLabelId]: [
+					...remainingGroups.slice(0, to),
+					movedGroup,
+					...remainingGroups.slice(to)
+				]
+			};
 		}
-		items = [...items.slice(0, to), temp, ...items.slice(to)];
+	}
+
+	function clearGrab() {
+		grabbed = null;
+		grabbedLabelId = '';
+		grabbedLabelEntries = [];
+		dragContainer = undefined;
 	}
 
 	function release() {
 		autoScroller.stop();
+		const grabbedId = grabbed?.dataset.id;
 		if (
 			$store.auth.uid &&
 			grabbed &&
-			grabbed.dataset.id &&
+			(grabbedLabelId || grabbedId) &&
 			Number(grabbed.dataset.index) !== startIndex
 		) {
-			const payload: { id: string; goes_before?: string } = {
-				id: grabbed.dataset.id
-			};
-			if (dragTo) {
-				payload.goes_before = dragTo;
+			if (grabbedLabelId) {
+				const predicates = mergeVisiblePredicateOrder(
+					labelPredicatesById[grabbedLabelId] || [],
+					(labelPredicateGroupsById[grabbedLabelId] || []).map((group) => group.predicate)
+				);
+				const action = reorder_label_predicates({
+					label_id: grabbedLabelId,
+					predicates
+				});
+				store.dispatch(action);
+				dispatchLabelAction(grabbedLabelId, $store.auth.uid, action);
+			} else {
+				const payload: { id: string; goes_before?: string } = {
+					id: grabbedId!
+				};
+				if (dragTo) {
+					payload.goes_before = dragTo;
+				}
+				firebase.dispatch(reorder_list(payload));
 			}
-			firebase.dispatch(reorder_list(payload));
 		}
-		grabbed = null;
+		clearGrab();
 	}
 
 	let target: HTMLElement | null | undefined = null;
@@ -246,11 +349,14 @@
 	const DRAG_THRESHOLD = 8; // px the pointer must move before a drag begins
 	const TOUCH_HOLD_MS = 400; // long-press before a touch can start a drag
 	let container: Element | undefined = undefined;
-	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
-		if (grabbed) {
-			updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+	let autoScroller = createDragAutoScroller(
+		() => dragContainer || container,
+		(direction, didScroll) => {
+			if (grabbed) {
+				updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+			}
 		}
-	});
+	);
 
 	// A press that never turned into a drag (a tap, or a touch scroll) must be
 	// abandoned without grabbing, so the tap reaches the list item's navigation.
@@ -265,7 +371,11 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
+			const hit = document.elementFromPoint(e.clientX, e.clientY);
+			const nestedTarget = hit?.closest<HTMLElement>('.nested-query-expression');
+			target = nestedTarget
+				? nestedTarget
+				: (hit?.closest<HTMLElement>('.item') as HTMLElement | undefined);
 			if (!target) {
 				return;
 			}
@@ -346,7 +456,7 @@
 		onPointerCancel: (e: PointerEvent) => {
 			if (grabbed) {
 				autoScroller.stop();
-				grabbed = null;
+				clearGrab();
 			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
@@ -371,16 +481,27 @@
 	<div
 		id="ghost"
 		class={grabbed ? 'item haunting' : 'item'}
-		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
+		style={`width: ${ghostWidth}; transform: translate3d(${ghostOffsetX}px, ${
+			mouseY + offsetY - layerY
+		}px, 0)`}
 	>
-		{#if grabbed}<ListMenuItem listId={grabbedItem} {openEditDialog} />{/if}
+		{#if grabbed}
+			{#if grabbedLabelId}
+				{#each grabbedLabelEntries as entry (entry.id)}
+					<ListMenuItem listId={entry.id} {openEditDialog} nested />
+				{/each}
+			{:else}
+				<ListMenuItem listId={grabbedItem} {openEditDialog} />
+			{/if}
+		{/if}
 	</div>
 	<List>
 		{#each items as listId, i (listId)}<div
-				id={grabbed && listId == grabbed.dataset.id ? 'grabbed' : ''}
+				id={grabbed && !grabbedLabelId && listId == grabbed.dataset.id ? 'grabbed' : ''}
 				class="item"
 				data-index={i}
 				data-id={listId}
+				data-drag-scope="top-level"
 				animate:flipWhileDragging
 			>
 				<ListMenuItem
@@ -391,17 +512,32 @@
 					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
 					onTogglePinnedLabel={togglePinnedLabel}
 				/>
-				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
+				{#if expandedLabelIds.has(listId) && (labelPredicateGroupsById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 200 }}>
-						{#each labelEntriesById[listId] || [] as entry (entry.id)}
-							<div class="nested-list-item">
-								<ListMenuItem
-									listId={entry.id}
-									{setActive}
-									{openEditDialog}
-									nested
-									viaLabelId={listId}
-								/>
+						{#each labelPredicateGroupsById[listId] || [] as group, groupIndex (group.predicate)}
+							<div
+								id={grabbed &&
+								grabbedLabelId === listId &&
+								groupIndex === Number(grabbed.dataset.index)
+									? 'grabbed'
+									: ''}
+								class="nested-query-expression"
+								data-index={groupIndex}
+								data-label-id={listId}
+								data-drag-scope={`label-${listId}`}
+								animate:flipWhileDragging
+							>
+								{#each group.entries as entry (entry.id)}
+									<div class="nested-list-item" data-id={entry.id}>
+										<ListMenuItem
+											listId={entry.id}
+											{setActive}
+											{openEditDialog}
+											nested
+											viaLabelId={listId}
+										/>
+									</div>
+								{/each}
 							</div>
 						{/each}
 					</div>
@@ -441,6 +577,11 @@
 				var(--drawer-icon-artwork-inset)
 		);
 		overflow: hidden;
+	}
+
+	.nested-query-expression,
+	.nested-list-item {
+		user-select: none;
 	}
 
 	#grabbed {

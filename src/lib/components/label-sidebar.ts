@@ -1,7 +1,55 @@
-import type { ResolvedLabelEntry } from './labels';
+import {
+	resolveLabelQuery,
+	type LabelQuery,
+	type LabelsState,
+	type ResolvedLabelEntry
+} from './labels';
 import type { ListsState } from './lists';
 
 export type LabelEntriesById = { [labelId: string]: ResolvedLabelEntry[] };
+
+export interface LabelPredicateGroup {
+	predicate: LabelQuery;
+	entries: ResolvedLabelEntry[];
+}
+
+export function buildLabelPredicateGroups(
+	labelId: string,
+	predicates: LabelQuery[],
+	lists: ListsState,
+	labels: LabelsState
+): LabelPredicateGroup[] {
+	const includedIds = new Set<string>();
+	return predicates
+		.map((predicate) => {
+			const entries = resolveLabelQuery(predicate, lists, labels, [labelId]).filter((entry) => {
+				if (entry.inaccessible || includedIds.has(entry.id)) return false;
+				includedIds.add(entry.id);
+				return true;
+			});
+			return { predicate, entries };
+		})
+		.filter((group) => group.entries.length > 0);
+}
+
+export function mergeVisiblePredicateOrder(
+	predicates: LabelQuery[],
+	orderedVisiblePredicates: LabelQuery[]
+): LabelQuery[] {
+	const visiblePredicateSet = new Set(orderedVisiblePredicates);
+	if (
+		visiblePredicateSet.size !== orderedVisiblePredicates.length ||
+		orderedVisiblePredicates.some((predicate) => !predicates.includes(predicate))
+	) {
+		return predicates;
+	}
+	let nextVisiblePredicate = 0;
+	return predicates.map((predicate) =>
+		visiblePredicateSet.has(predicate)
+			? orderedVisiblePredicates[nextVisiblePredicate++]
+			: predicate
+	);
+}
 
 export function findContainingLabelIds(
 	listId: string,
