@@ -46,6 +46,9 @@ export const add_label_predicate = createAction<{ label_id: string; predicate: L
 export const remove_label_predicate = createAction<{ label_id: string; predicate: LabelQuery }>(
 	'remove_label_predicate'
 );
+export const reorder_label_members = createAction<{ label_id: string; ids: string[] }>(
+	'reorder_label_members'
+);
 export const set_label_visibility = createAction<{
 	label_id: string;
 	visibility: LabelVisibility;
@@ -108,6 +111,47 @@ export function queryHasId(query: LabelQuery | undefined, id: string): boolean {
 		return query.id === id;
 	}
 	return query.predicates.some((predicate) => queryHasId(predicate, id));
+}
+
+export function getDirectLabelMemberIds(
+	query: LabelQuery | undefined,
+	lists: ListsState
+): string[] {
+	if (!query) {
+		return [];
+	}
+	const predicates = query.type === 'or' ? query.predicates : [query];
+	return predicates
+		.filter(
+			(predicate): predicate is IdPredicate =>
+				predicate.type === 'id' && lists.listIdToType[predicate.id] === 'list'
+		)
+		.map((predicate) => predicate.id);
+}
+
+function queryWithReorderedMembers(query: LabelQuery, ids: string[]): LabelQuery {
+	if (query.type !== 'or' || ids.length < 2 || new Set(ids).size !== ids.length) {
+		return query;
+	}
+	const reorderedIdSet = new Set(ids);
+	const currentIds = query.predicates
+		.filter(
+			(predicate): predicate is IdPredicate =>
+				predicate.type === 'id' && reorderedIdSet.has(predicate.id)
+		)
+		.map((predicate) => predicate.id);
+	if (currentIds.length !== ids.length || currentIds.every((id, index) => id === ids[index])) {
+		return query;
+	}
+	let nextId = 0;
+	return {
+		type: 'or',
+		predicates: query.predicates.map((predicate) =>
+			predicate.type === 'id' && reorderedIdSet.has(predicate.id)
+				? { type: 'id', id: ids[nextId++] }
+				: predicate
+		)
+	};
 }
 
 export function getLabelVisibility(label: LabelState | undefined): LabelVisibility {
@@ -248,6 +292,32 @@ export const labels = createReducer(initialState, (r) => {
 			visibility: getLabelVisibility(label)
 		};
 		return state;
+	});
+	r.addCase(reorder_label_members, (state, action) => {
+		const payload = action.payload;
+		if (
+			!payload ||
+			typeof payload.label_id !== 'string' ||
+			!Array.isArray(payload.ids) ||
+			payload.ids.some((id: unknown) => typeof id !== 'string' || id.length === 0)
+		) {
+			return state;
+		}
+		const label = state.labelIdToLabel[payload.label_id];
+		if (!label) {
+			return state;
+		}
+		const query = queryWithReorderedMembers(label.query, payload.ids);
+		if (query === label.query) {
+			return state;
+		}
+		return {
+			...state,
+			labelIdToLabel: {
+				...state.labelIdToLabel,
+				[payload.label_id]: { ...label, query }
+			}
+		};
 	});
 	r.addCase(set_label_visibility, (state, action) => {
 		if (

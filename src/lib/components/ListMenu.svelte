@@ -8,7 +8,9 @@
 	import { slide } from 'svelte/transition';
 	import ListMenuItem from './ListMenuItem.svelte';
 	import {
+		getDirectLabelMemberIds,
 		getLabelVisibility,
+		reorder_label_members,
 		resolveLabelQuery,
 		type LabelsState,
 		type ResolvedLabelEntry
@@ -16,11 +18,13 @@
 	import {
 		buildExpandedLabelIds,
 		buildRouteExpandedLabelIds,
+		orderDirectLabelEntries,
 		type LabelEntriesById
 	} from './label-sidebar';
 	import { pin_label, reorder_list, unpin_label, type ListsState } from './lists';
 	import { Capacitor } from '@capacitor/core';
 	import { createDragAutoScroller, findDragTarget } from './autoscroll';
+	import { dispatchLabelAction } from './ActionLog';
 
 	/*
 	export let send: (
@@ -51,6 +55,17 @@
 			lists.visibleLists
 				.filter((listId) => lists.listIdToType[listId] === 'label')
 				.map((labelId) => [labelId, resolveVisibleLabelEntries(labelId, lists, labels)])
+		);
+	}
+
+	function buildDirectLabelMemberIdsById(lists: ListsState, labels: LabelsState) {
+		return Object.fromEntries(
+			lists.visibleLists
+				.filter((listId) => lists.listIdToType[listId] === 'label')
+				.map((labelId) => [
+					labelId,
+					getDirectLabelMemberIds(labels.labelIdToLabel[labelId]?.query, lists)
+				])
 		);
 	}
 
@@ -87,16 +102,48 @@
 	}
 
 	let items: string[] = [];
+	let labelMemberItemsById: Record<string, string[]> = {};
+	let grabbedLabelId = '';
 	function updateItems(displayItems: string[]) {
 		if (!arraysEqual(items, displayItems)) {
 			console.log('ListMenu.updateItems');
 			items = displayItems;
 		}
 	}
+	function updateLabelMemberItems(nextItemsById: Record<string, string[]>) {
+		let changed = false;
+		const next = { ...labelMemberItemsById };
+		Object.entries(nextItemsById).forEach(([labelId, memberIds]) => {
+			if (labelId !== grabbedLabelId && !arraysEqual(next[labelId] || [], memberIds)) {
+				next[labelId] = memberIds;
+				changed = true;
+			}
+		});
+		Object.keys(next).forEach((labelId) => {
+			if (!(labelId in nextItemsById)) {
+				delete next[labelId];
+				changed = true;
+			}
+		});
+		if (changed) {
+			labelMemberItemsById = next;
+		}
+	}
 	$: pageListId = $page.url.searchParams.get('listId') || '';
 	$: pageLabelId = $page.url.searchParams.get('labelId') || '';
 	$: viaLabelId = $page.url.searchParams.get('via') || '';
 	$: labelEntriesById = buildLabelEntriesById($store.lists, $store.labels);
+	$: directLabelMemberIdsById = buildDirectLabelMemberIdsById($store.lists, $store.labels);
+	$: updateLabelMemberItems(directLabelMemberIdsById);
+	$: orderedLabelEntriesById = Object.fromEntries(
+		Object.entries(labelEntriesById).map(([labelId, entries]) => [
+			labelId,
+			orderDirectLabelEntries(
+				entries,
+				labelMemberItemsById[labelId] || directLabelMemberIdsById[labelId] || []
+			)
+		])
+	);
 	$: routeExpandedLabelIds = buildRouteExpandedLabelIds(
 		$page.url.pathname,
 		pageLabelId,
@@ -121,6 +168,11 @@
 	let startIndex: number;
 	let lastTarget: Element;
 	let boxHeight: number;
+	let dragContainer: Element | undefined;
+
+	function currentDragItems() {
+		return grabbedLabelId ? labelMemberItemsById[grabbedLabelId] || [] : items;
+	}
 
 	function flipWhileDragging(
 		node: Element,
@@ -132,16 +184,21 @@
 	let mouseY = 0; // pointer y coordinate.  When mouseY changes, the ghost is repositioned.
 	let offsetY = 0; // negative y distance from top of grabbed element to pointer
 	let layerY = 0; // distance from top of list to top of client
+	let ghostOffsetX = 0;
+	let ghostWidth = '100%';
 
 	function grab(clientY: number, element: HTMLElement) {
 		// modify grabbed element
 		grabbed = element;
 
 		let dataMap: DOMStringMap = grabbed.dataset;
+		grabbedLabelId = dataMap.labelId || '';
+		dragContainer = grabbedLabelId ? grabbed.parentElement || undefined : container;
+		const dragItems = currentDragItems();
 		startIndex = Number(dataMap.index);
-		grabbedItem = items[startIndex];
-		if (startIndex + 1 < items.length) {
-			dragTo = items[startIndex + 1];
+		grabbedItem = dataMap.id || dragItems[startIndex];
+		if (!grabbedLabelId && startIndex + 1 < dragItems.length) {
+			dragTo = dragItems[startIndex + 1];
 		} else {
 			dragTo = '';
 		}
@@ -150,6 +207,9 @@
 		const box = grabbed.getBoundingClientRect();
 		offsetY = box.y - clientY;
 		boxHeight = box.height;
+		const containerBox = container?.getBoundingClientRect();
+		ghostOffsetX = grabbedLabelId && containerBox ? box.x - containerBox.x : 0;
+		ghostWidth = grabbedLabelId ? `${box.width}px` : '100%';
 		drag(clientY);
 	}
 
@@ -181,7 +241,7 @@
 		if (
 			grabbed &&
 			target != grabbed &&
-			target.classList.contains('item') &&
+			target.dataset.dragScope === grabbed.dataset.dragScope &&
 			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
@@ -196,9 +256,10 @@
 			offsetY,
 			boxHeight,
 			edgeDirection,
-			container,
+			container: dragContainer || container,
 			grabbed,
-			itemCount: items.length
+			itemCount: currentDragItems().length,
+			itemSelector: grabbedLabelId ? '.nested-list-item[data-draggable="true"]' : '.item'
 		});
 		if (target && (target != lastTarget || edgeDirection !== 0)) {
 			lastTarget = target;
@@ -208,14 +269,28 @@
 
 	// does the actual moving of items in data
 	function moveDatum(from: number, to: number) {
-		let temp = items[from];
-		items = [...items.slice(0, from), ...items.slice(from + 1)];
-		if (to < items.length) {
-			dragTo = items[to];
+		const currentItems = currentDragItems();
+		const movedItem = currentItems[from];
+		const remainingItems = [...currentItems.slice(0, from), ...currentItems.slice(from + 1)];
+		if (!grabbedLabelId) {
+			if (to < remainingItems.length) {
+				dragTo = remainingItems[to];
+			} else {
+				dragTo = '';
+			}
+			items = [...remainingItems.slice(0, to), movedItem, ...remainingItems.slice(to)];
 		} else {
-			dragTo = '';
+			labelMemberItemsById = {
+				...labelMemberItemsById,
+				[grabbedLabelId]: [...remainingItems.slice(0, to), movedItem, ...remainingItems.slice(to)]
+			};
 		}
-		items = [...items.slice(0, to), temp, ...items.slice(to)];
+	}
+
+	function clearGrab() {
+		grabbed = null;
+		grabbedLabelId = '';
+		dragContainer = undefined;
 	}
 
 	function release() {
@@ -226,15 +301,24 @@
 			grabbed.dataset.id &&
 			Number(grabbed.dataset.index) !== startIndex
 		) {
-			const payload: { id: string; goes_before?: string } = {
-				id: grabbed.dataset.id
-			};
-			if (dragTo) {
-				payload.goes_before = dragTo;
+			if (grabbedLabelId) {
+				const action = reorder_label_members({
+					label_id: grabbedLabelId,
+					ids: labelMemberItemsById[grabbedLabelId]
+				});
+				store.dispatch(action);
+				dispatchLabelAction(grabbedLabelId, $store.auth.uid, action);
+			} else {
+				const payload: { id: string; goes_before?: string } = {
+					id: grabbed.dataset.id
+				};
+				if (dragTo) {
+					payload.goes_before = dragTo;
+				}
+				firebase.dispatch(reorder_list(payload));
 			}
-			firebase.dispatch(reorder_list(payload));
 		}
-		grabbed = null;
+		clearGrab();
 	}
 
 	let target: HTMLElement | null | undefined = null;
@@ -246,11 +330,14 @@
 	const DRAG_THRESHOLD = 8; // px the pointer must move before a drag begins
 	const TOUCH_HOLD_MS = 400; // long-press before a touch can start a drag
 	let container: Element | undefined = undefined;
-	let autoScroller = createDragAutoScroller(() => container, (direction, didScroll) => {
-		if (grabbed) {
-			updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+	let autoScroller = createDragAutoScroller(
+		() => dragContainer || container,
+		(direction, didScroll) => {
+			if (grabbed) {
+				updateDragTarget(pointerX, mouseY, didScroll ? 0 : direction);
+			}
 		}
-	});
+	);
 
 	// A press that never turned into a drag (a tap, or a touch scroll) must be
 	// abandoned without grabbing, so the tap reaches the list item's navigation.
@@ -265,7 +352,13 @@
 
 	let containerDragHandlers = {
 		onPointerDown: (e: PointerEvent) => {
-			target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.item') as HTMLElement;
+			const hit = document.elementFromPoint(e.clientX, e.clientY);
+			const nestedTarget = hit?.closest<HTMLElement>('.nested-list-item');
+			target = nestedTarget
+				? nestedTarget.dataset.draggable === 'true'
+					? nestedTarget
+					: null
+				: (hit?.closest<HTMLElement>('.item') as HTMLElement | undefined);
 			if (!target) {
 				return;
 			}
@@ -346,7 +439,7 @@
 		onPointerCancel: (e: PointerEvent) => {
 			if (grabbed) {
 				autoScroller.stop();
-				grabbed = null;
+				clearGrab();
 			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
@@ -371,16 +464,21 @@
 	<div
 		id="ghost"
 		class={grabbed ? 'item haunting' : 'item'}
-		style={`transform: translate3d(0, ${mouseY + offsetY - layerY}px, 0)`}
+		style={`width: ${ghostWidth}; transform: translate3d(${ghostOffsetX}px, ${
+			mouseY + offsetY - layerY
+		}px, 0)`}
 	>
-		{#if grabbed}<ListMenuItem listId={grabbedItem} {openEditDialog} />{/if}
+		{#if grabbed}
+			<ListMenuItem listId={grabbedItem} {openEditDialog} nested={Boolean(grabbedLabelId)} />
+		{/if}
 	</div>
 	<List>
 		{#each items as listId, i (listId)}<div
-				id={grabbed && listId == grabbed.dataset.id ? 'grabbed' : ''}
+				id={grabbed && !grabbedLabelId && listId == grabbed.dataset.id ? 'grabbed' : ''}
 				class="item"
 				data-index={i}
 				data-id={listId}
+				data-drag-scope="top-level"
 				animate:flipWhileDragging
 			>
 				<ListMenuItem
@@ -391,10 +489,21 @@
 					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
 					onTogglePinnedLabel={togglePinnedLabel}
 				/>
-				{#if expandedLabelIds.has(listId) && (labelEntriesById[listId] || []).length > 0}
+				{#if expandedLabelIds.has(listId) && (orderedLabelEntriesById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 200 }}>
-						{#each labelEntriesById[listId] || [] as entry (entry.id)}
-							<div class="nested-list-item">
+						{#each orderedLabelEntriesById[listId] || [] as entry (entry.id)}
+							<div
+								id={grabbed && grabbedLabelId === listId && entry.id === grabbed.dataset.id
+									? 'grabbed'
+									: ''}
+								class="nested-list-item"
+								data-index={(labelMemberItemsById[listId] || []).indexOf(entry.id)}
+								data-id={entry.id}
+								data-label-id={listId}
+								data-drag-scope={`label-${listId}`}
+								data-draggable={(labelMemberItemsById[listId] || []).includes(entry.id)}
+								animate:flipWhileDragging
+							>
 								<ListMenuItem
 									listId={entry.id}
 									{setActive}
@@ -441,6 +550,10 @@
 				var(--drawer-icon-artwork-inset)
 		);
 		overflow: hidden;
+	}
+
+	.nested-list-item {
+		user-select: none;
 	}
 
 	#grabbed {

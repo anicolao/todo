@@ -203,6 +203,7 @@ export const lists = createReducer(initialState, (r) => {
 			(action.type === 'set_label_query' ||
 				action.type === 'add_label_predicate' ||
 				action.type === 'remove_label_predicate' ||
+				action.type === 'reorder_label_members' ||
 				action.type === 'set_label_visibility')
 		) {
 			state = { ...state };

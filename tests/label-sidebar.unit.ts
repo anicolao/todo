@@ -4,6 +4,7 @@ import { describe, it } from 'vitest';
 import {
 	buildExpandedLabelIds,
 	buildRouteExpandedLabelIds,
+	orderDirectLabelEntries,
 	type LabelEntriesById
 } from '$lib/components/label-sidebar';
 import type { ListsState } from '$lib/components/lists';
@@ -35,6 +36,18 @@ const labelEntriesById: LabelEntriesById = {
 };
 
 describe('label sidebar expansion', () => {
+	it('moves direct members while leaving indirect entries in their slots', () => {
+		const entries = [
+			{ id: 'list-a', name: 'A', inaccessible: false },
+			{ id: 'indirect', name: 'Indirect', inaccessible: false },
+			{ id: 'list-b', name: 'B', inaccessible: false }
+		];
+
+		expect(
+			orderDirectLabelEntries(entries, ['list-b', 'list-a']).map((entry) => entry.id)
+		).to.deep.equal(['list-b', 'indirect', 'list-a']);
+	});
+
 	it('expands the selected label route', () => {
 		const expanded = buildRouteExpandedLabelIds(
 			'/labels',

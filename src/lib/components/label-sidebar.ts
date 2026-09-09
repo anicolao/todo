@@ -3,6 +3,31 @@ import type { ListsState } from './lists';
 
 export type LabelEntriesById = { [labelId: string]: ResolvedLabelEntry[] };
 
+export function orderDirectLabelEntries(
+	entries: ResolvedLabelEntry[],
+	directMemberIds: string[]
+): ResolvedLabelEntry[] {
+	if (directMemberIds.length < 2) {
+		return entries;
+	}
+	const directMemberIdSet = new Set(directMemberIds);
+	const directEntriesById = new Map(
+		entries.filter((entry) => directMemberIdSet.has(entry.id)).map((entry) => [entry.id, entry])
+	);
+	if (
+		directEntriesById.size !== directMemberIds.length ||
+		new Set(directMemberIds).size !== directMemberIds.length
+	) {
+		return entries;
+	}
+	let nextDirectMember = 0;
+	return entries.map((entry) =>
+		directMemberIdSet.has(entry.id)
+			? directEntriesById.get(directMemberIds[nextDirectMember++]) || entry
+			: entry
+	);
+}
+
 export function findContainingLabelIds(
 	listId: string,
 	lists: ListsState,
