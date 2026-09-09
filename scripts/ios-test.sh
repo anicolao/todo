@@ -31,6 +31,6 @@ xcrun simctl bootstatus "$simulator_id" -b
 
 app_path="$TODO_IOS_DERIVED_DATA/tests/Build/Products/Debug-iphonesimulator/App.app"
 xcrun simctl install "$simulator_id" "$app_path"
-xcrun simctl launch --terminate-running-process "$simulator_id" com.stockgamblers.todo
+xcrun simctl launch --terminate-running-process "$simulator_id" com.spnss.todo
 
 echo "Simulator shell launch passed on $simulator_id."

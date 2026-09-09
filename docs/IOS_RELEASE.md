@@ -2,19 +2,43 @@
 
 TODO keeps Capacitor as its iOS host because native Google authentication and
 Firebase Cloud Messaging already depend on its supported plugin bridge. The app
-loads the production site at `https://todo-firebase-1a740.web.app` and keeps the
-bundle identifier `com.stockgamblers.todo`.
+loads the production site at `https://todo-firebase-1a740.web.app`. Its Dobutsu
+iOS identity is `com.spnss.todo`; Android retains its existing
+`com.stockgamblers.todo` identity.
 
 ## Prerequisites
 
 - Xcode with an iOS simulator runtime
-- access to Apple team `Q3Q9984929` for a signed device build
+- access to Dobutsu/SPNSS Apple team `ZHQLA4T47N` for a signed device build
 - Node.js 22 and npm
 - CocoaPods, either installed locally or supplied by `nix develop`
 - a physical device registered with the Apple team for push testing
 
 Never add an APNs `.p8` key, provisioning profile, FCM token, or APNs token to
 the repository or to a test artifact.
+
+## Dobutsu one-time setup
+
+The Apple bundle ID `com.spnss.todo` is registered to team `ZHQLA4T47N` with
+Push Notifications enabled. Firebase project `todo-firebase-1a740` contains the
+matching Apple app named `Todo (Dobutsu)`, and its generated configuration is
+committed as `GoogleService-Info.plist`.
+
+Before the first TestFlight upload, create the initial app record manually in
+App Store Connect because Apple does not provide a supported API for that
+one-time operation:
+
+- platform: iOS
+- name: Todo
+- bundle ID: `com.spnss.todo`
+- SKU: `todo-ios`
+- primary language: English (Canada)
+- user access: Full Access
+
+Also upload an APNs authentication key belonging to team `ZHQLA4T47N` to the
+new Firebase Apple app's Cloud Messaging configuration. This is required for
+FCM-to-APNs delivery and is separate from the App Store Connect API key used by
+release automation.
 
 ## Repeatable commands
 
@@ -37,13 +61,16 @@ For a phone connected to Xcode, find its destination identifier and build:
 
 ```sh
 xcrun devicectl list devices
-TODO_IOS_DEVICE_ID=00000000-0000000000000000 npm run ios:device
+TODO_IOS_DEVICE_ID=00000000-0000000000000000 TODO_IOS_INSTALL=1 npm run ios:device
 ```
 
-The signed result is
-`ios/DerivedData/device/Build/Products/Debug-iphoneos/App.app`. Xcode can install
-and run it from the workspace, or it can be installed with `xcrun devicectl`
-after the device has trusted the development team.
+By default the command only builds. `TODO_IOS_INSTALL=1` also installs and
+launches the app over the connected development-device transport. The signed
+result is `ios/DerivedData/device/Build/Products/Debug-iphoneos/App.app`. Xcode
+can install and run it from the workspace. The script uses the installed
+development profile named `TODO USB Development` by default; set
+`TODO_IOS_PROFILE_NAME` or `TODO_IOS_PROFILE_PATH` to select a replacement.
+Profiles and signing keys stay outside the repository.
 
 ## Why Google sign-in uses two layers
 
@@ -55,7 +82,7 @@ signed in while the hosted TODO UI still appears signed out.
 
 Before diagnosing code, verify that:
 
-- `GoogleService-Info.plist` belongs to `com.stockgamblers.todo`;
+- `GoogleService-Info.plist` belongs to `com.spnss.todo`;
 - its reversed client ID is present in `Info.plist` URL schemes;
 - the OAuth client remains enabled in the Firebase/Google project;
 - the device can reach Google and the hosted TODO origin.
@@ -90,7 +117,7 @@ Before internal TestFlight distribution:
 
 - increment the build number and confirm the marketing version;
 - use the production hosted origin and iOS 15 minimum;
-- archive with bundle ID `com.stockgamblers.todo` and the expected Apple team;
+- archive with bundle ID `com.spnss.todo` and Apple team `ZHQLA4T47N`;
 - inspect the signed app and confirm `aps-environment` is `production`;
 - confirm the embedded Firebase plist bundle ID and Google URL scheme;
 - confirm no local server URL, test account, private key, token, or development

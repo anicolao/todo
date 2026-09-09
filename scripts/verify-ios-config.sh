@@ -25,10 +25,12 @@ firebase_bundle_id="$(plist_value "$TODO_IOS_FIREBASE" BUNDLE_ID)"
 reversed_client_id="$(plist_value "$TODO_IOS_FIREBASE" REVERSED_CLIENT_ID)"
 url_scheme="$(plist_value "$TODO_IOS_INFO" CFBundleURLTypes:0:CFBundleURLSchemes:0)"
 aps_environment="$(plist_value "$TODO_IOS_ENTITLEMENTS" aps-environment)"
+uses_non_exempt_encryption="$(plist_value "$TODO_IOS_INFO" ITSAppUsesNonExemptEncryption)"
 
-[ "$firebase_bundle_id" = "com.stockgamblers.todo" ] || fail "unexpected Firebase bundle ID."
+[ "$firebase_bundle_id" = "com.spnss.todo" ] || fail "unexpected Firebase bundle ID."
 [ "$url_scheme" = "$reversed_client_id" ] || fail "Google callback URL scheme does not match Firebase."
 [ "$aps_environment" = '$(APS_ENVIRONMENT)' ] || fail "aps-environment must come from the build configuration."
+[ "$uses_non_exempt_encryption" = "false" ] || fail "TestFlight encryption declaration is missing."
 
 build_settings="$(
 	xcodebuild \
@@ -55,6 +57,7 @@ grep -Fq '.capacitorDidRegisterForRemoteNotifications' "$TODO_IOS_APP_DELEGATE" 
 grep -Fq '.capacitorDidFailToRegisterForRemoteNotifications' "$TODO_IOS_APP_DELEGATE" || fail "APNs failure is not forwarded to Capacitor."
 grep -Fq 'skipNativeAuth: true' capacitor.config.ts || fail "native Google sign-in must hand its ID token to Firebase JS auth."
 grep -Fq "https://todo-firebase-1a740.web.app" capacitor.config.ts || fail "the production hosted origin is missing."
+grep -Fq '"appId": "com.spnss.todo"' ios/App/App/capacitor.config.json || fail "the generated iOS Capacitor app ID is incorrect."
 
 if grep -Fq 'FirebaseAppDelegateProxyEnabled' "$TODO_IOS_INFO"; then
 	fail "Firebase app-delegate swizzling must remain enabled."
