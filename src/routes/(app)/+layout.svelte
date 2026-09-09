@@ -734,6 +734,10 @@
 		padding-bottom: env(safe-area-inset-bottom);
 		padding-left: env(safe-area-inset-left);
 	}
+	:global(.mdc-drawer__content .mdc-deprecated-list-item) {
+		margin: 0;
+		padding: 0;
+	}
 	.verticalspacer {
 		display: flex;
 		flex: 1;
