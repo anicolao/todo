@@ -172,9 +172,6 @@
 		flex: 1 1 auto;
 		min-width: 0;
 	}
-	.list-menu-item.nested :global(.mdc-deprecated-list-item) {
-		min-height: 40px;
-	}
 	.sidebar-row-icon {
 		display: block;
 		flex: 0 0 auto;
@@ -193,7 +190,7 @@
 		color: inherit;
 		cursor: pointer;
 		display: inline-flex;
-		height: 48px;
+		height: var(--drawer-row-height);
 		justify-content: center;
 		padding: 0;
 		width: 48px;
@@ -206,7 +203,7 @@
 		color: inherit;
 		cursor: pointer;
 		display: inline-flex;
-		height: 48px;
+		height: var(--drawer-row-height);
 		justify-content: center;
 		padding: 0;
 		width: 48px;

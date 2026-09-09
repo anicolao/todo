@@ -728,6 +728,10 @@
 		padding-top: env(safe-area-inset-top);
 	}
 	:global(.mdc-drawer__content) {
+		--drawer-icon-artwork-inset: 7px;
+		--drawer-icon-inline-margin: 2px;
+		--drawer-row-height: 40px;
+		--drawer-row-inline-margin: 2px;
 		display: flex;
 		flex-direction: column;
 		padding-top: env(safe-area-inset-top);
@@ -735,8 +739,12 @@
 		padding-left: env(safe-area-inset-left);
 	}
 	:global(.mdc-drawer__content .mdc-deprecated-list-item) {
-		margin: 0;
+		height: var(--drawer-row-height);
+		margin: 0 var(--drawer-row-inline-margin);
 		padding: 0;
+	}
+	:global(.mdc-drawer__content .mdc-deprecated-list-item > img) {
+		margin: 0 var(--drawer-icon-inline-margin);
 	}
 	.verticalspacer {
 		display: flex;

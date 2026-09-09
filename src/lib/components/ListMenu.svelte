@@ -422,7 +422,6 @@
 	.item {
 		box-sizing: border-box;
 		width: 100%;
-		min-height: 3em;
 		margin-bottom: 0;
 		user-select: none;
 	}
@@ -437,12 +436,11 @@
 
 	.nested-list-items {
 		border-left: 2px solid rgba(0, 0, 0, 0.12);
-		margin-left: 8px;
+		margin-left: calc(
+			var(--drawer-row-inline-margin) + var(--drawer-icon-inline-margin) +
+				var(--drawer-icon-artwork-inset)
+		);
 		overflow: hidden;
-	}
-
-	.nested-list-item {
-		min-height: 40px;
 	}
 
 	#grabbed {
