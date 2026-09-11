@@ -59,22 +59,29 @@ async function openVisibilityDialog(page: Page) {
 	await expect(page.getByRole('heading', { name: 'Configure Hidden Lists' })).toBeVisible();
 }
 
-async function navigateFromDrawer(page: Page, name: string, expectedUrl: RegExp) {
+async function navigateFromDrawer(
+	page: Page,
+	name: string,
+	expectedUrl: RegExp,
+	keepDrawerOpen = false
+) {
 	await openDrawer(page);
 	const drawer = page.locator('.mdc-drawer');
-	const waitForDrawerClose = await drawer.evaluate((element) => {
-		if (!element.classList.contains('mdc-drawer--modal')) return false;
-		const state = window as typeof window & { drawerCloseCompleted?: boolean };
-		state.drawerCloseCompleted = false;
-		element.addEventListener(
-			'SMUIDrawer:closed',
-			() => {
-				state.drawerCloseCompleted = true;
-			},
-			{ once: true }
-		);
-		return true;
-	});
+	const waitForDrawerClose =
+		!keepDrawerOpen &&
+		(await drawer.evaluate((element) => {
+			if (!element.classList.contains('mdc-drawer--modal')) return false;
+			const state = window as typeof window & { drawerCloseCompleted?: boolean };
+			state.drawerCloseCompleted = false;
+			element.addEventListener(
+				'SMUIDrawer:closed',
+				() => {
+					state.drawerCloseCompleted = true;
+				},
+				{ once: true }
+			);
+			return true;
+		}));
 	await page
 		.locator('.mdc-drawer .mdc-deprecated-list-item')
 		.filter({ has: page.getByText(name, { exact: true }) })
@@ -85,11 +92,17 @@ async function navigateFromDrawer(page: Page, name: string, expectedUrl: RegExp)
 			.poll(() =>
 				page.evaluate(
 					() =>
-						(window as typeof window & { drawerCloseCompleted?: boolean })
-							.drawerCloseCompleted || false
+						(window as typeof window & { drawerCloseCompleted?: boolean }).drawerCloseCompleted ||
+						false
 				)
 			)
 			.toBe(true);
+	}
+	if (
+		keepDrawerOpen &&
+		(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--modal')))
+	) {
+		await expect(drawer).toHaveClass(/mdc-drawer--open/);
 	}
 	await expect(page).toHaveURL(expectedUrl, { timeout: 10000 });
 }
@@ -183,7 +196,7 @@ test('label visibility survives rename and controls aggregate results', async ({
 
 	await navigateFromDrawer(page, 'All', /\/all$/);
 	await expect(page.getByLabel(`Task ${taskName}`)).toHaveCount(0);
-	await navigateFromDrawer(page, archiveName, new RegExp(`labels\\?labelId=${archiveId}`));
+	await navigateFromDrawer(page, archiveName, new RegExp(`labels\\?labelId=${archiveId}`), true);
 	await expect(page.getByLabel(`Task ${taskName}`)).toBeVisible({ timeout: 10000 });
 
 	await helper.step('hidden-label-is-filtered-but-directly-browsable', {
