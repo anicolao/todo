@@ -112,9 +112,18 @@ describe('lists', () => {
 		expect(nextState.visibleLists.length).to.equal(2);
 		expect(nextState.visibleLists[0]).to.equal(newListId);
 		expect(nextState.visibleLists[1]).to.equal(firstListId);
+		expect(nextState.listIdToType[newListId]).to.equal('list');
 
 		// TODO: What about the list name that should go into listIdToList?
 		// But we don't have the name in the accept_pending_share payload.
+	});
+
+	it('does not replace an established label type when accepting a share', () => {
+		const labelId = 'label1';
+		const state = lists(initialState, create_label({ id: labelId, name: 'Shared label' }));
+		const nextState = lists(state, accept_pending_share(labelId));
+
+		expect(nextState.listIdToType[labelId]).to.equal('label');
 	});
 
 	it('revokes a list share', () => {

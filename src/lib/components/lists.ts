@@ -141,6 +141,8 @@ export const lists = createReducer(initialState, (r) => {
 			state.visibleLists.indexOf(action.payload) === -1
 				? [action.payload, ...state.visibleLists]
 				: state.visibleLists;
+		state.listIdToType = { ...state.listIdToType };
+		state.listIdToType[action.payload] = state.listIdToType[action.payload] ?? 'list';
 		return state;
 	});
 	r.addCase(reorder_list, (state, action) => {
