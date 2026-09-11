@@ -1,6 +1,6 @@
 import { createReducer } from '$lib/redux';
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 export function isCompatibleCachedState(cachedState: any) {
 	return cachedState?.schemaVersion === CURRENT_SCHEMA_VERSION;
