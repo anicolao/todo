@@ -16,7 +16,12 @@ import {
 	set_label_visibility,
 	type LabelQuery
 } from '$lib/components/labels';
-import type { ListsState } from '$lib/components/lists';
+import {
+	accept_pending_share,
+	initialState as initialListsState,
+	lists as reduceLists,
+	type ListsState
+} from '$lib/components/lists';
 
 describe('labels', () => {
 	const listQuery: LabelQuery = {
@@ -301,6 +306,12 @@ describe('labels', () => {
 		expect(resolveSearchableLabelQuery('hidden-label', lists, labelState)).to.deep.equal([
 			{ id: 'list1', name: 'Archived work', inaccessible: false }
 		]);
+	});
+
+	it('includes an accepted shared list in aggregate searches', () => {
+		const listState = reduceLists(initialListsState, accept_pending_share('shared-list'));
+
+		expect(selectSearchableListIds(listState, initialState)).to.deep.equal(['shared-list']);
 	});
 
 	it('resolves nested hidden labels and preserves inaccessible placeholders', () => {
