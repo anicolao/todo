@@ -1,6 +1,6 @@
 # Todo details: a phone-first redesign
 
-**Status:** design proposal for review, September 16, 2026. No application behavior changed.
+**Status:** implemented for review, September 16, 2026. The original design was committed separately. See the [implementation review and verified browser stories](docs/todo-details-ux/README.md) for the running UI, validation, and implementation decisions.
 
 Replace the cramped Edit Task modal with a full-height phone editor. Make the task, due date, and repeat rule readable at a glance. Put schedule choices on dedicated screens, then return to a single explicit Save action.
 
@@ -30,7 +30,7 @@ The boards establish hierarchy and interaction, rather than pixel-exact implemen
 
 Reviewed the [current dialog markup and save handlers](<src/routes/(app)/+layout.svelte>), [date picker](src/lib/components/MaterialDatePicker.svelte), [dialog wrapper](src/lib/components/SgDialog.svelte), [repeat reducer](src/lib/components/items.ts), and [existing date-picker scenario](tests/e2e/006-date-picker/README.md).
 
-![Existing desktop test capture of the Edit Task dialog](tests/e2e/006-date-picker/screenshots/008-repeat-configured.png)
+![Existing desktop test capture of the Edit Task dialog](docs/todo-details-ux/00-previous-dialog.png)
 
 This existing capture is desktop evidence, not a fresh phone test. The source also reveals the following structural problems:
 
@@ -87,7 +87,7 @@ Done accepts the repeat subdraft and returns to Details; it does not persist to 
 
 ## Save, cancel, and synchronization
 
-Maintain one details draft initialized on open, with nested date/repeat subdrafts. Do not dispatch persistence actions while navigating or previewing. Save validates the complete draft, dispatches the existing task/date actions, and returns focus to the originating item. This is one user-visible save boundary; the existing separate actions are not a new transactional storage guarantee.
+Maintain one details draft initialized on open, with nested date/repeat subdrafts. Do not dispatch persistence actions while navigating or previewing. Save validates the complete draft, dispatches the existing task/date actions, and returns focus to the originating item. The implementation writes the existing actions in a single Firestore batch and waits for confirmed local replay before closing.
 
 Cancel or system Back at Details closes immediately when unchanged. With changes, offer Discard changes and Keep editing. Back within a sub-screen discards that subdraft as specified above. Avoid swipe-to-dismiss on this full-height editor; any platform dismissal or Escape must follow the same dirty-draft rule.
 
@@ -139,7 +139,7 @@ Implementation acceptance scenarios:
 6. Edit a long task and large interval on a small phone with the keyboard open; all controls remain reachable. Repeat with enlarged text, screen reader, keyboard navigation, and reduced motion.
 7. Receive a remote edit/removal while a local draft is dirty; do not silently overwrite the user's work. Exercise offline save and a reported failure.
 
-No application tests were run for this documentation-only proposal. Mock-ups were visually reviewed; repository image links and example calendar dates were checked. Phone usability and accessibility still require implementation testing.
+The original documentation-only commit was checked for image links and example dates. The implementation now has unit tests and verified desktop/phone stories linked in the review document. Mock-ups below remain design concepts; generated story screenshots show the actual implementation. Real-device accessibility and software-keyboard review remain manual checks.
 
 ## Generated assets and provenance
 

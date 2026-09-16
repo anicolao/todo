@@ -1,4 +1,4 @@
-# Date and repeat journey
+# Synchronization and save recovery
 
 Verified browser stories with screenshots:
 
