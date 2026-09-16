@@ -35,10 +35,50 @@ one-time operation:
 - primary language: English (Canada)
 - user access: Full Access
 
-Also upload an APNs authentication key belonging to team `ZHQLA4T47N` to the
-new Firebase Apple app's Cloud Messaging configuration. This is required for
-FCM-to-APNs delivery and is separate from the App Store Connect API key used by
-release automation.
+The APNs authentication key is separate from the App Store Connect API key used
+by release automation. TODO's current team-scoped sandbox-and-production key is
+`B953ZM4LJZ`. Its private material is committed only as
+`ios/secrets/apns.enc.json`, encrypted for the Alex and Andrew SSH recipients in
+`.sops.yaml`.
+
+Install the encrypted key on a new development machine and mirror it into the
+repository's GitHub Actions secrets with:
+
+```sh
+nix develop
+npm run ios:push:configure
+```
+
+The command validates the private key, writes it to
+`~/.config/todo/private_keys/AuthKey_B953ZM4LJZ.p8` with owner-only
+permissions, and updates `TODO_APNS_AUTH_KEY_P8`, `TODO_APNS_KEY_ID`, and
+`TODO_APPLE_TEAM_ID` through the authenticated GitHub CLI. The SOPS document is
+the recoverable source; GitHub Actions secrets are write-only workflow inputs,
+not a backup.
+
+If the APNs key is ever rotated, use the **Dobutsu** browser profile to create a
+team-scoped APNs key for both sandbox and production in Apple Developer, then
+replace the encrypted document and the local/GitHub copies in one command:
+
+```sh
+npm run ios:push:configure -- \
+  --import ~/Downloads/AuthKey_NEWKEYID.p8 \
+  --key-id NEWKEYID \
+  --team-id ZHQLA4T47N
+```
+
+Apple allows the `.p8` download only once. Do not leave it in Downloads after
+the command succeeds. Review and commit the changed encrypted SOPS file; never
+commit the downloaded plaintext key.
+
+Firebase's documented APNs-key setup remains a console upload rather than a
+supported Firebase CLI operation. If the Firebase credential is absent or the
+key was rotated, use the **Alex (stockgamblers.com)** browser profile, open the
+[Cloud Messaging settings](https://console.firebase.google.com/project/todo-firebase-1a740/settings/cloudmessaging),
+select `Todo (Dobutsu)` / `com.spnss.todo`, and upload the installed key to both
+the development and production APNs auth-key rows with its key ID and team ID.
+Firebase documents the same development/production upload boundary in its
+[Apple-platform FCM setup](https://firebase.google.com/docs/cloud-messaging/ios/get-started#upload_your_apns_authentication_key).
 
 ## Repeatable commands
 
@@ -91,7 +131,32 @@ Before diagnosing code, verify that:
 
 The Apple App ID must have Push Notifications enabled. Firebase Cloud Messaging
 must have an APNs authentication key for the same Apple team. The key is managed
-in Firebase and is not part of the app repository.
+in Firebase; only its SOPS-encrypted recovery copy is part of the repository.
+
+After changing the credential, send a real notification without copying an FCM
+token or editing Firestore by hand:
+
+```sh
+npm run ios:push:verify -- anicolao@gmail.com
+```
+
+The verifier resolves the user's UID and registration-token documents, sends
+through the FCM v1 API, and reports only token counts, indexes, and error codes.
+It never prints an FCM token. It uses a service account when supplied by CI and
+otherwise uses the Firebase CLI login selected by `TODO_FIREBASE_ACCOUNT`.
+
+The same check can run entirely through GitHub after this workflow reaches the
+default branch:
+
+```sh
+gh workflow run ios-push-smoke.yml -f target_email=anicolao@gmail.com
+gh run watch
+```
+
+An all-success FCM result proves that Google accepted delivery for every stored
+token and catches errors such as `messaging/third-party-auth-error`. It cannot
+prove that iOS presented a banner. Background, foreground, tap, and terminated
+app behavior still require the physical-device acceptance pass below.
 
 On a clean physical-device install:
 

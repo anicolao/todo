@@ -57,6 +57,11 @@ jobs:
       - name: Run Unit Tests
         run: npm run test
 
+      - name: Validate push automation entry points
+        run: |
+          bash -n scripts/configure-ios-push.sh
+          npm run ios:push:verify -- --help
+
   ios-shell:
     name: iOS Shell
     runs-on: macos-15
