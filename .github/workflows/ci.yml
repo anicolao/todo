@@ -32,6 +32,9 @@ jobs:
       - name: Lint Functions
         run: npm --prefix functions run lint
 
+      - name: Test Functions
+        run: npm --prefix functions run test
+
       - name: Build Functions
         run: npm --prefix functions run build
 
