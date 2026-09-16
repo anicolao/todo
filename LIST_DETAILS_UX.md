@@ -1,6 +1,6 @@
 # List details: a phone-first redesign
 
-**Status: design proposal for review · September 16, 2026.** Documentation and freshly generated phone concepts only; no application changes. This follows the [task details design](TODO_DETAILS_UX.md) and its implemented editor conventions.
+**Status: implemented for review.** See the [implementation review and verified browser stories](docs/list-details-ux/README.md). The generated boards below remain design concepts, not application screenshots. This follows the [task details design](TODO_DETAILS_UX.md) and its implemented editor conventions.
 
 Replace the crowded Edit List dialog with a full-height phone editor. Put the name and readable Sharing/Labels summaries on the first screen, with dedicated screens for longer choices. Save each setting on its own screen. The top level is a settings overview with Close and no Save action. Put deletion in a regular settings row that opens a separate confirmation screen.
 
@@ -22,13 +22,13 @@ These are AI-generated concepts, not screenshots of implemented behavior. The wr
 
 Active Save in the concepts represents a changed, valid setting. On first open it is disabled. The Labels keyboard state illustrates creating Summer before it exists; other states show a previously saved Summer label. Geometry and keyboard appearance are illustrative; real viewport and accessibility checks remain implementation work.
 
-## Evidence and current problems
+## Evidence from the original dialog
 
 Reviewed the [dialog and handlers](<src/routes/(app)/+layout.svelte>), [ShareList](<src/routes/(app)/ShareList.svelte>), [sharing state helpers](src/lib/components/users.ts), [request transport](src/lib/firebase.ts), [list reducers](src/lib/components/lists.ts), and existing [sharing](tests/e2e/006-share-list/README.md), [labels](tests/e2e/005-labels/README.md), and [hidden-label](tests/e2e/010-hidden-label-visibility/README.md) stories.
 
-![Existing desktop test capture of Edit List](tests/e2e/006-share-list/screenshots/004-recipient-selected-for-share.png)
+![Existing desktop test capture of Edit List](docs/list-details-ux/00-previous-dialog.png)
 
-This is an existing desktop test artifact, not a new phone capture. Current source reveals the following:
+This is an existing desktop test artifact, not a new phone capture. The original implementation had the following problems:
 
 - Name, a nested scrolling people list, and label creation compete inside one modal. Larger directories make the small sharing area especially awkward on phones.
 - Sharing has no search and represents pending work with an unexplained icon. The helper named `email(user)` returns the user's name; accepted/pending checks therefore receive the wrong identity. Checkbox rendering also reads accepted state rather than the selected draft.
@@ -91,7 +91,9 @@ Close/system Back/Escape at Details exits directly. Back/system Back/Escape from
 
 Save validates against current permissions/availability and computes changes from the latest confirmed baseline. Disable duplicate submission. Reuse existing action types and request semantics, but make completion/failure observable: the current fire-and-forget sharing transport and swallowed errors need explicit results before this UI can meet its promise.
 
-Even within one setting, do not assume all writes are one transaction: multiple sharing requests or label creation/membership can span separate records and processing stages. A Name save must never submit pending sharing or label operations. Track stable operation identities and confirmed outcomes. On partial failure stay on that setting, show exactly what saved (for example, “Invitation to Sam sent. Invitation to Alex could not be sent”), retain the unfinished draft, and offer **Retry remaining changes** without duplicate invitations, duplicate labels, or repeated successful actions. After partial success, leaving the setting cannot undo confirmed writes; say “Saved changes will remain” when offering to discard the remainder.
+Each setting writes as one atomic batch, including outgoing sharing requests and their tracking records, or label creation and membership changes. A Name save never submits sharing or label operations. A rejected batch preserves the complete setting draft; Retry submits that setting again without any partially successful invitations or labels. New-label creation first establishes the user's editor prerequisite, which by itself creates no visible label.
+
+After acknowledgment, refresh/cache completion can still fail. In that case, explain that the changes were saved, freeze the submitted fields, and let Retry finish refreshing without sending the writes again. Leaving the setting does not undo acknowledged changes. This replaces the original proposal's partial-write progress UI with a smaller, atomic save boundary.
 
 Return from a setting to Details only once its intended writes have reached the implementation's documented durable success boundary. Invitation acceptance is separate: “Invitation sent” does not mean “Shared.” While offline, show “Waiting for connection” and retain the draft unless durable local queue status is actually known. Never report server success based on a timeout. An outstanding submission must not be dismissible as though nothing was written; offer a clear status and prevent conflicting resubmission.
 
@@ -103,7 +105,7 @@ The Delete list… settings row only opens a confirmation screen, with the full 
 
 Current deletion appends `delete_list` to the list action stream and removes the list from replayed list metadata; the reducer does not itself erase task documents. This is not evidence of permanent erasure, a private “leave list” operation, or a recoverable archive. Do not promise any of those outcomes.
 
-Before shipping, verify deletion replay for both participants in a shared list, related label navigation, and reopening/reload. Proposed confirmation copy: **Delete “Weekend plans”?** / “This removes the list from navigation for people who receive this list's updates.” Confirm that scope with the two-user story before finalizing the wording. Do not add “all tasks are permanently deleted” or an Undo action without corresponding behavior. If that scope cannot be established, deletion remains an implementation release blocker rather than shipping misleading copy.
+The two-user sharing story now verifies deletion replay and reload for both participants; label deletion is covered separately with source tasks preserved. Confirmation copy: **Delete “Weekend plans”?** / “This removes the list from navigation for people who receive this list's updates.” The wording matches the navigation behavior demonstrated by that story. Do not add “all tasks are permanently deleted” or an Undo action without corresponding behavior. If that scope cannot be established, deletion remains an implementation release blocker rather than shipping misleading copy.
 
 For a label use “Delete label,” and verify that source lists/tasks remain intact. On success close and navigate to an available list or Profile as appropriate; do not leave a dangling active route. Failure stays actionable and never displays success prematurely.
 
@@ -118,7 +120,7 @@ For a label use “Delete label,” and verify that source lists/tasks remain in
 
 ## Implementation review stories after design approval
 
-Use the project's [E2E guide](E2E_GUIDE.md): deterministic emulator data, assertions at every step, committed screenshots and generated story READMEs. These are future acceptance criteria, not tests claimed by this design PR.
+Use the project's [E2E guide](E2E_GUIDE.md): deterministic emulator data, assertions at every step, committed screenshots and generated story READMEs. The linked implementation review maps these acceptance criteria to executed desktop/phone stories and identifies remaining real-device checks.
 
 | Story | Required evidence |
 | --- | --- |
@@ -130,13 +132,13 @@ Use the project's [E2E guide](E2E_GUIDE.md): deterministic emulator data, assert
 | Label membership | Add/remove explicit membership, create new label inline, cancel its composer, duplicate-name choice; unrelated query predicates and source tasks survive. |
 | Labels and visibility | Hidden/fully hidden eligibility; rename label preserves type/visibility; no recursive membership editor or accidental source-list access grant. |
 | Scale and empty states | Empty directories, no search matches, many users/labels, missing names/photos, long email and label names; selections survive search. |
-| Recovery | Inject failure after one successful operation; exact progress shown; retry completes only remaining operations; reload proves no duplicated labels or invites. |
+| Recovery | Deny one operation in a multi-operation batch: no invitation/label/membership change persists. Retry saves once. A unit test verifies that a post-commit refresh failure retries completion without resubmitting writes. |
 | Concurrent edits/offline | Remote rename/removal/access loss and incoming acceptance while dirty; explicit conflict handling; offline status does not claim server success. |
 | Deletion | Delete settings row only navigates; Keep list causes no write; failed delete stays on confirmation; successful delete navigates safely; two-user replay establishes scope; deleting label leaves source tasks intact. |
 | Phone navigation | Small portrait, landscape, enlarged text, keyboard focus, system Back, focus restoration, dark theme; manual real-device keyboard/screen-reader checklist. |
 
-## Decisions for this review
+## Reviewed implementation scope
 
-Approve the settings overview without a root Save; independent Name/Sharing/Labels saves; readable request states without unsupported invitation controls; inline creation saved by Labels; and a regular Delete list settings row leading to a dedicated confirmation with verified scope. Implementation should reuse the task editor's proven navigation/focus patterns while keeping list-specific multi-operation persistence explicit.
+The implementation follows the settings overview without a root Save; independent Name/Sharing/Labels saves; readable request states without unsupported invitation controls; inline creation saved by Labels; and a regular Delete list settings row leading to a dedicated confirmation with verified scope. Implementation should reuse the task editor's proven navigation/focus patterns while keeping list-specific multi-operation persistence explicit.
 
-Fresh concepts were generated using the built-in image generation tool. [Exact generation and correction prompts](docs/list-details-ux/generation-prompts.md) are committed alongside both PNG boards. Review validation covers source findings, image inspection, local links, and a documentation-only diff. No app behavior or E2E implementation is changed in this PR.
+Fresh concepts were generated using the built-in image generation tool. [Exact generation and correction prompts](docs/list-details-ux/generation-prompts.md) are committed alongside both PNG boards. The design commits contain the mock-ups and specification; subsequent implementation commits contain the app changes and verified E2E stories. Validation results are recorded in the implementation review.
