@@ -1,4 +1,4 @@
-# Date and repeat journey
+# Draft safety and small phones
 
 Verified browser stories with screenshots:
 

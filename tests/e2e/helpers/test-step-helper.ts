@@ -1,4 +1,4 @@
-import type { Page, TestInfo } from '@playwright/test';
+import { expect, type Page, type TestInfo } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -25,7 +25,12 @@ export class TestStepHelper {
 	}[] = [];
 	private stepCount: number = 0;
 
-	constructor(page: Page, testInfo: TestInfo) {
+	constructor(
+		page: Page,
+		testInfo: TestInfo,
+		private artifactName?: string,
+		private compareVisuals = false
+	) {
 		this.page = page;
 		this.testInfo = testInfo;
 	}
@@ -38,7 +43,9 @@ export class TestStepHelper {
 		this.scenarioName = name;
 		this.scenarioDescription = description;
 
-		const specDir = path.dirname(this.testInfo.file);
+		const specDir = this.artifactName
+			? path.join(path.dirname(this.testInfo.file), 'stories', this.artifactName)
+			: path.dirname(this.testInfo.file);
 		const screenshotDir = path.join(specDir, 'screenshots');
 		const readmePath = path.join(specDir, 'README.md');
 
@@ -80,7 +87,9 @@ export class TestStepHelper {
 
 		await this.waitForAnimations();
 
-		const specDir = path.dirname(this.testInfo.file);
+		const specDir = this.artifactName
+			? path.join(path.dirname(this.testInfo.file), 'stories', this.artifactName)
+			: path.dirname(this.testInfo.file);
 		const screenshotDir = path.join(specDir, 'screenshots');
 
 		if (!fs.existsSync(screenshotDir)) {
@@ -90,7 +99,21 @@ export class TestStepHelper {
 		const screenshotPath = path.join(screenshotDir, screenshotName);
 
 		// We use fullPage: true to ensure we capture everything, as per the guide's philosophy.
-		await this.page.screenshot({ path: screenshotPath, fullPage: true });
+		const screenshot = await this.page.screenshot({
+			path: screenshotPath,
+			fullPage: true,
+			animations: 'disabled',
+			caret: 'hide',
+			maskColor: '#8e8980',
+			style: this.artifactName
+				? 'body:has(dialog.task-details[open]) .app-content .listContainer { visibility: hidden !important; }'
+				: undefined,
+			mask: this.artifactName ? [this.page.getByText(/^v0\./)] : []
+		});
+		if (this.compareVisuals && process.env.E2E_COMPARE_SCREENSHOTS === '1')
+			expect(screenshot).toMatchSnapshot(`${this.artifactName || 'story'}-${screenshotName}`, {
+				maxDiffPixels: 0
+			});
 
 		this.steps.push({
 			name,
@@ -104,7 +127,9 @@ export class TestStepHelper {
 	 * Generates a README.md file in the scenario directory documenting the steps and results.
 	 */
 	async generateDocs() {
-		const specDir = path.dirname(this.testInfo.file);
+		const specDir = this.artifactName
+			? path.join(path.dirname(this.testInfo.file), 'stories', this.artifactName)
+			: path.dirname(this.testInfo.file);
 		const readmePath = path.join(specDir, 'README.md');
 
 		let content = `# Scenario: ${this.scenarioName}\n\n`;

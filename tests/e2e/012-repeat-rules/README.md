@@ -1,4 +1,4 @@
-# Date and repeat journey
+# Repeat rules and completion
 
 Verified browser stories with screenshots:
 

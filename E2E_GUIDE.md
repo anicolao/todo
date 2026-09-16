@@ -91,3 +91,11 @@ E2E_PORT_BASE=43100 nix develop -c npm run playwright:isolated
 ```
 
 The generated `.e2e/` directory is local scratch state and must not be committed.
+
+## 6. Task-details stories and exact visual comparison
+
+The task-details stories (006, 012, 013, 014) pass a project name to `TestStepHelper`, so desktop and phone artifacts live in separate `stories/<project>/` folders. Tests verify persistence, completion, conflicts, permission failures, and keyboard behavior as well as capturing screenshots.
+
+Set `E2E_COMPARE_SCREENSHOTS=1` to compare these stories against their committed platform-specific baselines with zero differing pixels. The current baselines use Chromium on macOS; ordinary runs and Linux CI execute all functional assertions and capture story screenshots without comparing against macOS font rendering. Add reviewed baselines for another platform before enabling its comparison. Use `--update-snapshots` only for intentional, visually reviewed changes.
+
+See [the task-details review](docs/todo-details-ux/README.md) for story links and complete commands. Browser automation simulates a short visual viewport; it does not render a native software keyboard.
