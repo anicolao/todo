@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { deliverNotification } from './notifications';
 
 interface AnyAction {
 	type: string;
@@ -16,51 +17,17 @@ exports.users = functions.https.onRequest(async (req, res) => {
 	res.json({ users: query.docChanges() });
 });
 
-function makeNotification(action: AnyAction) {
-	let title = 'Test title';
-	const body = action.payload.description;
-	const image = 'https://todo-firebase-1a740.web.app/brownCheck.png';
-	if (action.type === 'create_item') {
-		title = 'New Todo Item';
-	} else if (action.type === 'complete_item') {
-		title = 'Todo Completed';
-	} else if (action.type === 'accept_pending_share') {
-		title = 'List Shared';
-	}
-	return {
-		title,
-		body,
-		image
-	};
-}
-
 async function notifyUser(id: string, currentAction: AnyAction): Promise<any> {
-	const promises: Promise<any>[] = [];
 	const db = admin.firestore();
-	const notificationTokens = await db.collection(`notifications/${id}/tokens`).get();
-	const tokens: string[] = [];
-	notificationTokens.forEach((doc) => tokens.push(doc.id));
-	if (tokens.length) {
-		const notification = makeNotification(currentAction);
-		const message = {
-			data: { action: JSON.stringify(currentAction) },
-			notification,
-			tokens
-		};
-		admin
-			.messaging()
-			.sendEachForMulticast(message)
-			.then((r: any) => {
-				console.log('Sent ' + r.successCount + ' Failed ' + r.failureCount);
-				r.responses.forEach((resp: any, index: number) => {
-					if (!resp.success) {
-						console.log('Multicase send failed for token: ', tokens[index], resp.error);
-						promises.push(db.doc(`notifications/${id}/tokens/${tokens[index]}`).delete());
-					}
-				});
-			});
-	}
-	return Promise.all(promises);
+	return deliverNotification(id, currentAction, {
+		listTokens: async (userId) => {
+			const snapshot = await db.collection(`notifications/${userId}/tokens`).get();
+			return snapshot.docs.map((doc) => doc.id);
+		},
+		send: (message) => admin.messaging().sendEachForMulticast(message),
+		deleteToken: (userId, token) => db.doc(`notifications/${userId}/tokens/${token}`).delete(),
+		log: (message, details) => console.log(message, details)
+	});
 }
 
 exports.onTodoItemChanged = functions.firestore
