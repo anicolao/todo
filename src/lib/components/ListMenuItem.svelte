@@ -111,7 +111,11 @@
 			{:else}
 				<ListIcon />
 			{/if}
-			<Text>{$store.lists.listIdToList[listId]}</Text>
+			<Text
+				>{$store.lists.listIdToList[listId] ??
+					$store.lists.listIdToLastKnownInfo[listId]?.name ??
+					'Shared list'}</Text
+			>
 		</Item>
 		{#if activated}
 			<div class="list-menu-actions">

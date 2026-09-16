@@ -145,6 +145,10 @@ export const lists = createReducer(initialState, (r) => {
 				: state.visibleLists;
 		state.listIdToType = { ...state.listIdToType };
 		state.listIdToType[action.payload] = state.listIdToType[action.payload] ?? 'list';
+		if (state.listIdToList[action.payload] === undefined) {
+			const name = state.listIdToLastKnownInfo[action.payload]?.name;
+			if (name) state.listIdToList = { ...state.listIdToList, [action.payload]: name };
+		}
 		return state;
 	});
 	r.addCase(reorder_list, (state, action) => {
