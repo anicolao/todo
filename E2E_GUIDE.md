@@ -99,3 +99,9 @@ The task-details stories (006, 012, 013, 014) pass a project name to `TestStepHe
 Set `E2E_COMPARE_SCREENSHOTS=1` to compare these stories against their committed platform-specific baselines with zero differing pixels. The current baselines use Chromium on macOS; ordinary runs and Linux CI execute all functional assertions and capture story screenshots without comparing against macOS font rendering. Add reviewed baselines for another platform before enabling its comparison. Use `--update-snapshots` only for intentional, visually reviewed changes.
 
 See [the task-details review](docs/todo-details-ux/README.md) for story links and complete commands. Browser automation simulates a short visual viewport; it does not render a native software keyboard.
+
+## 7. List-settings stories
+
+List settings use independent saves and a separate deletion confirmation. Story 006-share-list and stories 015–018 cover the desktop/phone flows, including rejected writes, retry, permission loss, sharing outcomes, and shared deletion. Review links and reproduction commands are in [the list settings implementation review](docs/list-details-ux/README.md).
+
+Their screenshots also use per-project directories and `E2E_COMPARE_SCREENSHOTS=1` for exact comparisons against reviewed macOS Chromium baselines. Do not restore the old Edit List/Done selectors when adding tests: open the relevant setting and use its Save, then Close the overview.
