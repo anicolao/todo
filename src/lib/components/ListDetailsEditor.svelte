@@ -756,6 +756,7 @@
 		padding: 6px;
 	}
 	.notice {
+		overflow-wrap: anywhere;
 		border: 1px solid var(--border);
 		border-radius: 12px;
 		padding: 12px;
