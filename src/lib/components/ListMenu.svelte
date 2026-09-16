@@ -166,6 +166,7 @@
 	let anchor: Element;
 	let grabbed: HTMLElement | null;
 	let grabbedItem = '';
+	let grabbedLabelPredicate: LabelQuery | null = null;
 	let grabbedLabelEntries: ResolvedLabelEntry[] = [];
 	let startIndex: number;
 	let lastTarget: Element;
@@ -198,9 +199,12 @@
 		dragContainer = grabbedLabelId ? grabbed.parentElement || undefined : container;
 		startIndex = Number(dataMap.index);
 		if (grabbedLabelId) {
-			grabbedLabelEntries = labelPredicateGroupsById[grabbedLabelId]?.[startIndex]?.entries || [];
+			const grabbedGroup = labelPredicateGroupsById[grabbedLabelId]?.[startIndex];
+			grabbedLabelPredicate = grabbedGroup?.predicate || null;
+			grabbedLabelEntries = grabbedGroup?.entries || [];
 			grabbedItem = '';
 		} else {
+			grabbedLabelPredicate = null;
 			grabbedLabelEntries = [];
 			grabbedItem = dataMap.id || items[startIndex];
 		}
@@ -303,6 +307,7 @@
 	function clearGrab() {
 		grabbed = null;
 		grabbedLabelId = '';
+		grabbedLabelPredicate = null;
 		grabbedLabelEntries = [];
 		dragContainer = undefined;
 	}
@@ -518,7 +523,7 @@
 							<div
 								id={grabbed &&
 								grabbedLabelId === listId &&
-								groupIndex === Number(grabbed.dataset.index)
+								group.predicate === grabbedLabelPredicate
 									? 'grabbed'
 									: ''}
 								class="nested-query-expression"
