@@ -33,6 +33,7 @@ const config: PlaywrightTestConfig = {
 				firebaseConfig
 			)} --only firestore,auth --project ${shellArg(firebaseProjectId)} --non-interactive`,
 			url: `http://${authEmulatorHost}:${authEmulatorPort}`,
+			gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
 			reuseExistingServer,
 			timeout: 120000
 		}

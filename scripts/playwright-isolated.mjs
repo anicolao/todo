@@ -49,8 +49,8 @@ fs.writeFileSync(
 	`${JSON.stringify(
 		{
 			firestore: {
-				rules: 'firestore.rules',
-				indexes: 'firestore.indexes.json'
+				rules: path.join(worktreePath, 'firestore.rules'),
+				indexes: path.join(worktreePath, 'firestore.indexes.json')
 			},
 			emulators: {
 				auth: {
