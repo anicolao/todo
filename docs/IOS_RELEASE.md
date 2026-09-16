@@ -113,6 +113,34 @@ or Google native sign-in works.
 
 ## Archive preflight
 
+Todo uses the same local App Store Connect handoff as Player. Configure it once:
+
+```sh
+scripts/configure-ios-testflight-handoff.sh
+```
+
+The helper stores the API private key under
+`~/.appstoreconnect/private_keys/` and the Todo-specific identifiers under
+`~/.config/todo/testflight.env`, both outside the repository. A team API key
+already installed for another app can be reused by entering its existing path.
+
+To archive and validate the next monotonically increasing build number:
+
+```sh
+npm run ios:testflight
+```
+
+Validation does not upload by default. Upload the same build by setting:
+
+```sh
+TODO_IOS_UPLOAD=1 npm run ios:testflight
+```
+
+The release command uses automatic signing, validates the distribution-signed
+app inside the IPA and the IPA itself with App Store Connect, and leaves its output under
+`ios/DerivedData/testflight/`. After Apple finishes processing the upload, add
+the build to the configured internal TestFlight group.
+
 Before internal TestFlight distribution:
 
 - increment the build number and confirm the marketing version;
