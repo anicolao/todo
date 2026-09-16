@@ -143,10 +143,13 @@
               androidSdk
               pkgs.bashInteractive
               pkgs.coreutils
+              pkgs.age
               pkgs.git
+              pkgs.gh
               pkgs.google-cloud-sdk
               pkgs.jdk21
               pkgs.nodejs_22
+              pkgs.sops
             ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
               pkgs.cocoapods
             ];

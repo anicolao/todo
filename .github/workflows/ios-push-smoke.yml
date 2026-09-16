@@ -1,0 +1,35 @@
+name: iOS Push Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_email:
+        description: Todo account whose registered devices should receive the test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send redacted delivery test
+        env:
+          FIREBASE_PROJECT_ID: todo-firebase-1a740
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TARGET_EMAIL: ${{ inputs.target_email }}
+        run: npm run ios:push:verify -- "$TARGET_EMAIL"
