@@ -1,3 +1,4 @@
+import { shouldReplayListAction } from '$lib/list-action-replay';
 import firebase from '$lib/firebase';
 import { discardLocalAction, store } from '$lib/store';
 import type { AnyAction } from '@reduxjs/toolkit';
@@ -97,6 +98,8 @@ export function watch(
 			currentTime = t;
 		}
 	}
+	const boundaryIds = state.lists.listIdToBoundaryActionIds?.[id] ?? [];
+	const confirmedIds = new Set(boundaryIds);
 	console.log(`watch from time ${currentTime} on ${id}`);
 	const actionsQuery = query(actions, orderBy('timestamp'));
 	return onSnapshot(
@@ -104,10 +107,15 @@ export function watch(
 		{ includeMetadataChanges: true },
 		(querySnapshot) => {
 			let changes = querySnapshot.docChanges().filter((x) => {
-				// Find the rename_list action every time (at timestamp 0), as
-				// well as client-side actions that don't have a timestamp with
-				//   !x.doc.data().timestamp
-				return !x.doc.data().timestamp || x.doc.data().timestamp.seconds > currentTime;
+				const timestamp = x.doc.data().timestamp;
+				if (!timestamp) return true;
+				if (
+					confirmedIds.has(x.doc.id) ||
+					!shouldReplayListAction(x.doc.id, timestamp, currentTime, boundaryIds)
+				)
+					return false;
+				confirmedIds.add(x.doc.id);
+				return true;
 			});
 			if (changes.length > 0 && changes[0].doc.data().timestamp === 0 && state) {
 				// this is the special rename list action
