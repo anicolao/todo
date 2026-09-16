@@ -164,14 +164,51 @@
 			}
 		}
 	}
+	function trapFocus(event: KeyboardEvent) {
+		if (event.key !== 'Tab') return;
+		const controls = [
+			...dialog.querySelectorAll<HTMLElement>(
+				'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+			)
+		].filter((node) => node.getClientRects().length > 0);
+		const first = controls[0];
+		const last = controls[controls.length - 1];
+		if (!first) {
+			event.preventDefault();
+			heading.focus();
+			return;
+		}
+		if (
+			event.shiftKey &&
+			(document.activeElement === first || document.activeElement === heading)
+		) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
 	function autosize(node: HTMLTextAreaElement, _value: string) {
+		if (CSS.supports('field-sizing', 'content')) {
+			node.style.setProperty('field-sizing', 'content');
+			return {};
+		}
 		const resize = () => {
 			node.style.height = 'auto';
 			node.style.height = `${Math.max(76, node.scrollHeight)}px`;
 		};
 		resize();
+		const observer = new ResizeObserver(resize);
+		observer.observe(node.parentElement!);
 		window.addEventListener('resize', resize);
-		return { update: resize, destroy: () => window.removeEventListener('resize', resize) };
+		return {
+			update: resize,
+			destroy: () => {
+				observer.disconnect();
+				window.removeEventListener('resize', resize);
+			}
+		};
 	}
 	beforeNavigate(({ cancel }) => {
 		cancel();
@@ -181,6 +218,23 @@
 		const opener = document.activeElement as HTMLElement;
 		dialog.showModal();
 		heading.focus();
+		dialog.addEventListener('keydown', trapFocus);
+		// A history entry makes system Back work even when the previous app
+		// navigation used the same URL (for example closing the mobile drawer).
+		const editorUrl = location.href;
+		const editorHistory = { ...history.state, todoDetailsEditor: true };
+		let ownsHistoryEntry = true;
+		history.pushState(editorHistory, '', editorUrl);
+		const systemBack = (event: PopStateEvent) => {
+			event.stopImmediatePropagation();
+			ownsHistoryEntry = false;
+			if (screen !== 'details' || dirty || saving) {
+				history.pushState(editorHistory, '', editorUrl);
+				ownsHistoryEntry = true;
+			}
+			back();
+		};
+		window.addEventListener('popstate', systemBack, true);
 		const updateViewport = () => {
 			viewportHeight = window.visualViewport?.height;
 			viewportTop = window.visualViewport?.offsetTop ?? 0;
@@ -194,6 +248,9 @@
 		window.addEventListener('offline', updateOnline);
 		return () => {
 			alive = false;
+			dialog.removeEventListener('keydown', trapFocus);
+			window.removeEventListener('popstate', systemBack, true);
+			if (ownsHistoryEntry && history.state?.todoDetailsEditor) history.back();
 			window.visualViewport?.removeEventListener('resize', updateViewport);
 			window.visualViewport?.removeEventListener('scroll', updateViewport);
 			window.removeEventListener('online', updateOnline);
