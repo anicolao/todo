@@ -3,6 +3,8 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { store, handleDocChanges, type GlobalState } from '$lib/store';
 	import { watch } from './ActionLog';
+	import { doc, onSnapshot } from 'firebase/firestore';
+	import firebase from '$lib/firebase';
 	import { getLabelPredicates, getLabelVisibility } from './labels';
 	import { changedSelections, sharingStatus } from './list-details-state';
 	import { listSettingsSession } from './list-details-save';
@@ -29,6 +31,7 @@
 	let error = '';
 	let notice = '';
 	let online = true;
+	let canEdit = true;
 	let session = listSettingsSession(listId);
 	let dialog: HTMLDialogElement;
 	let heading: HTMLHeadingElement;
@@ -36,7 +39,7 @@
 	let viewportHeight: number | undefined;
 	let viewportTop = 0;
 	let alive = true;
-	$: available = $store.lists.listIdToList[listId] !== undefined;
+	$: available = canEdit && $store.lists.listIdToList[listId] !== undefined;
 	$: if (available) savedName = $store.lists.listIdToList[listId];
 	$: people = $store.users.users
 		.filter((user) => user.uid && user.uid !== $store.auth.uid)
@@ -225,6 +228,16 @@
 			}
 		}
 	}
+	function autosize(node: HTMLTextAreaElement, _value: string) {
+		const resize = () => {
+			node.style.height = 'auto';
+			node.style.height = `${Math.max(80, node.scrollHeight)}px`;
+		};
+		const observer = new ResizeObserver(resize);
+		observer.observe(node.parentElement!);
+		resize();
+		return { update: resize, destroy: () => observer.disconnect() };
+	}
 	function trapFocus(event: KeyboardEvent) {
 		if (event.key !== 'Tab') return;
 		const nodes = [
@@ -249,6 +262,19 @@
 	});
 	onMount(() => {
 		const opener = document.activeElement as HTMLElement;
+		const uid = store.getState().auth.uid;
+		const unwatchAccess = uid
+			? onSnapshot(
+					doc(firebase.firestore, 'editors', listId, uid, 'editor'),
+					(snapshot) => {
+						canEdit = snapshot.exists();
+					},
+					(error) => {
+						if (error.code === 'permission-denied') canEdit = false;
+					}
+			  )
+			: () => {};
+
 		const labelWatches = new Map<string, () => void>();
 		const unwatchLabels = store.subscribe((state: GlobalState) => {
 			const ids = state.lists.visibleLists.filter((id) => state.lists.listIdToType[id] === 'label');
@@ -295,6 +321,7 @@
 		window.addEventListener('offline', connection);
 		return () => {
 			alive = false;
+			unwatchAccess();
 			unwatchLabels();
 			labelWatches.forEach((stop) => stop());
 			window.removeEventListener('popstate', systemBack, true);
@@ -401,6 +428,7 @@
 			{:else if screen === 'name'}
 				<label for="list-name">{isLabel ? 'Label' : 'List'} name</label><textarea
 					id="list-name"
+					use:autosize={name}
 					rows="3"
 					bind:value={name}
 					disabled={saving || completionOnly}
@@ -703,7 +731,6 @@
 	}
 	textarea {
 		resize: vertical;
-		field-sizing: content;
 	}
 	.choice {
 		display: grid;
