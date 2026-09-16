@@ -434,7 +434,8 @@ XcodeGen adoption, SPM migration, or notification deep links into these commits.
 - Notification categories, actions, badges, or deep-link routing.
 - Backend token schema changes, explicit sign-out token revocation, and token
   preference UI.
-- App Store submission automation.
+- Public App Store submission automation beyond signed internal TestFlight
+  archive, validation, and upload.
 
 These may be valuable, but none is required to produce a maintainable iOS shell
 that continues to work with TODO's existing remote-notification system.
