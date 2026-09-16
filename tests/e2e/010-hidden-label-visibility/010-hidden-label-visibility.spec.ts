@@ -1,3 +1,4 @@
+import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 import { resetEmulators } from '../helpers/emulator';
 import { TestStepHelper } from '../helpers/test-step-helper';
@@ -48,7 +49,7 @@ async function openSelectedDocumentEditor(page: Page, name: string) {
 	const edit = topLevelSidebarItem(page, name).getByRole('button', { name: 'Edit list' });
 	await expect(edit).toBeVisible({ timeout: 10000 });
 	await edit.dispatchEvent('pointerdown');
-	await expect(page.getByText('Edit List', { exact: true })).toBeVisible({ timeout: 10000 });
+	await expect(settings(page)).toBeVisible({ timeout: 10000 });
 }
 
 async function openVisibilityDialog(page: Page) {
@@ -153,10 +154,11 @@ test('label visibility survives rename and controls aggregate results', async ({
 	await expect(newTask).toHaveValue('');
 
 	await openSelectedDocumentEditor(page, listName);
-	await page.getByLabel('New label').fill(archiveName);
-	await page.getByRole('button', { name: 'Create label' }).click();
-	await page.getByRole('button', { name: 'Done' }).click();
-	await expect(page.getByText('Edit List', { exact: true })).toBeHidden({ timeout: 20000 });
+	await setting(page, 'Labels');
+	await page.getByRole('button', { name: '+ Create label', exact: true }).click();
+	await page.getByLabel('New label', { exact: true }).fill(archiveName);
+	await saveSetting(page);
+	await closeSettings(page);
 	await openDrawer(page);
 	const archiveRow = topLevelSidebarItem(page, archiveName);
 	await expect(archiveRow).toBeVisible({ timeout: 10000 });
@@ -210,8 +212,10 @@ test('label visibility survives rename and controls aggregate results', async ({
 	});
 
 	await openSelectedDocumentEditor(page, archiveName);
-	await page.getByLabel('Name').fill(renamedArchive);
-	await page.getByRole('button', { name: 'Done' }).click();
+	await setting(page, 'Name');
+	await page.getByLabel('Label name', { exact: true }).fill(renamedArchive);
+	await saveSetting(page);
+	await closeSettings(page);
 	await expect(page.getByRole('banner').getByText(renamedArchive)).toBeVisible({ timeout: 10000 });
 	await openVisibilityDialog(page);
 	const renamedVisibility = page.getByLabel(`Visibility for ${renamedArchive}`);

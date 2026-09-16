@@ -60,4 +60,3 @@ Returning the same label to Visible restores its task and sidebar position.
 - [x] The renamed label is back in the sidebar
 
 ![visible-label-restores-results-and-navigation](screenshots/006-visible-label-restores-results-and-navigation.png)
-

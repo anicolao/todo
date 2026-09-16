@@ -3,33 +3,16 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
-	import { dispatch, dispatchLabelAction } from '$lib/components/ActionLog';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
 	import TaskDetailsEditor from '$lib/components/TaskDetailsEditor.svelte';
 	import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
-	import SgDialog from '$lib/components/SgDialog.svelte';
-	import type { AuthState } from '$lib/components/auth';
+	import ListDetailsEditor from '$lib/components/ListDetailsEditor.svelte';
 	import type { DueDate } from '$lib/components/items';
 	import { describe_item, remove_due_date, set_due_date } from '$lib/components/items';
-	import {
-		add_label_predicate,
-		getLabelVisibility,
-		queryHasId,
-		remove_label_predicate,
-		set_label_query
-	} from '$lib/components/labels';
-	import {
-		accept_pending_share,
-		create_label,
-		create_list,
-		delete_list,
-		rename_list,
-		revoke_share
-	} from '$lib/components/lists';
+	import { create_list } from '$lib/components/lists';
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
-	import { emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
 	import {
 		logTime,
@@ -38,17 +21,12 @@
 		writeCacheNow,
 		observeConfirmedActions
 	} from '$lib/store';
-	import Button, { Label } from '@smui/button';
-	import Checkbox from '@smui/checkbox';
-	import { Actions } from '@smui/dialog';
-	import Drawer, { AppContent, Content, Scrim, Subtitle } from '@smui/drawer';
+	import Drawer, { AppContent, Content, Scrim } from '@smui/drawer';
 	import IconButton, { Icon } from '@smui/icon-button';
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
-	import Paper from '@smui/paper';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
-	import ShareList from './ShareList.svelte';
 	import { createFirebaseListActions, load } from '$lib/database';
 	import { set_current_url } from '$lib/components/UiSettings';
 
@@ -133,178 +111,12 @@
 	}
 
 	let dialogOpen = false;
-	$: if ($store.ui.showEditDialog && !dialogOpen) {
-		beginEditDialog();
-	}
-	let listName = '';
-	$: if ($store.ui.title && !dialogOpen) {
-		if (listName !== $store.ui.title) listName = $store.ui.title;
-	}
-	$: currentDocumentType = $store.lists.listIdToType[$store.ui.listId];
-	$: visibleLabelIds = $store.lists.visibleLists.filter(
-		(id: string) =>
-			$store.lists.listIdToType[id] === 'label' &&
-			getLabelVisibility($store.labels.labelIdToLabel[id]) !== 'fully_hidden'
-	);
-	$: showLabelControls = !!$store.ui.listId && currentDocumentType !== 'label';
-	type DraftLabel = { id: string; name: string };
-	let newLabelName = '';
-	let initialDialogLabelIds: string[] = [];
-	let selectedDialogLabelIds: string[] = [];
-	let draftCreatedLabels: DraftLabel[] = [];
-
+	let detailsListId = '';
+	$: if ($store.ui.showEditDialog && !dialogOpen) openEditDialog();
 	function openEditDialog() {
-		store.dispatch(show_edit_dialog(true));
-		beginEditDialog();
-	}
-
-	function labelHasCurrentList(labelId: string) {
-		return queryHasId($store.labels.labelIdToLabel[labelId]?.query, $store.ui.listId);
-	}
-
-	function getCurrentLabelIds() {
-		return visibleLabelIds.filter((labelId: string) => labelHasCurrentList(labelId));
-	}
-
-	function initializeDialogState() {
-		listName = $store.ui.title || '';
-		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || '');
-		initialDialogLabelIds = getCurrentLabelIds();
-		selectedDialogLabelIds = [...initialDialogLabelIds];
-		draftCreatedLabels = [];
-		newLabelName = '';
-	}
-
-	function beginEditDialog() {
-		initializeDialogState();
+		detailsListId = $store.ui.listId;
 		dialogOpen = true;
-	}
-
-	function dialogHasLabel(labelId: string) {
-		return selectedDialogLabelIds.indexOf(labelId) !== -1;
-	}
-
-	function setDialogLabel(labelId: string, selected: boolean) {
-		const selectedSet = new Set(selectedDialogLabelIds);
-		if (selected) {
-			selectedSet.add(labelId);
-		} else {
-			selectedSet.delete(labelId);
-		}
-		selectedDialogLabelIds = [...selectedSet];
-	}
-
-	function toggleDialogLabel(labelId: string) {
-		setDialogLabel(labelId, !dialogHasLabel(labelId));
-	}
-
-	function createLabelForCurrentList() {
-		const name = newLabelName.trim();
-		if (name.length === 0) {
-			return;
-		}
-		const labelId = crypto.randomUUID();
-		draftCreatedLabels = [...draftCreatedLabels, { id: labelId, name }];
-		setDialogLabel(labelId, true);
-		newLabelName = '';
-	}
-
-	async function commitLabelChanges(uid: string, currentListId: string) {
-		const selectedSet = new Set(selectedDialogLabelIds);
-		const initialSet = new Set(initialDialogLabelIds);
-		const draftLabelIds = new Set(draftCreatedLabels.map((label) => label.id));
-		const predicate = { type: 'id' as const, id: currentListId };
-
-		for (const labelId of initialDialogLabelIds) {
-			if (!selectedSet.has(labelId)) {
-				const action = remove_label_predicate({ label_id: labelId, predicate });
-				store.dispatch(action);
-				await dispatchLabelAction(labelId, uid, action);
-			}
-		}
-
-		for (const labelId of selectedDialogLabelIds) {
-			if (!initialSet.has(labelId) && !draftLabelIds.has(labelId)) {
-				const action = add_label_predicate({ label_id: labelId, predicate });
-				store.dispatch(action);
-				await dispatchLabelAction(labelId, uid, action);
-			}
-		}
-
-		for (const label of draftCreatedLabels) {
-			if (!selectedSet.has(label.id)) {
-				continue;
-			}
-			const createAction = create_label({ id: label.id, name: label.name });
-			store.dispatch(createAction);
-			await firebase.dispatch(createAction);
-			await createFirebaseListActions(label.id, $store.auth, label.name);
-			const queryAction = set_label_query({
-				label_id: label.id,
-				query: {
-					type: 'or' as const,
-					predicates: [predicate]
-				}
-			});
-			store.dispatch(queryAction);
-			await dispatchLabelAction(label.id, uid, queryAction);
-		}
-	}
-
-	async function closeDialog() {
-		const uid = $store.auth.uid;
-		const id = $store.ui.listId;
-		const name = listName;
-		if (uid) {
-			if (listName !== $store.ui.title) {
-				const action = rename_list({ id, name });
-				dispatch('lists', id, uid, action);
-			}
-			if (id) {
-				await commitLabelChanges(uid, id);
-			}
-			const previousShares: string[] = getSharedUsers()
-				.map((u: AuthState) => u.email || '')
-				.sort();
-			selectedShareUsers.sort();
-			console.log({ previousShares, currentShares: selectedShareUsers });
-			let pi = 0;
-			let ci = 0;
-			function revokeShare(dontShareWith: string) {
-				console.log('routes/(app)/+layout.svelte: remove share for ' + dontShareWith);
-				firebase.request(emailToUid($store.users, dontShareWith), revoke_share({ id }));
-			}
-			function grantShare(shareWith: string) {
-				console.log('routes/(app)/+layout.svelte: new share for ' + shareWith);
-				firebase.request(emailToUid($store.users, shareWith), accept_pending_share(id));
-			}
-			while (pi < previousShares.length && ci < selectedShareUsers.length) {
-				if (previousShares[pi] === selectedShareUsers[ci]) {
-					pi++;
-					ci++;
-				} else if (previousShares[pi] < selectedShareUsers[ci]) {
-					// remove a previously granted share
-					revokeShare(previousShares[pi]);
-					pi++;
-				} else {
-					// grant a new share
-					grantShare(selectedShareUsers[ci]);
-					ci++;
-				}
-			}
-			for (; pi < previousShares.length; ++pi) {
-				revokeShare(previousShares[pi]);
-			}
-			for (; ci < selectedShareUsers.length; ++ci) {
-				grantShare(selectedShareUsers[ci]);
-			}
-		}
-		selectedShareUsers = [];
-		initialDialogLabelIds = [];
-		selectedDialogLabelIds = [];
-		draftCreatedLabels = [];
-		store.dispatch(show_edit_dialog(false));
-		dialogOpen = false;
+		store.dispatch(show_edit_dialog(true));
 	}
 
 	async function saveTaskDetails(description: string, dueDate: DueDate | undefined) {
@@ -365,26 +177,29 @@
 		itemDetailsOpen = false;
 	}
 
-	function deleteList() {
-		const id = $store.ui.listId;
-		const uid = $store.auth.uid;
-		if (uid) {
-			dispatch('lists', id, uid, delete_list(id));
-		}
-		store.dispatch(show_edit_dialog(false));
-		dialogOpen = false;
-		const remainingLists = $store.lists.visibleLists.filter((x: string) => x !== id);
-		if (remainingLists.length == 0) {
-			setActive('profile');
-		} else {
-			setActive('lists?listId=' + remainingLists[0]);
-		}
+	async function listDeleted() {
+		// Closing the modal consumes its history entry asynchronously. Navigate only
+		// after that popstate so it cannot take us back to the deleted document.
+		const closed = history.state?.listDetailsEditor
+			? new Promise<void>((resolve) =>
+					window.addEventListener('popstate', () => resolve(), { once: true })
+			  )
+			: Promise.resolve();
+		cancelDialog();
+		await closed;
+		const remaining = $store.lists.visibleLists.filter((id: string) => id !== detailsListId);
+		const id = remaining[0];
+		setActive(
+			!id
+				? 'profile'
+				: $store.lists.listIdToType[id] === 'label'
+				? 'labels?labelId=' + id
+				: 'lists?listId=' + id
+		);
 	}
 
 	$: bgUrl = $store?.uiSettings?.backgroundUrl;
 	$: bgStyle = bgUrl ? `url(${bgUrl})` : '';
-
-	let selectedShareUsers: string[] = [];
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
@@ -513,77 +328,11 @@
 					/>
 				{/if}
 				{#if dialogOpen}
-					<SgDialog
-						bind:open={dialogOpen}
-						{cancelDialog}
-						labelledby="editlist-dialog-title"
-						describedby="editlist-dialog-content"
-					>
-						<!-- Title cannot contain leading whitespace due to mdc-typography-baseline-top() -->
-						<div class="editlist-dialog-title-div">
-							<Title id="editlist-dialog-title">Edit List</Title>
-						</div>
-						<Content id="editlist-dialog-content">
-							<div class="editlist-dialog-content-div">
-								<Paper variant="unelevated">
-									<Textfield bind:value={listName} label="Name" />
-								</Paper>
-								<Paper variant="unelevated"
-									><Subtitle>Share with:</Subtitle>
-									<ShareList bind:selected={selectedShareUsers} />
-								</Paper>
-								{#if showLabelControls}
-									<Paper variant="unelevated">
-										<section class="labels-editor" aria-labelledby="labels-editor-title">
-											<Subtitle id="labels-editor-title">Labels</Subtitle>
-											{#if visibleLabelIds.length > 0}
-												<div class="existing-labels">
-													{#each visibleLabelIds as labelId (labelId)}
-														<div class="label-row">
-															<Checkbox
-																checked={dialogHasLabel(labelId)}
-																input$aria-label={`Include in ${$store.lists.listIdToList[labelId]}`}
-																on:change={() => toggleDialogLabel(labelId)}
-															/>
-															<span>{$store.lists.listIdToList[labelId]}</span>
-														</div>
-													{/each}
-												</div>
-											{/if}
-											{#each draftCreatedLabels as label (label.id)}
-												<div class="label-row">
-													<Checkbox
-														checked={dialogHasLabel(label.id)}
-														input$aria-label={`Include in ${label.name}`}
-														on:change={() => toggleDialogLabel(label.id)}
-													/>
-													<span>{label.name}</span>
-												</div>
-											{/each}
-											<div class="new-label-row">
-												<Textfield bind:value={newLabelName} label="New label" />
-												<Button
-													on:click={createLabelForCurrentList}
-													disabled={newLabelName.trim().length === 0}
-												>
-													<Label>Create label</Label>
-												</Button>
-											</div>
-										</section>
-									</Paper>
-								{/if}
-							</div>
-						</Content>
-						<Actions>
-							<IconButton on:click={deleteList} class="material-icons">delete</IconButton>
-							<Button on:click={cancelDialog}>
-								<Label>Cancel</Label>
-							</Button>
-							<Button action="" on:click={closeDialog}>
-								<Label>Done</Label>
-							</Button>
-						</Actions>
-					</SgDialog>
+					<ListDetailsEditor
+						listId={detailsListId}
+						onClose={cancelDialog}
+						onDeleted={listDeleted}
+					/>
 				{/if}
 			</div>
 		</AppContent>
@@ -736,26 +485,6 @@
 	}
 	.desk-margin {
 		margin-left: 256px;
-	}
-	.editlist-dialog-content-div {
-		padding-left: 0.5em;
-		padding-right: 0.5em;
-	}
-
-	.editlist-dialog-title-div {
-		padding-top: 0.75em;
-	}
-	.label-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-height: 2.5rem;
-	}
-	.new-label-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-top: 0.5rem;
 	}
 
 	* :global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
