@@ -45,4 +45,3 @@ Two browser tabs edit the same task. Local drafts survive conflicts, offline wri
 - [x] Removing the list elsewhere disables Save without deleting the open draft
 
 ![removed_remotely](screenshots/006-removed-remotely.png)
-

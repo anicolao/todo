@@ -153,6 +153,6 @@ export class TestStepHelper {
 			content += `![${step.name}](${step.screenshot})\n\n`;
 		}
 
-		fs.writeFileSync(readmePath, content);
+		fs.writeFileSync(readmePath, this.artifactName ? `${content.trimEnd()}\n` : content);
 	}
 }

@@ -40,4 +40,3 @@ A reduced visual viewport exercises the layout used while a software keyboard is
 - [x] Focused interval and Done are reachable in a short viewport
 
 ![short_viewport](screenshots/005-short-viewport.png)
-

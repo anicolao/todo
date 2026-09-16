@@ -40,4 +40,3 @@ Repeat is available without finding an unlabeled checkbox.
 - [x] The date and repeat rule survive a full reload
 
 ![saved_and_reloaded](screenshots/005-saved-and-reloaded.png)
-

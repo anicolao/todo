@@ -62,4 +62,3 @@ Every weekday (Mon–Fri)
 - [x] Removing repeat preserves the due date and hides upcoming occurrences
 
 ![stop_repeating](screenshots/007-stop-repeating.png)
-
