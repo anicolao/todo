@@ -99,6 +99,19 @@ export class TestStepHelper {
 		const screenshotPath = path.join(screenshotDir, screenshotName);
 
 		// We use fullPage: true to ensure we capture everything, as per the guide's philosophy.
+		const buildLabel = this.page.getByText(/^v0\./);
+		const listDialog = this.page.locator('dialog.list-details[open]');
+		const dialogBox = (await listDialog.count()) ? await listDialog.boundingBox() : null;
+		const labelBox = this.artifactName ? await buildLabel.boundingBox() : null;
+		// Masking an obscured label paints over the modal's real Save button. Only
+		// mask it when it is exposed outside the list editor.
+		const labelCovered =
+			dialogBox &&
+			labelBox &&
+			labelBox.x >= dialogBox.x &&
+			labelBox.y >= dialogBox.y &&
+			labelBox.x + labelBox.width <= dialogBox.x + dialogBox.width &&
+			labelBox.y + labelBox.height <= dialogBox.y + dialogBox.height;
 		const screenshot = await this.page.screenshot({
 			path: screenshotPath,
 			fullPage: true,
@@ -108,7 +121,7 @@ export class TestStepHelper {
 			style: this.artifactName
 				? 'body:has(dialog.task-details[open]) .app-content .listContainer { visibility: hidden !important; }'
 				: undefined,
-			mask: this.artifactName ? [this.page.getByText(/^v0\./)] : []
+			mask: this.artifactName && !labelCovered ? [buildLabel] : []
 		});
 		if (this.compareVisuals && process.env.E2E_COMPARE_SCREENSHOTS === '1')
 			expect(screenshot).toMatchSnapshot(`${this.artifactName || 'story'}-${screenshotName}`, {
