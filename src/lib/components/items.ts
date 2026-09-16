@@ -1,3 +1,4 @@
+import { nextDueDate } from './recurrence';
 import { createReducer } from '$lib/redux';
 import { createAction, type AnyAction } from '@reduxjs/toolkit';
 import { signed_in, signed_out } from './auth';
@@ -240,54 +241,7 @@ export const items = createReducer(initialState, (r) => {
 
 			if (item.dueDate.repeats && item.dueDate.repeats.type !== RepeatType.NONE && item.completed) {
 				item.completed = false;
-				let today = new Date(action.payload.completed_time);
-				let nextDate = new Date(y, m - 1, d);
-				if (nextDate > today) {
-					today = new Date(nextDate);
-				}
-				while (nextDate <= today) {
-					switch (item.dueDate.repeats.type) {
-						case RepeatType.DAILY:
-							nextDate.setDate(nextDate.getDate() + item.dueDate.repeats.every);
-							break;
-						case RepeatType.WEEKLY:
-							nextDate.setDate(nextDate.getDate() + 7 * item.dueDate.repeats.every);
-							break;
-						case RepeatType.MONTHLY:
-							nextDate = new Date(
-								nextDate.getFullYear(),
-								nextDate.getMonth() + item.dueDate.repeats.every,
-								nextDate.getDate()
-							);
-							break;
-						case RepeatType.YEARLY:
-							nextDate = new Date(
-								nextDate.getFullYear() + item.dueDate.repeats.every,
-								nextDate.getMonth(),
-								nextDate.getDate()
-							);
-							break;
-						case RepeatType.WEEKDAYS:
-							nextDate.setDate(nextDate.getDate() + 1);
-							while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-								nextDate.setDate(nextDate.getDate() + 1);
-							}
-							break;
-						default: // Error.
-							break;
-					}
-				}
-				y = nextDate.getFullYear();
-				m = nextDate.getMonth() + 1;
-				d = nextDate.getDate();
-
-				const due_date = {
-					year: y,
-					month: m,
-					day: d,
-					repeats: { ...item.dueDate.repeats }
-				};
-				item.dueDate = due_date;
+				item.dueDate = nextDueDate(item.dueDate, action.payload.completed_time);
 			}
 		} else {
 			if (item.prevDueDate) {
