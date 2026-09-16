@@ -1,3 +1,5 @@
+import { closeModalDrawerIfOpen, ensureListMenuVisible } from '../helpers/task-details';
+import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { expect, type ConsoleMessage, type Locator, type Page, test } from '@playwright/test';
 import { installAuthSession, seedAuthUsers, type E2EAuthUser } from '../helpers/auth';
 import { resetEmulators } from '../helpers/emulator';
@@ -8,7 +10,7 @@ const owner: E2EAuthUser = {
 	email: 'share-owner@example.com',
 	password: 'password',
 	name: 'Share Owner',
-	photoUrl: 'https://i.pravatar.cc/150?u=share-owner%40example.com'
+	photoUrl: ''
 };
 
 const recipient: E2EAuthUser = {
@@ -16,12 +18,10 @@ const recipient: E2EAuthUser = {
 	email: 'share-recipient@example.com',
 	password: 'password',
 	name: 'Share Recipient',
-	photoUrl: 'https://i.pravatar.cc/150?u=share-recipient%40example.com'
+	photoUrl: ''
 };
 
 test.beforeEach(async ({ request }, testInfo) => {
-	test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only sharing coverage.');
-
 	await resetEmulators(request);
 });
 
@@ -34,14 +34,6 @@ async function signInAs(
 	await page.goto('/profile');
 	await expect(page.locator('.drawer-container')).toBeVisible();
 	await expect(page.locator('p').filter({ hasText: user.email })).toBeVisible();
-}
-
-async function ensureListMenuVisible(page: Page) {
-	const newList = page.getByLabel('New list');
-	if (!(await newList.isVisible())) {
-		await page.locator('button.material-icons').filter({ hasText: 'menu' }).click();
-	}
-	await expect(newList).toBeVisible();
 }
 
 async function createList(page: Page, listName: string) {
@@ -94,13 +86,12 @@ async function expectTasksVisible(page: Page, taskNames: string[]) {
 async function openEditListDialog(page: Page) {
 	await ensureListMenuVisible(page);
 	await page.locator('.mdc-drawer').getByRole('button', { name: 'Edit list' }).first().click();
-	await expect(page.getByText('Edit List')).toBeVisible();
+	await expect(settings(page)).toBeVisible();
+	await setting(page, 'Sharing');
 }
 
 function shareRecipientRow(page: Page, email: string): Locator {
-	return page
-		.locator('#editlist-dialog-content .mdc-deprecated-list-item')
-		.filter({ hasText: email });
+	return page.locator('dialog.list-details .choice').filter({ hasText: email });
 }
 
 function drawerListRow(page: Page, listName: string): Locator {
@@ -108,13 +99,19 @@ function drawerListRow(page: Page, listName: string): Locator {
 }
 
 test('share a list between two users', async ({ browser, page: ownerPage, request }, testInfo) => {
-	const helper = new TestStepHelper(ownerPage, testInfo);
+	test.setTimeout(120000);
+	const helper = new TestStepHelper(
+		ownerPage,
+		testInfo,
+		testInfo.project.name.replaceAll(' ', '-'),
+		true
+	);
 	helper.setMetadata(
 		'Share List Between Users',
 		'Verify that one user can share a list, a second user can accept it, and both users see shared task updates.'
 	);
 
-	const recipientContext = await browser.newContext();
+	const recipientContext = await browser.newContext({ viewport: ownerPage.viewportSize()! });
 	const recipientPage = await recipientContext.newPage();
 	const listName = 'Shared Groceries';
 	const ownerTask = 'Owner adds apples';
@@ -150,6 +147,7 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 		});
 
 		await createList(ownerPage, listName);
+		await closeModalDrawerIfOpen(ownerPage, listName);
 		await createTask(ownerPage, ownerTask);
 
 		await helper.step('owner_list_created', {
@@ -188,11 +186,12 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 			]
 		});
 
-		await ownerPage.getByRole('button', { name: 'Done' }).click();
-		await expect(ownerPage.getByText('Edit List')).not.toBeVisible();
+		await saveSetting(ownerPage);
+		await closeSettings(ownerPage);
 
 		helper.usePage(recipientPage);
 		await recipientPage.bringToFront();
+		await ensureListMenuVisible(recipientPage);
 		const pendingShareRow = drawerListRow(recipientPage, listName);
 		await expect(pendingShareRow).toBeVisible();
 		await pendingShareRow.click();
@@ -240,6 +239,7 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 			]
 		});
 
+		await closeModalDrawerIfOpen(recipientPage, listName);
 		await createTask(recipientPage, recipientTask);
 
 		await helper.step('recipient_added_task', {
@@ -272,6 +272,111 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 				}
 			]
 		});
+
+		// Reopening uses the actual email/UID relationship, and search does not lose selection.
+		await openEditListDialog(ownerPage);
+		await ownerPage.getByLabel('Search people').fill('no matching person');
+		await expect(ownerPage.getByText('No matching people', { exact: true })).toBeVisible();
+		await ownerPage.getByLabel('Search people').fill(recipient.email);
+		await expect(shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox')).toBeChecked();
+		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').uncheck();
+		await ownerPage.getByRole('button', { name: '‹ Details', exact: true }).click();
+		await ownerPage.getByRole('button', { name: 'Discard changes', exact: true }).click();
+		await setting(ownerPage, 'Sharing');
+		await expect(shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox')).toBeChecked();
+		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').uncheck();
+		await saveSetting(ownerPage);
+		await setting(ownerPage, 'Sharing');
+		await expect(
+			shareRecipientRow(ownerPage, recipient.email).getByText('Not shared', { exact: true })
+		).toBeVisible({ timeout: 15000 });
+		await helper.step('removal_completed', {
+			verifications: [
+				{
+					spec: 'Recipient processes a removal without pointer movement; sender sees its confirmed outcome',
+					check: async () => {
+						await ensureListMenuVisible(recipientPage);
+						await expect(drawerListRow(recipientPage, listName)).toHaveCount(0);
+						await expect(
+							shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox')
+						).not.toBeChecked();
+					}
+				}
+			]
+		});
+		// Reinvite, reject, and retry through the same screen.
+		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').check();
+		await saveSetting(ownerPage);
+		await setting(ownerPage, 'Sharing');
+		await helper.step('invitation_pending', {
+			verifications: [
+				{
+					spec: 'Already-sent invitations are read-only and cannot be duplicated',
+					check: async () => {
+						await expect(shareRecipientRow(ownerPage, recipient.email)).toContainText(
+							'Invitation pending'
+						);
+						await expect(
+							shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox')
+						).toHaveCount(0);
+						await expect(
+							ownerPage.getByRole('button', { name: 'Save', exact: true })
+						).toBeDisabled();
+					}
+				}
+			]
+		});
+		await ensureListMenuVisible(recipientPage);
+		await expect(drawerListRow(recipientPage, listName)).toBeVisible();
+		await drawerListRow(recipientPage, listName).click();
+		await drawerListRow(recipientPage, listName)
+			.locator('button.material-icons')
+			.filter({ hasText: 'close' })
+			.click();
+		await expect(shareRecipientRow(ownerPage, recipient.email)).toContainText(
+			'Invitation declined'
+		);
+		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').check();
+		await saveSetting(ownerPage);
+		await closeSettings(ownerPage);
+		await ensureListMenuVisible(recipientPage);
+		await drawerListRow(recipientPage, listName).click();
+		await drawerListRow(recipientPage, listName)
+			.locator('button.material-icons')
+			.filter({ hasText: 'check' })
+			.click();
+		await closeModalDrawerIfOpen(recipientPage, listName);
+		await expectTasksVisible(recipientPage, [ownerTask, recipientTask]);
+		// Shared deletion is replayed by both participants, rather than only hiding it for the sender.
+		await ensureListMenuVisible(ownerPage);
+		await ownerPage
+			.locator('.mdc-drawer')
+			.getByRole('button', { name: 'Edit list' })
+			.first()
+			.click();
+		await settings(ownerPage)
+			.getByRole('button', { name: /Delete list… Confirmation required/ })
+			.click();
+		await settings(ownerPage).getByRole('button', { name: 'Delete list', exact: true }).click();
+		await expect(settings(ownerPage)).not.toBeVisible();
+		await ensureListMenuVisible(recipientPage);
+		await helper.step('shared_deletion', {
+			verifications: [
+				{
+					spec: 'Deleting the list removes it from both participants’ navigation',
+					check: async () => {
+						await expect(drawerListRow(ownerPage, listName)).toHaveCount(0);
+						await expect(drawerListRow(recipientPage, listName)).toHaveCount(0);
+					}
+				}
+			]
+		});
+		await ownerPage.reload({ waitUntil: 'domcontentloaded' });
+		await recipientPage.reload({ waitUntil: 'domcontentloaded' });
+		await ensureListMenuVisible(ownerPage);
+		await ensureListMenuVisible(recipientPage);
+		await expect(drawerListRow(ownerPage, listName)).toHaveCount(0);
+		await expect(drawerListRow(recipientPage, listName)).toHaveCount(0);
 
 		await helper.generateDocs();
 	} finally {
