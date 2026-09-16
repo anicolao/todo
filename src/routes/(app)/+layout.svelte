@@ -7,11 +7,12 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
-	import MaterialDatePicker from '$lib/components/MaterialDatePicker.svelte';
+	import TaskDetailsEditor from '$lib/components/TaskDetailsEditor.svelte';
+	import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 	import SgDialog from '$lib/components/SgDialog.svelte';
 	import type { AuthState } from '$lib/components/auth';
-	import type { TodoItem } from '$lib/components/items';
-	import { RepeatType, describe_item, remove_due_date, set_due_date } from '$lib/components/items';
+	import type { DueDate } from '$lib/components/items';
+	import { describe_item, remove_due_date, set_due_date } from '$lib/components/items';
 	import {
 		add_label_predicate,
 		getLabelVisibility,
@@ -30,7 +31,13 @@
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import { emailToUid, getSharedUsers } from '$lib/components/users';
 	import firebase from '$lib/firebase';
-	import { logTime, store } from '$lib/store';
+	import {
+		logTime,
+		store,
+		discardLocalAction,
+		writeCacheNow,
+		observeConfirmedActions
+	} from '$lib/store';
 	import Button, { Label } from '@smui/button';
 	import Checkbox from '@smui/checkbox';
 	import { Actions } from '@smui/dialog';
@@ -38,7 +45,6 @@
 	import IconButton, { Icon } from '@smui/icon-button';
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Paper from '@smui/paper';
-	import Select, { Option } from '@smui/select';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
@@ -125,92 +131,6 @@
 	$: if ($store.ui.showItemDetailsDialog && !itemDetailsOpen) {
 		itemDetailsOpen = true;
 	}
-	$: itemDescription = '';
-	let dueDate = new Date(0);
-	let dueDateStr = '';
-	let useDueDate = false;
-	let repeatValue = "Doesn't repeat";
-	let repeatKind = ["Doesn't repeat", 'Daily', 'Weekly', 'Monthly', 'Yearly', 'Every Weekday'];
-	const repeatDescription = [
-		'Never',
-		'Every # Days',
-		'Every # Weeks',
-		'Every # Months',
-		'Every # Years',
-		'Every # Weekdays'
-	];
-	function normalizeRepeatEvery(every: number | undefined) {
-		return every === undefined || Number.isNaN(every) || every < 1 || every > 365 ? 1 : every;
-	}
-	function getRepeatEveryDesciption(kind: string, every: number | undefined) {
-		const idx = repeatKind.indexOf(kind);
-		let desc = '';
-		if (idx > 0) {
-			const displayEvery = every === undefined || Number.isNaN(every) ? '?' : every;
-			desc = repeatDescription[idx].replaceAll('#', '' + displayEvery);
-			if (every === 1) {
-				desc = desc.replace(/s$/, '');
-			}
-		}
-		return desc;
-	}
-	const repeatType = [
-		RepeatType.NONE,
-		RepeatType.DAILY,
-		RepeatType.WEEKLY,
-		RepeatType.MONTHLY,
-		RepeatType.YEARLY,
-		RepeatType.WEEKDAYS
-	];
-	let repeatEvery: number | undefined = 1;
-	$: if (repeatEvery !== undefined && (repeatEvery < 1 || repeatEvery > 365)) {
-		repeatEvery = 1;
-	}
-
-	let previousDialogItem: TodoItem | undefined = undefined;
-
-	function updateDetailsDialog(listId: string, itemId: string) {
-		const listOfItems = $store.items.listIdToListOfItems[listId];
-		const item = listOfItems?.itemIdToItem[itemId];
-		// Compare objects with deep equals (using Redux state) to detect a change
-		// in any editable property.
-		if (item && item !== previousDialogItem) {
-			previousDialogItem = item;
-			// console.log('updating details dialog list ' + listId + ' item ' + itemId);
-			itemDescription = item.description;
-			useDueDate = !!item.dueDate;
-			dueDate = item.dueDate
-				? new Date(item.dueDate.year, item.dueDate.month - 1, item.dueDate.day)
-				: new Date();
-			const m = dueDate.getMonth() + 1;
-			const d = dueDate.getDate();
-			dueDateStr =
-				dueDate.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
-			/*
-			const dayName = dueDate.toLocaleDateString('en-us', { weekday: 'long' });
-			const monthDay = dueDate.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
-			repeatKind = [
-				"Doesn't repeat",
-				'Daily',
-				`Weekly on ${dayName}`,
-				'Monthly on day ' + d,
-				`Yearly on ${monthDay}`,
-				'Every Weekday (Mon to Fri)'
-			];
-			*/
-			if (item.dueDate?.repeats) {
-				const indexOfKind = repeatType.indexOf(item.dueDate.repeats.type);
-				repeatValue = repeatKind[indexOfKind];
-				repeatEvery = item.dueDate.repeats.every;
-			} else {
-				repeatValue = repeatKind[0];
-				repeatEvery = 1;
-			}
-			// console.log({ repeatValue, repeatKind, kinds: repeatKind.toString() });
-		}
-	}
-
-	$: updateDetailsDialog($store.ui.listId, $store.ui.itemId);
 
 	let dialogOpen = false;
 	$: if ($store.ui.showEditDialog && !dialogOpen) {
@@ -248,7 +168,7 @@
 
 	function initializeDialogState() {
 		listName = $store.ui.title || '';
-		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || "");
+		selectedShareUsers = getSharedUsers().map((u: AuthState) => u.email || '');
 		initialDialogLabelIds = getCurrentLabelIds();
 		selectedDialogLabelIds = [...initialDialogLabelIds];
 		draftCreatedLabels = [];
@@ -344,7 +264,7 @@
 				await commitLabelChanges(uid, id);
 			}
 			const previousShares: string[] = getSharedUsers()
-				.map((u: AuthState) => u.email || "")
+				.map((u: AuthState) => u.email || '')
 				.sort();
 			selectedShareUsers.sort();
 			console.log({ previousShares, currentShares: selectedShareUsers });
@@ -387,57 +307,52 @@
 		dialogOpen = false;
 	}
 
-	function closeItemDetailsDialog() {
+	async function saveTaskDetails(description: string, dueDate: DueDate | undefined) {
+		const { listId, itemId } = $store.ui;
 		const uid = $store.auth.uid;
-		const listId = $store.ui.listId;
-		const id = $store.ui.itemId;
-		if (uid) {
-			const listOfItems = $store.items.listIdToListOfItems[listId];
-			const item = listOfItems.itemIdToItem[$store.ui.itemId];
-			const orig_description = item.description;
-			if (itemDescription !== orig_description) {
-				dispatch(
-					'lists',
-					listId,
-					uid,
-					describe_item({ list_id: listId, id, orig_description, description: itemDescription })
-				);
-			}
-			const origUseDueDate = !!item.dueDate;
-			const ymd = dueDateStr.split('-');
-			const year = parseInt(ymd[0]);
-			const month = parseInt(ymd[1]);
-			const day = parseInt(ymd[2]);
-			const indexOfRepeat = repeatKind.indexOf(repeatValue);
-			const type = repeatType[indexOfRepeat];
-			const every = normalizeRepeatEvery(repeatEvery);
-			if (
-				useDueDate !== origUseDueDate ||
-				(useDueDate &&
-					(item.dueDate === undefined || year !== item.dueDate.year ||
-						month !== item.dueDate.month ||
-						day !== item.dueDate.day)) ||
-				(useDueDate && item.dueDate?.repeats && item.dueDate.repeats.type !== type) ||
-				(useDueDate && item.dueDate?.repeats && item.dueDate.repeats.every !== every) ||
-				(useDueDate && !item.dueDate?.repeats && type !== RepeatType.NONE)
-			) {
-				if (useDueDate) {
-					const due_date = {
-						...item.dueDate,
-						year,
-						month,
-						day,
-						repeats: { ...item.dueDate?.repeats, type, every }
-					};
-					dispatch('lists', listId, uid, set_due_date({ list_id: listId, id, due_date }));
-				} else {
-					dispatch('lists', listId, uid, remove_due_date({ list_id: listId, id }));
-				}
-			}
+		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
+		if (!uid || !item || $store.lists.listIdToList[listId] === undefined)
+			throw new Error('Task is no longer available');
+		// One batch gives the editor one success/failure boundary. Firestore queues
+		// writes offline; the editor retains the draft until acknowledgment.
+		const batch = writeBatch(firebase.firestore);
+		const actions = collection(firebase.firestore, 'lists', listId, 'actions');
+		const actionIds: string[] = [];
+		const add = (action: object) => {
+			const reference = doc(actions);
+			actionIds.push(reference.id);
+			batch.set(reference, { ...action, timestamp: serverTimestamp(), creator: uid });
+		};
+		if (description !== item.description)
+			add(
+				describe_item({
+					list_id: listId,
+					id: itemId,
+					orig_description: item.description,
+					description
+				})
+			);
+		if (JSON.stringify(dueDate) !== JSON.stringify(item.dueDate)) {
+			add(
+				dueDate
+					? set_due_date({ list_id: listId, id: itemId, due_date: dueDate })
+					: remove_due_date({ list_id: listId, id: itemId })
+			);
 		}
-		previousDialogItem = undefined;
-		store.dispatch(show_item_detail_dialog(false));
-		itemDetailsOpen = false;
+		const confirmation = observeConfirmedActions(actionIds);
+		try {
+			await batch.commit();
+			await confirmation.promise;
+		} catch (error) {
+			// The action-log listener may already have replayed pending local writes.
+			// A rejected batch must not remain in the store or make Retry a no-op.
+			confirmation.cancel();
+			actionIds.forEach(discardLocalAction);
+			throw error;
+		}
+		// Flush the confirmed state before closing so an immediate reload resumes
+		// after the entire edit, rather than a partially cached action timestamp.
+		await writeCacheNow();
 	}
 
 	function cancelDialog() {
@@ -446,7 +361,6 @@
 	}
 
 	function cancelItemDetailsDialog() {
-		previousDialogItem = undefined;
 		store.dispatch(show_item_detail_dialog(false));
 		itemDetailsOpen = false;
 	}
@@ -485,7 +399,7 @@
 		$store.ui.loadingListTotal > 0
 			? `${Math.min($store.ui.loadingListIndex || 1, $store.ui.loadingListTotal)}/${
 					$store.ui.loadingListTotal
-				} (${loadingListPercent}%)`
+			  } (${loadingListPercent}%)`
 			: `${loadingListPercent}%`;
 	$: loadingActionPercent =
 		$store.ui.loadingActionTotal > 0
@@ -540,7 +454,7 @@
 					</Section>
 				</div>
 				<Section align="end" toolbar>
-					<span><Avatar name={$store.auth.name || ""} photo={$store.auth.photo || ""} /></span>
+					<span><Avatar name={$store.auth.name || ''} photo={$store.auth.photo || ''} /></span>
 				</Section>
 			</Row>
 		</TopAppBar>
@@ -570,20 +484,17 @@
 				>
 				<List>
 					<Subheader>Settings</Subheader>
-					<Item
-						on:click={() => setActive('profile')}
-						activated={active === 'profile'}
-					>
+					<Item on:click={() => setActive('profile')} activated={active === 'profile'}>
 						<Graphic class="material-icons" aria-hidden="true"
 							>{getIconName('account_circle')}</Graphic
 						>
 						<Text>{textLookup('account_circle')}</Text>
 					</Item>
 					<Subheader>
-					v{import.meta.env.VITE_APP_VERSION} ({import.meta.env.VITE_APP_DIRTY_FLAG
-						? '⚠'
-						: ''}{import.meta.env.VITE_APP_COMMIT_HASH})
-				</Subheader>
+						v{import.meta.env.VITE_APP_VERSION} ({import.meta.env.VITE_APP_DIRTY_FLAG
+							? '⚠'
+							: ''}{import.meta.env.VITE_APP_COMMIT_HASH})
+					</Subheader>
 				</List>
 			</Content>
 		</Drawer>
@@ -593,57 +504,13 @@
 			<div class="backdrop" style:background-image={bgStyle}>
 				<slot />
 				{#if itemDetailsOpen}
-					<SgDialog
-						bind:open={itemDetailsOpen}
-						cancelDialog={cancelItemDetailsDialog}
-						labelledby="itemdetails-dialog-title"
-						describedby="itemdetails-dialog-content"
-					>
-						<div class="itemdetails-title-div">
-							<Title id="itemdetails-dialog-title">Edit Task</Title>
-						</div>
-						<Content id="itemdetails-dialog-content">
-							<Paper style="width=100%;">
-								<Textfield
-									textarea
-									bind:value={itemDescription}
-									label="Task"
-									style="width: 100%;"
-								/>
-								<Checkbox bind:checked={useDueDate} />
-								<MaterialDatePicker bind:value={dueDateStr} disabled={!useDueDate} />
-								<br />
-								<Select
-									key={(x) => x.substr(0, 3)}
-									bind:value={repeatValue}
-									label="Repeat"
-									disabled={!useDueDate}
-									style="padding-left: 2.75em;"
-								>
-									{#each repeatKind as value}
-										<Option {value}>{value}</Option>
-									{/each}
-								</Select>
-								<Textfield
-									bind:value={repeatEvery}
-									label={getRepeatEveryDesciption(repeatValue, repeatEvery)}
-									type="number"
-									input$step="1"
-									disabled={!useDueDate || repeatKind.indexOf(repeatValue) === 0}
-									style="width: 6em;"
-									on:blur={() => (repeatEvery = normalizeRepeatEvery(repeatEvery))}
-								/>
-							</Paper>
-						</Content>
-						<Actions>
-							<Button on:click={cancelItemDetailsDialog}>
-								<Label>Cancel</Label>
-							</Button>
-							<Button on:click={closeItemDetailsDialog}>
-								<Label>Save</Label>
-							</Button>
-						</Actions>
-					</SgDialog>
+					<TaskDetailsEditor
+						item={$store.lists.listIdToList[$store.ui.listId] === undefined
+							? undefined
+							: $store.items.listIdToListOfItems[$store.ui.listId]?.itemIdToItem[$store.ui.itemId]}
+						onSave={saveTaskDetails}
+						onClose={cancelItemDetailsDialog}
+					/>
 				{/if}
 				{#if dialogOpen}
 					<SgDialog
@@ -897,10 +764,6 @@
 
 	* :global(.mdc-text-field__resizer) {
 		height: 10em;
-	}
-
-	* :global(#itemdetails-dialog-content .mdc-deprecated-list-item) {
-		height: 2.25em;
 	}
 
 	.backdrop {

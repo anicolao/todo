@@ -23,7 +23,7 @@
 
 	let listName = '';
 	$: if (listId !== '') {
-		listName = $store.lists.listIdToList[listId];
+		listName = $store.lists.listIdToList[listId] ?? '';
 		listName = listName.replaceAll(' ', '\u00a0');
 	}
 
@@ -83,7 +83,13 @@
 					'lists',
 					list_id,
 					$store.auth.uid,
-					complete_item({ list_id, id, completed: true, completed_time, description: item.description })
+					complete_item({
+						list_id,
+						id,
+						completed: true,
+						completed_time,
+						description: item.description
+					})
 				);
 				dispatch('lists', list_id, $store.auth.uid, complete_forever({ list_id, id }));
 			}
@@ -145,8 +151,7 @@
 			role="button"
 			tabindex="0"
 			aria-label={`Complete ${item.description}`}
-			on:click={complete(listId, item.id, true)}
-			>check_box_outline_blank</span
+			on:click={complete(listId, item.id, true)}>check_box_outline_blank</span
 		>{/if}<input
 		class="description"
 		aria-label={`Task ${item.description}`}
@@ -165,6 +170,15 @@
 	><!-- svelte-ignore a11y-no-static-element-interactions -->
 	<!-- svelte-ignore a11y-click-events-have-key-events --><span
 		on:click={showEditDetailsDialog(listId, item.id)}
+		on:keydown={(event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				showEditDetailsDialog(listId, item.id)();
+			}
+		}}
+		role="button"
+		tabindex="0"
+		aria-label={`Edit details for ${item.description}`}
 		class="details material-icons">edit_note</span
 	><!-- svelte-ignore a11y-click-events-have-key-events -->
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -180,8 +194,7 @@
 			role="button"
 			tabindex="0"
 			aria-label={`Star ${item.description}`}
-			on:click={star(listId, item.id, true)}
-			>star_outline</span
+			on:click={star(listId, item.id, true)}>star_outline</span
 		>{/if}
 </div>
 
@@ -191,7 +204,9 @@
 		margin: 0.25em;
 		opacity: 0.9;
 		border: 1px solid #4443;
-		box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14),
+		box-shadow:
+			0px 2px 1px -1px rgba(0, 0, 0, 0.2),
+			0px 1px 1px 0px rgba(0, 0, 0, 0.14),
 			0px 1px 3px 0px rgba(0, 0, 0, 0.12);
 		display: flex;
 		background-color: #fafaf0;
