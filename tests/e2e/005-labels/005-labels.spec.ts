@@ -443,6 +443,8 @@ async function dragNestedListBefore(
 	await page.mouse.move(startX + 12, startY, { steps: 2 });
 	await expect(source).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
 	await page.mouse.move(startX, destinationBox.y + destinationBox.height / 2, { steps: 10 });
+	await expect(source).toHaveAttribute('id', 'grabbed');
+	await expect(source).toHaveCSS('opacity', '0');
 	await page.mouse.up();
 }
 
