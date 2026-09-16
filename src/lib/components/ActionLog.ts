@@ -111,6 +111,12 @@ export function watch(
 				if (!timestamp) return true;
 				if (
 					confirmedIds.has(x.doc.id) ||
+					!shouldReplayListAction(
+						x.doc.id,
+						timestamp,
+						store.getState().lists.listIdToTimestamp[id] || 0,
+						store.getState().lists.listIdToBoundaryActionIds?.[id]
+					) ||
 					!shouldReplayListAction(x.doc.id, timestamp, currentTime, boundaryIds)
 				)
 					return false;
