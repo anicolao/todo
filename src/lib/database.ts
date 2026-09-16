@@ -579,7 +579,12 @@ export function load() {
 										`Filtering ${changes.length} global requests on first call from time ${startTime}`
 									);
 									changes = changes.filter((x: any) =>
-										shouldReplayGlobalAction(x.doc.data(), startTime)
+										shouldReplayGlobalAction(
+											x.doc.data(),
+											startTime,
+											x.doc.id,
+											store.getState().cache.boundaryActionIds
+										)
 									);
 									logTime(`... ${changes.length} global requests remaining.`);
 								}
