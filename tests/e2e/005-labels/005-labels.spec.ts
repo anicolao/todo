@@ -1,3 +1,5 @@
+import { ensureListMenuVisible } from '../helpers/task-details';
+import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import {
@@ -13,28 +15,7 @@ test.beforeEach(async ({ request }) => {
 });
 
 async function openDrawerIfNeeded(page: import('@playwright/test').Page) {
-	const newListInput = page.getByLabel('New list');
-	const drawer = page.locator('.mdc-drawer');
-	const drawerIsModal = await drawer.evaluate((element) =>
-		element.classList.contains('mdc-drawer--modal')
-	);
-	const drawerIsOpen =
-		!drawerIsModal ||
-		(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--open')));
-	if (!drawerIsOpen) {
-		const menuButton = page.locator('button.material-icons:has-text("menu")');
-		if (await menuButton.isVisible()) {
-			await menuButton.click();
-		}
-		await expect(drawer).toHaveClass(/mdc-drawer--open/, { timeout: 10000 });
-		await expect
-			.poll(async () => {
-				const box = await drawer.boundingBox();
-				return box ? Math.round(box.x) : -999;
-			})
-			.toBeGreaterThanOrEqual(0);
-		await expect(newListInput).toBeVisible({ timeout: 10000 });
-	}
+	await ensureListMenuVisible(page);
 }
 
 async function openCurrentListEditDialog(page: import('@playwright/test').Page, listName: string) {
@@ -49,12 +30,15 @@ async function openCurrentListEditDialog(page: import('@playwright/test').Page, 
 		.getByRole('button', { name: 'Edit list' });
 	await expect(editButton).toBeVisible({ timeout: 10000 });
 	await editButton.dispatchEvent('pointerdown');
-	await expect(page.getByText('Edit List')).toBeVisible({ timeout: 10000 });
+	await expect(settings(page)).toBeVisible({ timeout: 10000 });
+	await setting(page, 'Labels');
 }
 
 async function saveCurrentListEditDialog(page: import('@playwright/test').Page) {
-	await page.getByRole('button', { name: 'Done' }).click();
-	await expect(page.getByText('Edit List', { exact: true })).toBeHidden({ timeout: 20000 });
+	if (await page.getByRole('button', { name: 'Save', exact: true }).isEnabled())
+		await saveSetting(page);
+	else await page.getByRole('button', { name: '‹ Details', exact: true }).click();
+	await closeSettings(page);
 }
 
 async function openNestedListFromActiveLabel(
@@ -162,6 +146,9 @@ async function labelActionX(
 ) {
 	const action = drawerTopLevelItem(page, labelName).getByRole('button', { name: actionName });
 	await expect(action).toBeVisible();
+	await page.evaluate(async () => {
+		await Promise.allSettled(document.getAnimations().map((a) => a.finished));
+	});
 	const box = await action.boundingBox();
 	if (!box) {
 		throw new Error(`${actionName} has no bounding box`);
@@ -180,14 +167,10 @@ async function expectNestedListHiddenUnderLabel(
 }
 
 async function createDraftLabel(page: import('@playwright/test').Page, labelName: string) {
-	const labelsEditor = page.locator('.labels-editor').filter({
-		has: page.getByLabel('New label')
-	});
-	await expect(labelsEditor).toBeVisible({ timeout: 10000 });
-	await labelsEditor.getByLabel('New label').fill(labelName);
-	await expect(labelsEditor.getByRole('button', { name: 'Create label' })).toBeEnabled();
-	await labelsEditor.getByRole('button', { name: 'Create label' }).dispatchEvent('click');
-	await expect(labelsEditor.getByLabel('New label')).toHaveValue('');
+	await page.getByRole('button', { name: '+ Create label', exact: true }).click();
+	await page.getByLabel('New label', { exact: true }).fill(labelName);
+	await saveSetting(page);
+	await setting(page, 'Labels');
 }
 
 async function toggleDraftLabelMembership(
@@ -195,9 +178,7 @@ async function toggleDraftLabelMembership(
 	labelName: string,
 	checked: boolean
 ) {
-	const labelsEditor = page.locator('.labels-editor').filter({
-		has: page.getByLabel('New label')
-	});
+	const labelsEditor = settings(page);
 	const checkbox = labelsEditor.getByLabel(`Include in ${labelName}`);
 	await expect(checkbox).toBeVisible({ timeout: 10000 });
 	if ((await checkbox.isChecked()) !== checked) {
@@ -479,28 +460,20 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	await openCurrentListEditDialog(page, listName);
 
 	const labelName = 'Important Label';
+	await page.getByRole('button', { name: '+ Create label', exact: true }).click();
 	await helper.step('label_creation_ui_available', {
-		description: 'User can create a label from the list edit dialog.',
+		description: 'Labels has inline creation and its own Save action.',
 		verifications: [
 			{
-				spec: 'Labels section is visible',
-				check: async () => expect(page.getByText('Labels', { exact: true })).toBeVisible()
-			},
-			{
-				spec: 'New label field is visible',
-				check: async () => expect(page.getByLabel('New label')).toBeVisible()
-			},
-			{
-				spec: 'Create label button is disabled until a name is entered',
-				check: async () => expect(page.getByRole('button', { name: 'Create label' })).toBeDisabled()
+				spec: 'A blank new label cannot be saved',
+				check: async () => {
+					await expect(page.getByLabel('New label', { exact: true })).toBeVisible();
+					await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+				}
 			}
 		]
 	});
-
-	await page.getByLabel('New label').fill(labelName);
-	await expect(page.getByRole('button', { name: 'Create label' })).toBeEnabled();
-	await page.getByRole('button', { name: 'Create label' }).click();
-	await expect(page.getByLabel('New label')).toHaveValue('');
+	await page.getByLabel('New label', { exact: true }).fill(labelName);
 	await saveCurrentListEditDialog(page);
 
 	await helper.step('label_created', {
@@ -713,7 +686,9 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 		]
 	});
 
-	await page.getByRole('button', { name: 'Cancel' }).click();
+	await page.getByRole('button', { name: '‹ Details', exact: true }).click();
+	await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+	await closeSettings(page);
 	await openDrawerIfNeeded(page);
 	await clickDrawerLabel(page, labelName);
 

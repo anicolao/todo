@@ -170,7 +170,8 @@ test('remote edits offline save and retry preserve the draft', async ({
 	await expect(deletingTab.getByLabel('Task Retry this title', { exact: true })).toBeVisible();
 	await ensureListMenuVisible(deletingTab);
 	await deletingTab.getByRole('button', { name: 'Edit list', exact: true }).click();
-	await deletingTab.getByRole('button', { name: 'delete', exact: true }).click();
+	await deletingTab.getByRole('button', { name: /Delete list… Confirmation required/ }).click();
+	await deletingTab.getByRole('button', { name: 'Delete list', exact: true }).click();
 	await helper.step('removed_remotely', {
 		verifications: [
 			{

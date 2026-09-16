@@ -15,12 +15,10 @@ User has created a source list.
 
 ### Step 002: label_creation_ui_available
 
-User can create a label from the list edit dialog.
+Labels has inline creation and its own Save action.
 
 **Verifications:**
-- [x] Labels section is visible
-- [x] New label field is visible
-- [x] Create label button is disabled until a name is entered
+- [x] A blank new label cannot be saved
 
 ![label_creation_ui_available](screenshots/002-label-creation-ui-available.png)
 
@@ -49,7 +47,7 @@ One label-row click selects the label view and expands its sidebar folder.
 
 **Verifications:**
 - [x] URL is the label route
-- [x] Mobile drawer is dismissed after selecting the label
+- [x] Mobile drawer stays open after selecting the label
 - [x] Source list group name is visible
 
 ![label_click_selects_and_expands](screenshots/005-label-click-selects-and-expands.png)
@@ -154,4 +152,3 @@ User opened the label and no longer sees the removed list.
 - [x] Removed source list group is absent
 
 ![label_empty_after_removal](screenshots/015-label-empty-after-removal.png)
-
