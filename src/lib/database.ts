@@ -1,3 +1,4 @@
+import { shouldReplayListAction } from '$lib/list-action-replay';
 import { watch } from '$lib/components/ActionLog';
 import type { AuthState } from '$lib/components/auth';
 import { rename_list } from '$lib/components/lists';
@@ -375,7 +376,12 @@ export function load() {
 					const initialState = store.getState();
 					let changes = snapshot.docChanges().filter((change) => {
 						const timestamp = change.doc.data().timestamp;
-						return !timestamp || timestamp.seconds > currentTime;
+						return shouldReplayListAction(
+							change.doc.id,
+							timestamp,
+							currentTime,
+							initialState.lists.listIdToBoundaryActionIds?.[id]
+						);
 					});
 					if (changes.length > 0 && changes[0].doc.data().timestamp === 0 && initialState) {
 						const action = changes[0].doc.data();

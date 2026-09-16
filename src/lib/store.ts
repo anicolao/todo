@@ -161,6 +161,27 @@ function scheduleCacheState(stateToCache: GlobalState, timestamp: number) {
 }
 const combinedReducers = combineReducers(reducer);
 const serverSideStore = reduxStore as ReduxStore & SvelteStore;
+// Save flows must wait for the action listener, not just the network write:
+// Firestore can resolve a write before the confirmed actions reach this store.
+const confirmedActionObservers = new Set<(id: string) => void>();
+export function observeConfirmedActions(ids: string[]) {
+	const pending = new Set(ids);
+	let resolve: () => void;
+	const promise = new Promise<void>((done) => {
+		resolve = done;
+	});
+	const observer = (id: string) => {
+		pending.delete(id);
+		if (pending.size === 0) {
+			confirmedActionObservers.delete(observer);
+			resolve();
+		}
+	};
+	if (pending.size === 0) resolve!();
+	else confirmedActionObservers.add(observer);
+	return { promise, cancel: () => confirmedActionObservers.delete(observer) };
+}
+
 const rebasingReducer = (state: GlobalState | undefined, action: AnyAction) => {
 	// console.log('REBASING hook in place!', action);
 	if (action.timestamp !== null) {
@@ -188,6 +209,8 @@ const rebasingReducer = (state: GlobalState | undefined, action: AnyAction) => {
 		}
 		action.timestamp = timestamp;
 		serverSideStore.dispatch(action);
+		if (action.firebase_doc_id)
+			confirmedActionObservers.forEach((observer) => observer(action.firebase_doc_id));
 	} else {
 		// console.log('client side action: ', action);
 		delete action.timestamp;

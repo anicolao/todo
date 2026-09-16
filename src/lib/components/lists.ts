@@ -16,6 +16,7 @@ export interface ListsState {
 	listIdToType: { [key: string]: ListDocumentType };
 	listIdToLastKnownInfo: { [key: string]: LastKnownListInfo };
 	listIdToTimestamp: { [key: string]: number };
+	listIdToBoundaryActionIds?: { [key: string]: string[] };
 	pinnedLabelIds: string[];
 }
 
@@ -35,6 +36,7 @@ export const initialState = {
 	listIdToType: {},
 	listIdToLastKnownInfo: {},
 	listIdToTimestamp: {},
+	listIdToBoundaryActionIds: {},
 	pinnedLabelIds: []
 } as ListsState;
 
@@ -192,7 +194,20 @@ export const lists = createReducer(initialState, (r) => {
 					console.log(`Update timestamp for list ${candidateId}`);
 					state = { ...state };
 					state.listIdToTimestamp = { ...state.listIdToTimestamp };
-					state.listIdToTimestamp[candidateId] = action.timestamp;
+					const previous = state.listIdToTimestamp[candidateId] || 0;
+					if (action.timestamp >= previous) {
+						state.listIdToTimestamp[candidateId] = action.timestamp;
+						const ids =
+							action.timestamp === previous
+								? state.listIdToBoundaryActionIds?.[candidateId] ?? []
+								: [];
+						state.listIdToBoundaryActionIds = {
+							...state.listIdToBoundaryActionIds,
+							[candidateId]: action.firebase_doc_id
+								? [...new Set([...ids, action.firebase_doc_id])]
+								: ids
+						};
+					}
 				}
 			}
 		}
