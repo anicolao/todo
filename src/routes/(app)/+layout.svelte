@@ -485,7 +485,7 @@
 
 	* :global(.app-content) {
 		position: relative;
-		margin-top: calc(var(--app-bar-height) + var(--safe-area-top));
+		margin-top: calc(var(--app-content-offset) + var(--safe-area-top));
 		padding: 0 var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
 		min-width: 0;
 		min-height: 0;

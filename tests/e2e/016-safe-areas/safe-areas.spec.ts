@@ -5,6 +5,7 @@ import { resetEmulators } from '../helpers/emulator';
 // these checks exercise nonzero insets in both portrait and landscape.
 for (const scenario of [
 	{ name: 'portrait', width: 393, height: 852, top: 59, right: 0, bottom: 34, left: 0 },
+	{ name: 'mobile without insets', width: 393, height: 852, top: 0, right: 0, bottom: 0, left: 0 },
 	{ name: 'landscape', width: 852, height: 393, top: 0, right: 59, bottom: 21, left: 59 },
 	{ name: 'desktop', width: 1280, height: 800, top: 0, right: 0, bottom: 0, left: 0 }
 ]) {
@@ -17,12 +18,15 @@ for (const scenario of [
 		});
 		async function expectSafe(locator: Locator) {
 			await expect(locator).toBeVisible();
-			const box = await locator.boundingBox();
-			expect(box).not.toBeNull();
-			expect(box!.x).toBeGreaterThanOrEqual(scenario.left);
-			expect(box!.y).toBeGreaterThanOrEqual(scenario.top);
-			expect(box!.x + box!.width).toBeLessThanOrEqual(scenario.width - scenario.right + 1);
-			expect(box!.y + box!.height).toBeLessThanOrEqual(scenario.height - scenario.bottom + 1);
+			// Visibility alone does not wait for the drawer/dialog opening animation.
+			await expect(async () => {
+				const box = await locator.boundingBox();
+				expect(box).not.toBeNull();
+				expect(box!.x).toBeGreaterThanOrEqual(scenario.left);
+				expect(box!.y).toBeGreaterThanOrEqual(scenario.top);
+				expect(box!.x + box!.width).toBeLessThanOrEqual(scenario.width - scenario.right + 1);
+				expect(box!.y + box!.height).toBeLessThanOrEqual(scenario.height - scenario.bottom + 1);
+			}).toPass({ timeout: 5000 });
 		}
 		await expectSafe(page.getByRole('button', { name: 'Sign In', exact: true }));
 		await page.getByRole('button', { name: 'Sign In', exact: true }).click();
@@ -31,7 +35,9 @@ for (const scenario of [
 		await expectSafe(page.locator('.backdrop'));
 		const row = await page.locator('.mdc-top-app-bar__row').boundingBox();
 		const content = await page.locator('.backdrop').boundingBox();
-		expect(content!.y).toBe(row!.y + row!.height);
+		// Keep the existing 64px content offset (an 8px gap below compact toolbars).
+		expect(content!.y).toBe(64 + scenario.top);
+		expect(content!.y).toBeGreaterThanOrEqual(row!.y + row!.height);
 
 		const menu = page.getByRole('button', { name: 'Open navigation menu' });
 		if (await menu.isVisible()) await menu.click();
