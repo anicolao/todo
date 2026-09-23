@@ -779,7 +779,7 @@
 		box-sizing: border-box;
 		width: min(100%, 560px);
 		margin: 0 auto;
-		padding: 20px 16px max(32px, env(safe-area-inset-bottom));
+		padding: 20px 16px max(32px, var(--safe-area-bottom));
 		align-self: flex-start;
 		background: color-mix(in srgb, var(--bg) 92%, transparent);
 		border-radius: 0 0 20px 20px;
@@ -922,7 +922,8 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: max(12px, env(safe-area-inset-top)) 12px 12px;
+		padding: max(12px, var(--safe-area-top)) calc(12px + var(--safe-area-right)) 12px
+			calc(12px + var(--safe-area-left));
 		flex-shrink: 0;
 		box-sizing: border-box;
 		min-width: 0;
@@ -1076,7 +1077,8 @@
 		margin-top: 28px;
 	}
 	footer {
-		padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+		padding: 12px calc(16px + var(--safe-area-right)) max(16px, var(--safe-area-bottom))
+			calc(16px + var(--safe-area-left));
 		flex-shrink: 0;
 		border-top: 1px solid var(--border);
 	}

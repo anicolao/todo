@@ -191,7 +191,12 @@
 		completionOnly = false;
 		await tick();
 		body?.scrollTo(0, 0);
-		if (restore) dialog.querySelector<HTMLButtonElement>(`[data-setting="${restore}"]`)?.focus();
+		if (restore)
+			dialog
+				.querySelector<HTMLButtonElement>(
+					`.editor-screen:not([aria-hidden="true"]) [data-setting="${restore}"]`
+				)
+				?.focus();
 		else if (next === 'delete') dialog.querySelector<HTMLButtonElement>('[data-keep]')?.focus();
 		else heading?.focus();
 	}
