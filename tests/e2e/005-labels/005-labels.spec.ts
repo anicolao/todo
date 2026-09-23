@@ -146,14 +146,10 @@ async function labelActionX(
 ) {
 	const action = drawerTopLevelItem(page, labelName).getByRole('button', { name: actionName });
 	await expect(action).toBeVisible();
-	await page.evaluate(async () => {
-		await Promise.allSettled(document.getAnimations().map((a) => a.finished));
-	});
-	const box = await action.boundingBox();
-	if (!box) {
-		throw new Error(`${actionName} has no bounding box`);
-	}
-	return box.x;
+	// Compare layout coordinates, not viewport coordinates that include the phone
+	// drawer's opening transform. offsetLeft still detects the pin moving when
+	// the neighboring Edit button disappears, without racing that animation.
+	return action.evaluate((element: HTMLElement) => element.offsetLeft);
 }
 
 async function expectNestedListHiddenUnderLabel(
