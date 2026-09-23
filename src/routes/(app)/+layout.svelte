@@ -46,7 +46,7 @@
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Paper from '@smui/paper';
 	import Textfield from '@smui/textfield';
-	import TopAppBar, { AutoAdjust, Row, Section, Title } from '@smui/top-app-bar';
+	import TopAppBar, { Row, Section, Title } from '@smui/top-app-bar';
 	import { onDestroy } from 'svelte';
 	import ShareList from './ShareList.svelte';
 	import { createFirebaseListActions, load } from '$lib/database';
@@ -68,7 +68,6 @@
 	const MOBILE_LAYOUT_WIDTH = 720;
 
 	$: drawerOpen = width > MOBILE_LAYOUT_WIDTH;
-	let topAppBar;
 
 	let active: string;
 	function setActive(name: string, keepDrawerOpen = false) {
@@ -436,7 +435,7 @@
 	</div>
 {:then value}
 	<div class="drawer-container w{width} ">
-		<TopAppBar bind:this={topAppBar} variant="fixed">
+		<TopAppBar variant="fixed">
 			<Row>
 				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
 					<Section>
@@ -458,8 +457,6 @@
 				</Section>
 			</Row>
 		</TopAppBar>
-
-		<AutoAdjust {topAppBar} />
 
 		<Drawer
 			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
@@ -592,7 +589,17 @@
 
 <style>
 	:global(.mdc-top-app-bar) {
-		padding-top: env(safe-area-inset-top);
+		padding-top: var(--safe-area-top);
+		padding-left: var(--safe-area-left);
+		padding-right: var(--safe-area-right);
+		box-sizing: border-box;
+	}
+	:global(.mdc-drawer) {
+		padding-top: var(--safe-area-top);
+		padding-bottom: var(--safe-area-bottom);
+		padding-left: var(--safe-area-left);
+		padding-right: var(--safe-area-right);
+		box-sizing: border-box;
 	}
 	:global(.mdc-drawer__content) {
 		--drawer-icon-artwork-inset: 7px;
@@ -601,9 +608,6 @@
 		--drawer-row-inline-margin: 2px;
 		display: flex;
 		flex-direction: column;
-		padding-top: env(safe-area-inset-top);
-		padding-bottom: env(safe-area-inset-bottom);
-		padding-left: env(safe-area-inset-left);
 	}
 	:global(.mdc-drawer__content .mdc-deprecated-list-item) {
 		height: var(--drawer-row-height);
@@ -625,7 +629,10 @@
 		display: flex;
 		justify-content: center;
 		min-height: 100vh;
-		padding: 2rem;
+		min-height: 100dvh;
+		box-sizing: border-box;
+		padding: calc(2rem + var(--safe-area-top)) calc(2rem + var(--safe-area-right))
+			calc(2rem + var(--safe-area-bottom)) calc(2rem + var(--safe-area-left));
 	}
 	.loading-panel {
 		display: flex;
@@ -715,6 +722,7 @@
 		position: relative;
 		display: flex;
 		height: 100vh;
+		height: 100dvh;
 		max-width: 100vw;
 		overflow: hidden;
 		z-index: 0;
@@ -723,9 +731,10 @@
 
 	* :global(.app-content) {
 		position: relative;
-		margin-top: 64px;
-		padding: 0;
-		padding-top: env(safe-area-inset-top);
+		margin-top: calc(var(--app-bar-height) + var(--safe-area-top));
+		padding: 0 var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
+		min-width: 0;
+		min-height: 0;
 
 		display: flex;
 		flex: auto;

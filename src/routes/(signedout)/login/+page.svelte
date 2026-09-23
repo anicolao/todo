@@ -27,8 +27,11 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		padding: 16px;
+		padding: calc(16px + var(--safe-area-top)) calc(16px + var(--safe-area-right))
+			calc(16px + var(--safe-area-bottom)) calc(16px + var(--safe-area-left));
+		box-sizing: border-box;
 		min-height: 80vh;
+		min-height: 80dvh;
 	}
 
 	:global(.login-card) {
