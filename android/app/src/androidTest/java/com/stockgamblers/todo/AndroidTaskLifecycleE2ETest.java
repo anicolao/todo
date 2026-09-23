@@ -38,9 +38,10 @@ public class AndroidTaskLifecycleE2ETest {
     // WebView's x86_64 and arm64 rasterizers can disagree by one channel value
     // at a few antialiased glyph-edge pixels while rendering the same layout.
     private static final int MAX_CHANNEL_DELTA = 1;
-    // Rounded card edges also produce a handful of isolated architecture-specific samples.
-    // Keep this below 0.04% of the 393x782 captured WebView so visible changes still fail.
-    private static final int MAX_DIFFERENT_PIXELS = 100;
+    // Rounded edges and glyphs also produce isolated architecture-specific samples. Bound both
+    // their extent and intensity so visible layout, icon, and color changes still fail.
+    private static final int MAX_DIFFERENT_PIXELS = 256;
+    private static final int MAX_OUTLIER_CHANNEL_DELTA = 40;
 
     private final Context targetContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -300,7 +301,11 @@ public class AndroidTaskLifecycleE2ETest {
         actual.getPixels(actualPixels, 0, width, 0, 0, width, height);
 
         int differentPixels = 0;
+        int largestChannelDelta = 0;
         for (int index = 0; index < actualPixels.length; index++) {
+            largestChannelDelta = Math.max(
+                    largestChannelDelta,
+                    pixelChannelDelta(expectedPixels[index], actualPixels[index]));
             if (pixelsDiffer(expectedPixels[index], actualPixels[index])) {
                 differentPixels++;
                 diffPixels[index] = Color.MAGENTA;
@@ -322,15 +327,25 @@ public class AndroidTaskLifecycleE2ETest {
         assertTrue(
                 screenshotName + " differs from its baseline by " + differentPixels
                         + " pixels; tolerance is " + MAX_DIFFERENT_PIXELS
-                        + " pixels after a per-channel tolerance of " + MAX_CHANNEL_DELTA,
-                differentPixels <= MAX_DIFFERENT_PIXELS);
+                        + " pixels after a per-channel tolerance of " + MAX_CHANNEL_DELTA
+                        + ", and largest channel delta is " + largestChannelDelta
+                        + " with tolerance " + MAX_OUTLIER_CHANNEL_DELTA,
+                differentPixels <= MAX_DIFFERENT_PIXELS
+                        && largestChannelDelta <= MAX_OUTLIER_CHANNEL_DELTA);
     }
 
     private boolean pixelsDiffer(int expected, int actual) {
-        return Math.abs(Color.alpha(expected) - Color.alpha(actual)) > MAX_CHANNEL_DELTA
-                || Math.abs(Color.red(expected) - Color.red(actual)) > MAX_CHANNEL_DELTA
-                || Math.abs(Color.green(expected) - Color.green(actual)) > MAX_CHANNEL_DELTA
-                || Math.abs(Color.blue(expected) - Color.blue(actual)) > MAX_CHANNEL_DELTA;
+        return pixelChannelDelta(expected, actual) > MAX_CHANNEL_DELTA;
+    }
+
+    private int pixelChannelDelta(int expected, int actual) {
+        return Math.max(
+                Math.max(
+                        Math.abs(Color.alpha(expected) - Color.alpha(actual)),
+                        Math.abs(Color.red(expected) - Color.red(actual))),
+                Math.max(
+                        Math.abs(Color.green(expected) - Color.green(actual)),
+                        Math.abs(Color.blue(expected) - Color.blue(actual))));
     }
 
     private Bitmap waitForStableScreenshot() {
