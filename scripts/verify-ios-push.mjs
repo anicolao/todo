@@ -2,9 +2,21 @@
 
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { GoogleAuth } from 'google-auth-library';
 
 const require = createRequire(import.meta.url);
+
+/** @typedef {(input: string | URL | Request, init?: RequestInit) => Promise<Response>} Fetch */
+/**
+ * @typedef {{
+ *   new(options: {
+ *     credentials?: Record<string, unknown>,
+ *     keyFilename?: string,
+ *     scopes: string[]
+ *   }): { getAccessToken(): Promise<string | null | undefined> }
+ * }} GoogleAuthConstructor
+ */
 
 function usage() {
 	console.log(`Usage:
@@ -24,11 +36,19 @@ Optional environment:
   TODO_FIREBASE_ACCOUNT   Defaults to alex@stockgamblers.com.`);
 }
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
 	throw new Error(message);
 }
 
-function parseArguments(argv) {
+/**
+ * @param {string[]} argv
+ * @returns {{help: true} | {help: false, dryRun: boolean, targetEmail: string}}
+ */
+export function parseArguments(argv) {
 	let targetEmail = '';
 	let dryRun = false;
 	for (const argument of argv) {
@@ -47,20 +67,35 @@ function parseArguments(argv) {
 	return { dryRun, help: false, targetEmail };
 }
 
-function projectId() {
-	if (process.env.FIREBASE_PROJECT_ID) return process.env.FIREBASE_PROJECT_ID;
+/** @param {Record<string, string | undefined>} [env] */
+export function projectId(env = process.env) {
+	if (env.FIREBASE_PROJECT_ID) return env.FIREBASE_PROJECT_ID;
 	const firebaseRc = JSON.parse(fs.readFileSync('.firebaserc', 'utf8'));
 	const project = firebaseRc.projects?.default;
 	if (!project) fail('FIREBASE_PROJECT_ID is unset and .firebaserc has no default project');
 	return project;
 }
 
-async function accessToken() {
-	if (process.env.FIREBASE_ACCESS_TOKEN) return process.env.FIREBASE_ACCESS_TOKEN;
+/**
+ * @param {{
+ *   env?: Record<string, string | undefined>,
+ *   GoogleAuthClass?: GoogleAuthConstructor,
+ *   loadFirebaseAuth?: () => {
+ *     findAccountByEmail(email: string): {tokens?: {refresh_token?: string}} | undefined,
+ *     getGlobalDefaultAccount(): {tokens?: {refresh_token?: string}} | undefined,
+ *     getAccessToken(refreshToken: string, scopes: string[]): Promise<{access_token?: string}>
+ *   }
+ * }} [options]
+ */
+export async function accessToken({
+	env = process.env,
+	GoogleAuthClass = /** @type {GoogleAuthConstructor} */ (GoogleAuth),
+	loadFirebaseAuth = () => require('firebase-tools/lib/auth')
+} = {}) {
+	if (env.FIREBASE_ACCESS_TOKEN) return env.FIREBASE_ACCESS_TOKEN;
 
-	const rawCredentials =
-		process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT;
-	const keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+	const rawCredentials = env.FIREBASE_SERVICE_ACCOUNT_JSON ?? env.FIREBASE_SERVICE_ACCOUNT;
+	const keyFilename = env.GOOGLE_APPLICATION_CREDENTIALS;
 	if (rawCredentials || keyFilename) {
 		let credentials;
 		if (rawCredentials) {
@@ -70,7 +105,7 @@ async function accessToken() {
 				fail('Firebase service-account environment value is not valid JSON');
 			}
 		}
-		const auth = new GoogleAuth({
+		const auth = new GoogleAuthClass({
 			credentials,
 			keyFilename,
 			scopes: ['https://www.googleapis.com/auth/cloud-platform']
@@ -80,20 +115,27 @@ async function accessToken() {
 		return token;
 	}
 
-	const firebaseAuth = require('firebase-tools/lib/auth');
-	const requestedAccount = process.env.TODO_FIREBASE_ACCOUNT ?? 'alex@stockgamblers.com';
+	const firebaseAuth = loadFirebaseAuth();
+	const requestedAccount = env.TODO_FIREBASE_ACCOUNT ?? 'alex@stockgamblers.com';
 	const account =
 		firebaseAuth.findAccountByEmail(requestedAccount) ?? firebaseAuth.getGlobalDefaultAccount();
-	if (!account?.tokens?.refresh_token) {
+	const refreshToken = account?.tokens?.refresh_token;
+	if (!refreshToken) {
 		fail(`Firebase CLI account ${requestedAccount} is not authenticated`);
 	}
-	const token = await firebaseAuth.getAccessToken(account.tokens.refresh_token, []);
+	const token = await firebaseAuth.getAccessToken(refreshToken, []);
 	if (!token?.access_token) fail('Firebase CLI login did not produce an access token');
 	return token.access_token;
 }
 
-async function fetchJson(url, options, context) {
-	const response = await fetch(url, options);
+/**
+ * @param {string} url
+ * @param {RequestInit} options
+ * @param {string} context
+ * @param {Fetch} fetchImpl
+ */
+async function fetchJson(url, options, context, fetchImpl) {
+	const response = await fetchImpl(url, options);
 	if (!response.ok) {
 		let status = `HTTP ${response.status}`;
 		try {
@@ -105,7 +147,13 @@ async function fetchJson(url, options, context) {
 	return response.json();
 }
 
-async function registeredTokens(project, token, targetEmail) {
+/**
+ * @param {string} project
+ * @param {string} token
+ * @param {string} targetEmail
+ * @param {Fetch} [fetchImpl]
+ */
+export async function registeredTokens(project, token, targetEmail, fetchImpl = fetch) {
 	const headers = { authorization: `Bearer ${token}` };
 	const base = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
 		project
@@ -113,7 +161,8 @@ async function registeredTokens(project, token, targetEmail) {
 	const user = await fetchJson(
 		`${base}/users/${encodeURIComponent(targetEmail)}`,
 		{ headers },
-		'Todo user lookup failed'
+		'Todo user lookup failed',
+		fetchImpl
 	);
 	const uid = user.fields?.uid?.stringValue;
 	if (!uid) fail(`Todo user ${targetEmail} has no UID`);
@@ -126,7 +175,8 @@ async function registeredTokens(project, token, targetEmail) {
 		const page = await fetchJson(
 			`${base}/notifications/${encodeURIComponent(uid)}/tokens?${query}`,
 			{ headers },
-			'Notification-token lookup failed'
+			'Notification-token lookup failed',
+			fetchImpl
 		);
 		for (const document of page.documents ?? []) {
 			tokens.push(decodeURIComponent(document.name.split('/').at(-1)));
@@ -138,6 +188,10 @@ async function registeredTokens(project, token, targetEmail) {
 	return tokens;
 }
 
+/**
+ * @param {{error?: {details?: Array<{errorCode?: string}>, status?: string}}} body
+ * @param {number} status
+ */
 function deliveryErrorCode(body, status) {
 	for (const detail of body.error?.details ?? []) {
 		if (detail.errorCode) return detail.errorCode;
@@ -145,8 +199,21 @@ function deliveryErrorCode(body, status) {
 	return body.error?.status ?? `HTTP_${status}`;
 }
 
-async function deliver(project, accessTokenValue, registrationToken, dryRun) {
-	const response = await fetch(
+/**
+ * @param {string} project
+ * @param {string} accessTokenValue
+ * @param {string} registrationToken
+ * @param {boolean} dryRun
+ * @param {Fetch} [fetchImpl]
+ */
+export async function deliver(
+	project,
+	accessTokenValue,
+	registrationToken,
+	dryRun,
+	fetchImpl = fetch
+) {
+	const response = await fetchImpl(
 		`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(project)}/messages:send`,
 		{
 			method: 'POST',
@@ -181,18 +248,35 @@ async function deliver(project, accessTokenValue, registrationToken, dryRun) {
 	return { code: deliveryErrorCode(body, response.status), ok: false };
 }
 
-async function main() {
-	const options = parseArguments(process.argv.slice(2));
+/**
+ * @param {{
+ *   argv?: string[],
+ *   env?: Record<string, string | undefined>,
+ *   fetchImpl?: Fetch,
+ *   getAccessToken?: () => Promise<string>,
+ *   log?: (message: string) => void
+ * }} [options]
+ */
+export async function main({
+	argv = process.argv.slice(2),
+	env = process.env,
+	fetchImpl = fetch,
+	getAccessToken = () => accessToken({ env }),
+	log = console.log
+} = {}) {
+	const options = parseArguments(argv);
 	if (options.help) {
 		usage();
 		return;
 	}
 
-	const project = projectId();
-	const token = await accessToken();
-	const tokens = await registeredTokens(project, token, options.targetEmail);
+	const project = projectId(env);
+	const token = await getAccessToken();
+	const tokens = await registeredTokens(project, token, options.targetEmail, fetchImpl);
 	const results = await Promise.all(
-		tokens.map((registrationToken) => deliver(project, token, registrationToken, options.dryRun))
+		tokens.map((registrationToken) =>
+			deliver(project, token, registrationToken, options.dryRun, fetchImpl)
+		)
 	);
 	const failures = results.flatMap((result, index) =>
 		result.ok ? [] : [{ code: result.code, index }]
@@ -205,11 +289,18 @@ async function main() {
 		failureCount: failures.length,
 		failures
 	};
-	console.log(JSON.stringify(summary));
-	if (failures.length > 0) process.exitCode = 1;
+	log(JSON.stringify(summary));
+	return summary;
 }
 
-main().catch((error) => {
-	console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-	process.exitCode = 1;
-});
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+	main()
+		.then((summary) => {
+			if (summary && summary.failureCount > 0) process.exitCode = 1;
+		})
+		.catch((error) => {
+			console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+			process.exitCode = 1;
+		});
+}
