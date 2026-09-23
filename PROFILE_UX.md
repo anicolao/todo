@@ -1,6 +1,6 @@
 # Profile: a phone-first settings redesign
 
-**Status: proposed for review.** This follows the full-height editing language established by [Task details](TODO_DETAILS_UX.md) and [List details](LIST_DETAILS_UX.md): warm neutral surfaces, grouped settings rows, readable summaries, dedicated child screens, and explicit save boundaries.
+**Status: implemented for review.** This follows the full-height editing language established by [Task details](TODO_DETAILS_UX.md) and [List details](LIST_DETAILS_UX.md): warm neutral surfaces, grouped settings rows, readable summaries, dedicated child screens, and explicit save boundaries.
 
 Replace the current stack of unrelated cards with a Profile overview. Keep identity read-only, group the existing appearance and label-visibility capabilities, and move each editable setting to a focused screen. Sign out becomes a clearly named account action with confirmation rather than a loose button at the bottom of a card.
 
@@ -240,7 +240,7 @@ Approve these choices before implementation:
 7. Open Sign out, verify the named account, cancel via Back and Keep me signed in, simulate failure, then successfully sign out and reach Login without stale account content.
 8. Repeat key screens at 320 × 568, landscape, 200% text, keyboard open, keyboard-only navigation, screen reader, dark mode, reduced motion, missing avatar, and failed background image.
 
-After design approval, add deterministic emulator E2E stories with desktop and phone screenshots, following the project's [E2E guide](E2E_GUIDE.md). Real-device keyboard, native Back, push/auth state, and assistive-technology checks remain manual acceptance evidence.
+Deterministic emulator E2E stories now cover the overview, independent saves, background validation, label visibility, sign-out confirmation, and the 320px/200%-text layout. Review the [desktop story](tests/e2e/019-profile-settings/stories/Desktop-Chrome/README.md) and [phone story](tests/e2e/019-profile-settings/stories/Pixel-5/README.md). Real-device keyboard, native Back, push/auth state, and assistive-technology checks remain manual acceptance evidence.
 
 ## Generated assets and provenance
 

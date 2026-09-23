@@ -56,8 +56,21 @@ async function openVisibilityDialog(page: Page) {
 	if (new URL(page.url()).pathname !== '/profile') {
 		await navigateFromDrawer(page, 'Profile', /\/profile$/);
 	}
-	await page.getByRole('button', { name: 'Configure Hidden Lists' }).click();
-	await expect(page.getByRole('heading', { name: 'Configure Hidden Lists' })).toBeVisible();
+	await page.getByRole('button', { name: /Label visibility/ }).click();
+	await expect(page.getByRole('heading', { name: 'Label visibility', exact: true })).toBeVisible();
+}
+
+async function openLabelVisibility(page: Page, name: string) {
+	await page
+		.getByRole('button', { name: new RegExp(`^${name} (Visible|Hidden|Fully hidden)`) })
+		.click();
+	await expect(page.getByRole('heading', { name: 'Visibility', exact: true })).toBeVisible();
+}
+
+async function saveLabelVisibility(page: Page, value: 'Visible' | 'Hidden' | 'Fully hidden') {
+	await page.getByRole('radio', { name: new RegExp(`^${value}`) }).check();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Label visibility', exact: true })).toBeVisible();
 }
 
 async function navigateFromDrawer(
@@ -180,9 +193,8 @@ test('label visibility survives rename and controls aggregate results', async ({
 	});
 
 	await openVisibilityDialog(page);
-	const archiveVisibility = page.getByLabel(`Visibility for ${archiveName}`);
-	await archiveVisibility.selectOption('hidden');
-	await expect(archiveVisibility).toHaveValue('hidden');
+	await openLabelVisibility(page, archiveName);
+	await saveLabelVisibility(page, 'Hidden');
 
 	await helper.step('archive-hidden-setting-applied', {
 		description: 'Archive is configured as Hidden in the label settings.',
@@ -190,11 +202,11 @@ test('label visibility survives rename and controls aggregate results', async ({
 			{
 				spec: 'Archive is Hidden',
 				check: async () =>
-					expect(page.getByLabel(`Visibility for ${archiveName}`)).toHaveValue('hidden')
+					expect(page.getByRole('button', { name: /Archive Hidden/ })).toBeVisible()
 			}
 		]
 	});
-	await page.getByRole('button', { name: 'Done' }).click();
+	await page.getByRole('button', { name: '‹ Profile', exact: true }).click();
 
 	await navigateFromDrawer(page, 'All', /\/all$/);
 	await expect(page.getByLabel(`Task ${taskName}`)).toHaveCount(0);
@@ -218,29 +230,28 @@ test('label visibility survives rename and controls aggregate results', async ({
 	await closeSettings(page);
 	await expect(page.getByRole('banner').getByText(renamedArchive)).toBeVisible({ timeout: 10000 });
 	await openVisibilityDialog(page);
-	const renamedVisibility = page.getByLabel(`Visibility for ${renamedArchive}`);
-	await expect(renamedVisibility).toHaveValue('hidden');
+	await openLabelVisibility(page, renamedArchive);
+	await expect(page.getByRole('radio', { name: /^Hidden/ })).toBeChecked();
 
 	await helper.step('hidden-status-survives-rename', {
 		description: 'Renaming Archive to Someday does not break the id-based visibility property.',
 		verifications: [
 			{
 				spec: 'Someday remains Hidden',
-				check: async () => expect(renamedVisibility).toHaveValue('hidden')
+				check: async () => expect(page.getByRole('radio', { name: /^Hidden/ })).toBeChecked()
 			}
 		]
 	});
 
-	await renamedVisibility.selectOption('fully_hidden');
-	await expect(renamedVisibility).toHaveValue('fully_hidden');
-	await page.getByRole('button', { name: 'Done' }).click();
+	await saveLabelVisibility(page, 'Fully hidden');
+	await page.getByRole('button', { name: '‹ Profile', exact: true }).click();
 	await openDrawer(page);
 	await expect(topLevelSidebarItem(page, renamedArchive)).toHaveCount(0);
 	await closeDrawer(page);
 	await page.goBack();
 	await expect(page).toHaveURL(/\/profile$/, { timeout: 10000 });
-	await page.getByRole('button', { name: 'Configure Hidden Lists' }).click();
-	await expect(page.getByLabel(`Visibility for ${renamedArchive}`)).toHaveValue('fully_hidden');
+	await page.getByRole('button', { name: /Label visibility/ }).click();
+	await expect(page.getByRole('button', { name: /Someday Fully hidden/ })).toBeVisible();
 
 	await helper.step('fully-hidden-label-is-recoverable-only-in-settings', {
 		description:
@@ -251,15 +262,16 @@ test('label visibility survives rename and controls aggregate results', async ({
 				check: async () => expect(topLevelSidebarItem(page, renamedArchive)).toHaveCount(0)
 			},
 			{
-				spec: 'The fully-hidden label remains in Configure Hidden Lists',
+				spec: 'The fully-hidden label remains in Profile label visibility',
 				check: async () =>
-					expect(page.getByLabel(`Visibility for ${renamedArchive}`)).toHaveValue('fully_hidden')
+					expect(page.getByRole('button', { name: /Someday Fully hidden/ })).toBeVisible()
 			}
 		]
 	});
 
-	await page.getByLabel(`Visibility for ${renamedArchive}`).selectOption('visible');
-	await page.getByRole('button', { name: 'Done' }).click();
+	await openLabelVisibility(page, renamedArchive);
+	await saveLabelVisibility(page, 'Visible');
+	await page.getByRole('button', { name: '‹ Profile', exact: true }).click();
 	await navigateFromDrawer(page, 'All', /\/all$/);
 	await expect(page.getByLabel(`Task ${taskName}`)).toBeVisible({ timeout: 10000 });
 	await openDrawer(page);
