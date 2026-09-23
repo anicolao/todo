@@ -431,6 +431,9 @@
 	}
 	.editor-shell {
 		height: 100%;
+		box-sizing: border-box;
+		padding-left: var(--safe-area-left);
+		padding-right: var(--safe-area-right);
 		display: flex;
 		flex-direction: column;
 	}
@@ -438,7 +441,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: max(12px, env(safe-area-inset-top)) 12px 12px;
+		padding: max(12px, var(--safe-area-top)) 12px 12px;
 		flex-shrink: 0;
 	}
 	h1 {
@@ -571,7 +574,7 @@
 		color: var(--detail-accent);
 	}
 	footer {
-		padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+		padding: 12px 16px max(16px, var(--safe-area-bottom));
 		flex-shrink: 0;
 		border-top: 1px solid var(--detail-border);
 	}

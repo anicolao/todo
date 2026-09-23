@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../safe-area.css';
 	console.log('src/routes/+layout.svelte');
 	import { goto } from '$app/navigation';
 	import { signed_in, signed_out } from '$lib/components/auth';

@@ -21,7 +21,20 @@
 	on:SMUIDialog:closed={closeHandler}
 	aria-labelledby={labelledby}
 	aria-describedby={describedby}
-	class={className}
+	class={`safe-area-dialog ${className}`}
 >
 	<slot />
 </Dialog>
+
+<style>
+	:global(.safe-area-dialog) {
+		padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom)
+			var(--safe-area-left);
+		box-sizing: border-box;
+	}
+	:global(.safe-area-dialog .mdc-dialog__surface) {
+		max-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 32px);
+		max-height: calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom) - 32px);
+		max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right) - 32px);
+	}
+</style>

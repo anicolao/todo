@@ -152,11 +152,12 @@
 		padding: 0.5rem;
 	}
 	@media (max-width: 540px) {
-		:global(.hidden-list-dialog .mdc-dialog__surface) {
+		:global(.safe-area-dialog.hidden-list-dialog .mdc-dialog__surface) {
 			border-radius: 0;
-			height: 100vh;
-			max-height: 100vh;
-			max-width: 100vw;
+			height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
+			height: calc(100dvh - var(--safe-area-top) - var(--safe-area-bottom));
+			max-height: 100%;
+			max-width: calc(100vw - var(--safe-area-left) - var(--safe-area-right));
 			width: 100vw;
 		}
 		.label-setting-row {
