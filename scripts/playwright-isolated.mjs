@@ -37,7 +37,8 @@ const ports = {
 	firestore: portBase + 1,
 	auth: portBase + 2,
 	ui: portBase + 3,
-	hub: portBase + 4
+	hub: portBase + 4,
+	logging: portBase + 5
 };
 const projectId = process.env.E2E_FIREBASE_PROJECT_ID || `todo-e2e-${hash}`;
 const e2eDir = path.join(worktreePath, '.e2e');
@@ -69,6 +70,10 @@ fs.writeFileSync(
 				hub: {
 					host,
 					port: ports.hub
+				},
+				logging: {
+					host,
+					port: ports.logging
 				},
 				singleProjectMode: true
 			}
@@ -102,7 +107,7 @@ console.log(
 	[
 		`E2E worktree: ${worktreePath}`,
 		`E2E project: ${projectId}`,
-		`E2E ports: app=${ports.app}, firestore=${ports.firestore}, auth=${ports.auth}, ui=${ports.ui}, hub=${ports.hub}`
+		`E2E ports: app=${ports.app}, firestore=${ports.firestore}, auth=${ports.auth}, ui=${ports.ui}, hub=${ports.hub}, logging=${ports.logging}`
 	].join('\n')
 );
 
