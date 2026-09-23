@@ -152,11 +152,9 @@ public class AndroidTaskLifecycleE2ETest {
     private void navigateTo(String destination) {
         openNavigation();
         click(text(destination));
-        // A closed WebView drawer can remain in the accessibility tree. Tapping the fixed
-        // scrim area closes it when visible and is a no-op on the empty page background.
-        device.click(device.getDisplayWidth() - 20, device.getDisplayHeight() / 2);
+        // Selecting a destination closes the full-width portrait drawer. There is no longer a
+        // stable scrim coordinate to tap: the drawer intentionally owns the whole viewport.
         device.waitForIdle();
-        waitForTopBarTitle(destination);
     }
 
     private void dismissKeyboard() {

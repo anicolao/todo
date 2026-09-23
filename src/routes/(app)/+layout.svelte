@@ -57,7 +57,8 @@
 	let touchFormFactor = false;
 	let reducedMotion = false;
 	let transitionsReady = false;
-	let routeMovement: ScreenMovement = 'forward';
+	let routeMovement: ScreenMovement = 'none';
+	let routeTransitioning = false;
 	let plannedNavigation = false;
 	let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -66,8 +67,7 @@
 	$: persistentDrawer = width > MOBILE_LAYOUT_WIDTH || mobileLandscape;
 	$: drawerOpen = persistentDrawer;
 	$: screenKey = `${$page.url.pathname}${$page.url.search}`;
-	$: routeMotionEnabled =
-		transitionsReady && touchFormFactor && !reducedMotion && routeMovement !== 'none';
+	$: routeMotionEnabled = transitionsReady && touchFormFactor && !reducedMotion;
 
 	function navigationId(url: URL) {
 		return url.searchParams.get('listId') || url.searchParams.get('labelId') || '';
@@ -105,6 +105,11 @@
 		goto('/' + name);
 	}
 
+	function finishRouteTransition(event: Event) {
+		const element = event.currentTarget as HTMLElement;
+		if (element.dataset.screenKey === screenKey) routeTransitioning = false;
+	}
+
 	onMount(() => {
 		const touchQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
 		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -129,6 +134,7 @@
 		}
 		plannedNavigation = false;
 		if (!transitionsReady || !touchFormFactor || reducedMotion || routeMovement === 'none') return;
+		routeTransitioning = true;
 
 		const fromKey = `${navigation.from.url.pathname}${navigation.from.url.search}`;
 		const element = document.getElementById(
@@ -423,14 +429,16 @@
 		<Scrim fixed={false} />
 		<AppContent class="app-content">
 			<div class="backdrop" style:background-image={bgStyle}>
-				<div class="route-stage">
+				<div class="route-stage" class:transition-active={routeTransitioning}>
 					{#if routeMotionEnabled}
 						{#key screenKey}
 							<div
 								class="route-screen"
+								data-screen-key={screenKey}
 								data-transition-direction={routeMovement}
 								in:mobileScreenSlide={{ movement: routeMovement, phase: 'in' }}
 								out:mobileScreenSlide={{ movement: routeMovement, phase: 'out' }}
+								on:introend={finishRouteTransition}
 								on:outrostart={hideOutgoingScreen}
 							>
 								<RouteTransitionContent {screenKey}><slot /></RouteTransitionContent>
@@ -648,11 +656,17 @@
 		flex-grow: 1;
 		min-height: 0;
 		min-width: 0;
-		overflow: hidden;
+		overflow: auto;
 
 		background-size: cover;
 	}
 	.route-stage {
+		display: contents;
+	}
+	.route-screen {
+		display: contents;
+	}
+	.route-stage.transition-active {
 		display: grid;
 		flex: 1 1 auto;
 		grid-template-areas: 'screen';
@@ -660,7 +674,8 @@
 		min-width: 0;
 		overflow: hidden;
 	}
-	.route-screen {
+	.route-stage.transition-active > .route-screen {
+		display: block;
 		grid-area: screen;
 		min-height: 0;
 		min-width: 0;
