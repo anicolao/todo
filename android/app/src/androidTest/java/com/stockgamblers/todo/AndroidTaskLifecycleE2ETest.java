@@ -38,6 +38,9 @@ public class AndroidTaskLifecycleE2ETest {
     // WebView's x86_64 and arm64 rasterizers can disagree by one channel value
     // at a few antialiased glyph-edge pixels while rendering the same layout.
     private static final int MAX_CHANNEL_DELTA = 1;
+    // Rounded card edges also produce a handful of isolated architecture-specific samples.
+    // Keep this below 0.04% of the 393x782 captured WebView so visible changes still fail.
+    private static final int MAX_DIFFERENT_PIXELS = 100;
 
     private final Context targetContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -322,8 +325,9 @@ public class AndroidTaskLifecycleE2ETest {
         actual.recycle();
         assertTrue(
                 screenshotName + " differs from its baseline by " + differentPixels
-                        + " pixels; per-channel tolerance is " + MAX_CHANNEL_DELTA,
-                differentPixels == 0);
+                        + " pixels; tolerance is " + MAX_DIFFERENT_PIXELS
+                        + " pixels after a per-channel tolerance of " + MAX_CHANNEL_DELTA,
+                differentPixels <= MAX_DIFFERENT_PIXELS);
     }
 
     private boolean pixelsDiffer(int expected, int actual) {
