@@ -35,6 +35,9 @@ public class AndroidTaskLifecycleE2ETest {
     private static final String SHELL_OUTPUT_DIRECTORY =
             "/sdcard/Download/todo-android-e2e";
     private static final long UI_TIMEOUT_MS = 30_000;
+    // WebView's x86_64 and arm64 rasterizers can disagree by one channel value
+    // at a few antialiased glyph-edge pixels while rendering the same layout.
+    private static final int MAX_CHANNEL_DELTA = 1;
 
     private final Context targetContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -147,6 +150,10 @@ public class AndroidTaskLifecycleE2ETest {
         }
         device.waitForIdle();
         waitFor(input("New list"));
+        // The input becomes discoverable before the drawer's CSS entrance finishes. Clicking a
+        // destination during that entrance can leave SMUI's visual open state behind even though
+        // the route changed, so wait for the 280 ms mobile transition to settle first.
+        SystemClock.sleep(350);
     }
 
     private void navigateTo(String destination) {
@@ -295,7 +302,7 @@ public class AndroidTaskLifecycleE2ETest {
 
         int differentPixels = 0;
         for (int index = 0; index < actualPixels.length; index++) {
-            if (expectedPixels[index] != actualPixels[index]) {
+            if (pixelsDiffer(expectedPixels[index], actualPixels[index])) {
                 differentPixels++;
                 diffPixels[index] = Color.MAGENTA;
             } else {
@@ -315,8 +322,15 @@ public class AndroidTaskLifecycleE2ETest {
         actual.recycle();
         assertTrue(
                 screenshotName + " differs from its baseline by " + differentPixels
-                        + " pixels; tolerance is exactly 0",
+                        + " pixels; per-channel tolerance is " + MAX_CHANNEL_DELTA,
                 differentPixels == 0);
+    }
+
+    private boolean pixelsDiffer(int expected, int actual) {
+        return Math.abs(Color.alpha(expected) - Color.alpha(actual)) > MAX_CHANNEL_DELTA
+                || Math.abs(Color.red(expected) - Color.red(actual)) > MAX_CHANNEL_DELTA
+                || Math.abs(Color.green(expected) - Color.green(actual)) > MAX_CHANNEL_DELTA
+                || Math.abs(Color.blue(expected) - Color.blue(actual)) > MAX_CHANNEL_DELTA;
     }
 
     private Bitmap waitForStableScreenshot() {
