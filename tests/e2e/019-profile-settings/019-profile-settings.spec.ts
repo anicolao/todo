@@ -52,7 +52,30 @@ test('profile settings save independently and sign out confirms', async ({ page 
 
 	await profile.getByRole('button', { name: /Item spacing Compact/ }).click();
 	await expect(page.getByRole('heading', { name: 'Item spacing', exact: true })).toBeFocused();
+	const previewItems = page.locator('.spacing-preview .container');
+	await helper.step('compact_spacing_preview', {
+		verifications: [
+			{
+				spec: 'Compact preview renders three real, non-interactive task rows',
+				check: async () => {
+					await expect(previewItems).toHaveCount(3);
+					await expect(previewItems).toHaveClass([/high/, /high/, /high/]);
+					await expect(
+						page.locator('.spacing-preview input[aria-label="Task Pick up groceries"]')
+					).toHaveAttribute('readonly', '');
+				}
+			}
+		]
+	});
 	await page.getByRole('radio', { name: /^Comfortable/ }).check();
+	await helper.step('comfortable_spacing_preview', {
+		verifications: [
+			{
+				spec: 'Comfortable applies the production low-density class to all preview rows',
+				check: async () => await expect(previewItems).toHaveClass([/low/, /low/, /low/])
+			}
+		]
+	});
 	await page.getByRole('button', { name: '‹ Profile', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Discard changes?', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Discard changes', exact: true }).click();

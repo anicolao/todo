@@ -12,26 +12,42 @@ Profile uses focused setting screens, independent confirmed saves, searchable sh
 
 ![profile_overview](screenshots/001-profile-overview.png)
 
-### Step 002: spacing_saved
+### Step 002: compact_spacing_preview
+
+**Verifications:**
+
+- [x] Compact preview renders three real, non-interactive task rows
+
+![compact_spacing_preview](screenshots/002-compact-spacing-preview.png)
+
+### Step 003: comfortable_spacing_preview
+
+**Verifications:**
+
+- [x] Comfortable applies the production low-density class to all preview rows
+
+![comfortable_spacing_preview](screenshots/003-comfortable-spacing-preview.png)
+
+### Step 004: spacing_saved
 
 **Verifications:**
 
 - [x] Discard leaves Compact intact; Save persists Comfortable through reload
 
-![spacing_saved](screenshots/002-spacing-saved.png)
+![spacing_saved](screenshots/004-spacing-saved.png)
 
-### Step 003: background_and_labels
+### Step 005: background_and_labels
 
 **Verifications:**
 
 - [x] Invalid background input never applies, Default saves explicitly, and one searched label saves as Hidden
 
-![background_and_labels](screenshots/003-background-and-labels.png)
+![background_and_labels](screenshots/005-background-and-labels.png)
 
-### Step 004: signout_confirmation
+### Step 006: signout_confirmation
 
 **Verifications:**
 
 - [x] Sign out is cancellable and identifies the account before the explicit action
 
-![signout_confirmation](screenshots/004-signout-confirmation.png)
+![signout_confirmation](screenshots/006-signout-confirmation.png)
