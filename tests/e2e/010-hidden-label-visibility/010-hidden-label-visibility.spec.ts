@@ -1,6 +1,7 @@
 import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 import { resetEmulators } from '../helpers/emulator';
+import { ensureListMenuVisible } from '../helpers/task-details';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 test.beforeEach(async ({ request }) => {
@@ -8,33 +9,18 @@ test.beforeEach(async ({ request }) => {
 });
 
 async function openDrawer(page: Page) {
-	const drawer = page.locator('.mdc-drawer');
-	const isModal = await drawer.evaluate((element) =>
-		element.classList.contains('mdc-drawer--modal')
-	);
-	if (
-		isModal &&
-		!(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--open')))
-	) {
-		await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click');
-		await expect(drawer).toHaveClass(/mdc-drawer--open/, { timeout: 10000 });
-		await expect
-			.poll(async () => {
-				const box = await drawer.boundingBox();
-				return box ? Math.round(box.x) : -999;
-			})
-			.toBeGreaterThanOrEqual(0);
-	}
+	await ensureListMenuVisible(page);
 }
 
 async function closeDrawer(page: Page) {
-	const drawer = page.locator('.mdc-drawer');
-	if (
-		(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--modal'))) &&
-		(await drawer.evaluate((element) => element.classList.contains('mdc-drawer--open')))
-	) {
-		await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click');
-		await expect(drawer).not.toHaveClass(/mdc-drawer--open/, { timeout: 10000 });
+	const newList = page.getByLabel('New list');
+	if ((page.viewportSize()?.width ?? 1280) <= 720 && (await newList.isVisible())) {
+		await expect(async () => {
+			if (await newList.isVisible()) {
+				await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click');
+			}
+			await expect(newList).not.toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 10000 });
 	}
 }
 
