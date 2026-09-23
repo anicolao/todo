@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import RecipientAvatar from './RecipientAvatar.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { store, handleDocChanges, type GlobalState } from '$lib/store';
 	import { watch } from './ActionLog';
@@ -73,13 +74,23 @@
 				.map((label) => label.name)
 				.join(', ') + (selectedLabels.length > 2 ? ` +${selectedLabels.length - 2} more` : '')
 		: 'No labels';
-	$: filteredPeople = [...people]
-		.sort(
-			(a, b) =>
-				Number(b.status !== 'available' && b.status !== 'rejected') -
-				Number(a.status !== 'available' && a.status !== 'rejected')
-		)
-		.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase()));
+	$: filteredPeople = people.filter((user) =>
+		`${user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase())
+	);
+	$: sharingGroups = [
+		{
+			id: 'shared-people',
+			title: 'Shared with',
+			people: filteredPeople.filter((user) =>
+				['shared', 'invitation', 'removal'].includes(user.status)
+			)
+		},
+		{
+			id: 'available-people',
+			title: 'Add people',
+			people: filteredPeople.filter((user) => ['available', 'rejected'].includes(user.status))
+		}
+	];
 	$: filteredLabels = labels.filter((label) =>
 		label.name.toLowerCase().includes(search.toLowerCase())
 	);
@@ -450,40 +461,49 @@
 					{filteredPeople.length}
 					{filteredPeople.length === 1 ? 'person' : 'people'}
 				</p>
-				<div class="choices">
-					{#each filteredPeople as user (user.uid)}
-						<label class="choice" class:pending={['invitation', 'removal'].includes(user.status)}>
-							<span class="avatar" aria-hidden="true"
-								>{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</span
-							><span
-								><strong>{user.name || user.email || 'Unavailable person'}</strong><small
-									>{user.email || 'Email unavailable'}</small
-								><small
-									>{user.status === 'invitation'
-										? 'Invitation pending'
-										: user.status === 'removal'
-										? 'Removal pending'
-										: selected[user.uid] !== initial[user.uid]
-										? selected[user.uid]
-											? 'Invite on Save'
-											: 'Remove on Save'
-										: user.status === 'shared'
-										? 'Shared'
-										: user.status === 'rejected'
-										? 'Invitation declined'
-										: 'Not shared'}</small
-								></span
-							>
-							{#if !['invitation', 'removal'].includes(user.status)}<input
-									type="checkbox"
-									aria-label={`Share with ${user.email || user.name}`}
-									checked={selected[user.uid] ?? false}
-									disabled={saving || completionOnly || !user.email}
-									on:change={() => toggle(user.uid)}
-								/>{/if}
-						</label>
-					{/each}
-				</div>
+				{#each sharingGroups as group (group.id)}
+					{#if group.people.length}
+						<section class="sharing-group" aria-labelledby={group.id}>
+							<h2 class="section-label" id={group.id}>{group.title}</h2>
+							<div class="choices">
+								{#each group.people as user (user.uid)}
+									<label
+										class="choice recipient"
+										class:pending={['invitation', 'removal'].includes(user.status)}
+									>
+										<RecipientAvatar photo={user.photo} name={user.name || user.email || '?'} />
+										<span
+											><strong>{user.name || user.email || 'Unavailable person'}</strong><small
+												>{user.email || 'Email unavailable'}</small
+											><small
+												>{user.status === 'invitation'
+													? 'Invitation pending'
+													: user.status === 'removal'
+													? 'Removal pending'
+													: selected[user.uid] !== initial[user.uid]
+													? selected[user.uid]
+														? 'Invite on Save'
+														: 'Remove on Save'
+													: user.status === 'shared'
+													? 'Shared'
+													: user.status === 'rejected'
+													? 'Invitation declined'
+													: 'Not shared'}</small
+											></span
+										>
+										{#if !['invitation', 'removal'].includes(user.status)}<input
+												type="checkbox"
+												aria-label={`Share with ${user.email || user.name}`}
+												checked={selected[user.uid] ?? false}
+												disabled={saving || completionOnly || !user.email}
+												on:change={() => toggle(user.uid)}
+											/>{/if}
+									</label>
+								{/each}
+							</div>
+						</section>
+					{/if}
+				{/each}
 				{#if !filteredPeople.length}<p>
 						{people.length ? 'No matching people' : 'No other people available yet'}
 					</p>{/if}
@@ -749,11 +769,11 @@
 	.pending {
 		cursor: default;
 	}
-	.avatar {
-		background: var(--bg);
-		border-radius: 50%;
-		text-align: center;
-		padding: 6px;
+	.recipient {
+		grid-template-columns: 40px minmax(0, 1fr) 28px;
+	}
+	.sharing-group {
+		margin-top: 24px;
 	}
 	.notice {
 		overflow-wrap: anywhere;

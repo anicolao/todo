@@ -1,6 +1,6 @@
 # List settings implementation review
 
-The list details dialog now opens a phone settings overview. Name, Sharing, and Labels each have their own Save; closing the overview never undoes a saved setting. Delete is a settings row followed by a dedicated confirmation.
+The list details dialog now opens a phone settings overview. Name, Sharing, and Labels each have their own Save; closing the overview never undoes a saved setting. Delete is a settings row followed by a dedicated confirmation. Sharing shows profile photos and separate **Shared with** (including pending invitations/removals) and **Add people** cards.
 
 ## Review the running UI
 
@@ -26,6 +26,8 @@ Existing [label navigation/query ordering](../../tests/e2e/005-labels/README.md)
 - Request IDs at the cached timestamp boundary prevent a same-second reload from dropping newly created lists. Existing caches without this metadata retain the previous replay policy until refreshed. Concurrent list listeners consult current replay boundaries so refreshing a saved setting does not replay its actions twice.
 
 ## Validation
+
+The sharing follow-up verifies loaded profile photos, missing/broken-photo fallbacks, status-based groups, stable draft rows, and search across both groups on desktop and phone. Stories 006 and 018 use a pinned local portrait fixture, with refreshed review screenshots. The full functional E2E suite passes **45 tests (19 existing skips)** and the unit suite passes **117 tests (1 existing skip)**. All four sharing stories pass exact screenshot comparison on macOS Chromium; the list-settings review now has **60 frames** across its 10 desktop/phone stories.
 
 The CI follow-up fixes a new-list creation race: editor permissions and the initial name now finish writing before the list is published in navigation. The existing “active list expands every containing label” phone scenario opens settings immediately after creation and passed 20 consecutive runs after the fix. The full functional E2E suite passed **45 tests (19 existing skips)**, and the unit suite passed **117 tests (1 existing skip)**. No waits or retries were added to hide the failure. The follow-up exact screenshot run passed 44 tests; the existing desktop date-picker story differed by six pixels in its externally hosted background avatar (also reproduced in isolation). Its dialog and functional assertions passed; the baseline was not changed.
 
