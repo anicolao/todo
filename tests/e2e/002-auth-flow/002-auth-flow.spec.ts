@@ -49,11 +49,13 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 			{ spec: 'URL is /profile', check: async () => expect(page).toHaveURL(/\/profile/) },
 			{
 				spec: 'Email is visible',
-				check: async () => expect(page.locator('p', { hasText: 'test@example.com' })).toBeVisible()
+				check: async () =>
+					expect(page.getByText('test@example.com', { exact: true }).first()).toBeVisible()
 			},
 			{
 				spec: 'Name is visible',
-				check: async () => expect(page.locator('p', { hasText: 'Test User' })).toBeVisible()
+				check: async () =>
+					expect(page.getByText('Test User', { exact: true }).first()).toBeVisible()
 			}
 		]
 	});
@@ -111,7 +113,8 @@ test('successful login and profile view', async ({ page }, testInfo) => {
 
 	// Go back to profile for signing out
 	await page.goto('/profile');
-	await page.click('button:has-text("Sign Out")');
+	await page.getByRole('button', { name: /Sign out…/ }).click();
+	await page.getByRole('button', { name: 'Sign out', exact: true }).click();
 
 	await helper.step('after_signout', {
 		description: 'User clicked sign out and should be redirected to login page.',

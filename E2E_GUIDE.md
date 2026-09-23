@@ -104,4 +104,6 @@ See [the task-details review](docs/todo-details-ux/README.md) for story links an
 
 List settings use independent saves and a separate deletion confirmation. Story 006-share-list and stories 015–018 cover the desktop/phone flows, including rejected writes, retry, permission loss, sharing outcomes, and shared deletion. Review links and reproduction commands are in [the list settings implementation review](docs/list-details-ux/README.md).
 
+Profile settings use the same independent-save and full-height child-screen model. Story 019 covers desktop and phone layouts, spacing/background saves, searchable label visibility, sign-out confirmation, and narrow large-text behavior; its generated evidence is under `tests/e2e/019-profile-settings/stories/`.
+
 Their screenshots also use per-project directories and `E2E_COMPARE_SCREENSHOTS=1` for exact comparisons against reviewed macOS Chromium baselines. Do not restore the old Edit List/Done selectors when adding tests: open the relevant setting and use its Save, then Close the overview.

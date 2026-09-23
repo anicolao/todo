@@ -9,6 +9,7 @@ Verify that hiddenness belongs to a label id, survives rename, filters aggregate
 Archive starts as an ordinary visible label containing the source list.
 
 **Verifications:**
+
 - [x] Archive is present in the list-of-lists
 - [x] The archived task exists in its concrete list
 
@@ -19,6 +20,7 @@ Archive starts as an ordinary visible label containing the source list.
 Archive is configured as Hidden in the label settings.
 
 **Verifications:**
+
 - [x] Archive is Hidden
 
 ![archive-hidden-setting-applied](screenshots/002-archive-hidden-setting-applied.png)
@@ -28,6 +30,7 @@ Archive is configured as Hidden in the label settings.
 Aggregate All excludes the source, while opening Archive directly shows it.
 
 **Verifications:**
+
 - [x] The direct Archive view shows the task
 
 ![hidden-label-is-filtered-but-directly-browsable](screenshots/003-hidden-label-is-filtered-but-directly-browsable.png)
@@ -37,6 +40,7 @@ Aggregate All excludes the source, while opening Archive directly shows it.
 Renaming Archive to Someday does not break the id-based visibility property.
 
 **Verifications:**
+
 - [x] Someday remains Hidden
 
 ![hidden-status-survives-rename](screenshots/004-hidden-status-survives-rename.png)
@@ -46,8 +50,9 @@ Renaming Archive to Someday does not break the id-based visibility property.
 Someday disappears from navigation and its direct route, but remains configurable.
 
 **Verifications:**
+
 - [x] The fully-hidden label is absent from the sidebar
-- [x] The fully-hidden label remains in Configure Hidden Lists
+- [x] The fully-hidden label remains in Profile label visibility
 
 ![fully-hidden-label-is-recoverable-only-in-settings](screenshots/005-fully-hidden-label-is-recoverable-only-in-settings.png)
 
@@ -56,6 +61,7 @@ Someday disappears from navigation and its direct route, but remains configurabl
 Returning the same label to Visible restores its task and sidebar position.
 
 **Verifications:**
+
 - [x] The task is visible in All again
 - [x] The renamed label is back in the sidebar
 
