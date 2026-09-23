@@ -1,3 +1,4 @@
+import { installAvatarFixtures, recipientPhoto, expectRecipientPhoto } from '../helpers/avatars';
 import { closeModalDrawerIfOpen, ensureListMenuVisible } from '../helpers/task-details';
 import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { expect, type ConsoleMessage, type Locator, type Page, test } from '@playwright/test';
@@ -18,7 +19,7 @@ const recipient: E2EAuthUser = {
 	email: 'share-recipient@example.com',
 	password: 'password',
 	name: 'Share Recipient',
-	photoUrl: ''
+	photoUrl: recipientPhoto
 };
 
 test.beforeEach(async ({ request }, testInfo) => {
@@ -113,6 +114,8 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 
 	const recipientContext = await browser.newContext({ viewport: ownerPage.viewportSize()! });
 	const recipientPage = await recipientContext.newPage();
+	await installAvatarFixtures(ownerPage);
+	await installAvatarFixtures(recipientPage);
 	const listName = 'Shared Groceries';
 	const ownerTask = 'Owner adds apples';
 	const recipientTask = 'Recipient adds coffee';
@@ -170,6 +173,10 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 		await openEditListDialog(ownerPage);
 		const recipientRow = shareRecipientRow(ownerPage, recipient.email);
 		await expect(recipientRow).toBeVisible();
+		await expectRecipientPhoto(recipientRow);
+		await expect(ownerPage.getByRole('region', { name: 'Add people', exact: true })).toContainText(
+			recipient.email
+		);
 		await recipientRow.locator('input[type="checkbox"]').check({ force: true });
 
 		await helper.step('recipient_selected_for_share', {
@@ -279,7 +286,14 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 		await expect(ownerPage.getByText('No matching people', { exact: true })).toBeVisible();
 		await ownerPage.getByLabel('Search people').fill(recipient.email);
 		await expect(shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox')).toBeChecked();
+		await expect(ownerPage.getByRole('region', { name: 'Shared with', exact: true })).toContainText(
+			recipient.email
+		);
+		await expectRecipientPhoto(shareRecipientRow(ownerPage, recipient.email));
 		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').uncheck();
+		await expect(
+			ownerPage.getByRole('region', { name: 'Shared with', exact: true }).getByRole('checkbox')
+		).not.toBeChecked();
 		await ownerPage.getByRole('button', { name: '‹ Details', exact: true }).click();
 		await ownerPage.getByRole('button', { name: 'Discard changes', exact: true }).click();
 		await setting(ownerPage, 'Sharing');
@@ -290,6 +304,9 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 		await expect(
 			shareRecipientRow(ownerPage, recipient.email).getByText('Not shared', { exact: true })
 		).toBeVisible({ timeout: 15000 });
+		await expect(ownerPage.getByRole('region', { name: 'Add people', exact: true })).toContainText(
+			recipient.email
+		);
 		await helper.step('removal_completed', {
 			verifications: [
 				{
@@ -308,6 +325,9 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').check();
 		await saveSetting(ownerPage);
 		await setting(ownerPage, 'Sharing');
+		await expect(ownerPage.getByRole('region', { name: 'Shared with', exact: true })).toContainText(
+			recipient.email
+		);
 		await helper.step('invitation_pending', {
 			verifications: [
 				{
@@ -335,6 +355,9 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 			.click();
 		await expect(shareRecipientRow(ownerPage, recipient.email)).toContainText(
 			'Invitation declined'
+		);
+		await expect(ownerPage.getByRole('region', { name: 'Add people', exact: true })).toContainText(
+			recipient.email
 		);
 		await shareRecipientRow(ownerPage, recipient.email).getByRole('checkbox').check();
 		await saveSetting(ownerPage);

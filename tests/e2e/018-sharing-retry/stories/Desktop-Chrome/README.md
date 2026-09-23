@@ -1,6 +1,6 @@
 # Scenario: Sharing search and atomic retry
 
-A long directory supports search and missing display names. A denied recipient prevents the whole save; retry creates exactly one request per selected person.
+Profile photos and separate Shared with/Add people groups survive searching and sharing updates. Missing or broken photos fall back safely. A denied recipient prevents the whole save; retry creates exactly one request per selected person.
 
 ## Steps
 
@@ -24,3 +24,10 @@ A long directory supports search and missing display names. A denied recipient p
 - [x] Retry sends exactly one invitation to each recipient and pending rows cannot be selected again
 
 ![retry_sends_once](screenshots/003-retry-sends-once.png)
+
+### Step 004: shared_and_available_groups
+
+**Verifications:**
+- [x] Pending recipients have photos in Shared with; uninvited matches have their own Add people group
+
+![shared_and_available_groups](screenshots/004-shared-and-available-groups.png)

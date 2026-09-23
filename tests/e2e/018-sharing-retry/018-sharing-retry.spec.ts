@@ -1,3 +1,9 @@
+import {
+	installAvatarFixtures,
+	recipientPhoto,
+	brokenPhoto,
+	expectRecipientPhoto
+} from '../helpers/avatars';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { resetEmulators, firestoreEmulatorOrigin, emulatorProjectId } from '../helpers/emulator';
@@ -26,6 +32,7 @@ test('search preserves selection and failed multi-person sharing retries once', 
 }, testInfo) => {
 	test.setTimeout(120000);
 	await resetEmulators(request);
+	await installAvatarFixtures(page);
 	await seedAuthUsers(request, [owner]);
 	await installAuthSession(page, request, owner);
 	const documents = `${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents`;
@@ -38,7 +45,10 @@ test('search preserves selection and failed multi-person sharing retries once', 
 					uid: { stringValue: `person-${index}` },
 					email: { stringValue: email },
 					name: { stringValue: index === 0 ? '' : `Person ${index}` },
-					photo: { stringValue: '' }
+					photo: {
+						stringValue:
+							index === 0 || index === 24 ? recipientPhoto : index === 1 ? brokenPhoto : ''
+					}
 				}
 			}
 		});
@@ -56,15 +66,30 @@ test('search preserves selection and failed multi-person sharing retries once', 
 	);
 	helper.setMetadata(
 		'Sharing search and atomic retry',
-		'A long directory supports search and missing display names. A denied recipient prevents the whole save; retry creates exactly one request per selected person.'
+		'Profile photos and separate Shared with/Add people groups survive searching and sharing updates. Missing or broken photos fall back safely. A denied recipient prevents the whole save; retry creates exactly one request per selected person.'
 	);
 	await expect(settings(page).getByRole('checkbox')).toHaveCount(25);
+	const addPeople = page.getByRole('region', { name: 'Add people', exact: true });
+	const sharedPeople = page.getByRole('region', { name: 'Shared with', exact: true });
+	await expect(addPeople.getByRole('checkbox')).toHaveCount(25);
+	await expect(sharedPeople).toHaveCount(0);
+	await expectRecipientPhoto(addPeople.locator('.choice').filter({ hasText: longEmail }));
+	// Broken and absent photos have a readable fallback, without broken image icons.
+	for (const email of ['person-1@example.com', 'person-2@example.com']) {
+		const row = addPeople.locator('.choice').filter({ hasText: email });
+		await expect(row.locator('img')).toHaveCount(0);
+		await expect(row.locator('.avatar')).toHaveText(/P[12]/);
+	}
 	await page.getByLabel('Search people').fill(longEmail);
 	await page.getByRole('checkbox', { name: `Share with ${longEmail}`, exact: true }).check();
 	await page.getByLabel('Search people').fill('person-24@example.com');
 	await page
 		.getByRole('checkbox', { name: 'Share with person-24@example.com', exact: true })
 		.check();
+	await expect(
+		addPeople.getByRole('checkbox', { name: 'Share with person-24@example.com', exact: true })
+	).toBeChecked();
+	await expect(sharedPeople).toHaveCount(0);
 	await page.getByLabel('Search people').fill('nothing matches');
 	await expect(page.getByText('No matching people', { exact: true })).toBeVisible();
 	await page.getByLabel('Search people').fill(longEmail);
@@ -139,11 +164,39 @@ test('search preserves selection and failed multi-person sharing retries once', 
 					await expect(settings(page).getByText('Invitation pending', { exact: true })).toHaveCount(
 						2
 					);
-					await expect(settings(page).getByRole('checkbox')).toHaveCount(23);
+					await expect(addPeople.getByRole('checkbox')).toHaveCount(23);
+					await expect(sharedPeople.locator('.choice')).toHaveCount(2);
+					await expect(sharedPeople.getByRole('checkbox')).toHaveCount(0);
+					await expectRecipientPhoto(
+						sharedPeople.locator('.choice').filter({ hasText: longEmail })
+					);
 					await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 				}
 			}
 		]
 	});
+	await page.getByLabel('Search people').fill('person-2');
+	await helper.step('shared_and_available_groups', {
+		verifications: [
+			{
+				spec: 'Pending recipients have photos in Shared with; uninvited matches have their own Add people group',
+				check: async () => {
+					await expect(sharedPeople.locator('.choice')).toHaveCount(1);
+					await expectRecipientPhoto(sharedPeople.locator('.choice'));
+					await expect(addPeople.getByRole('checkbox')).toHaveCount(5);
+					await expect(settings(page).getByRole('status')).toHaveText('6 people');
+				}
+			}
+		]
+	});
+	// Search applies to both groups without losing their status or headings.
+	await page.getByLabel('Search people').fill('person-24@example.com');
+	await expect(sharedPeople.locator('.choice')).toHaveCount(1);
+	await expect(addPeople).toHaveCount(0);
+	await page.getByLabel('Search people').fill('person-2@example.com');
+	await expect(addPeople.locator('.choice')).toHaveCount(1);
+	await expect(sharedPeople).toHaveCount(0);
+	await page.getByLabel('Search people').fill('nothing matches');
+	await expect(page.getByText('No matching people', { exact: true })).toBeVisible();
 	await helper.generateDocs();
 });
