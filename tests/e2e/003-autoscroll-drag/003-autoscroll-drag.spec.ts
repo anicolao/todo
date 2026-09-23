@@ -1,3 +1,4 @@
+import { openSettings, setting, saveSetting, closeSettings } from '../helpers/list-settings';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { emulatorProjectId, firestoreEmulatorOrigin, resetEmulators } from '../helpers/emulator';
 
@@ -222,18 +223,14 @@ for (const reloadBeforeDragging of [false, true]) {
 	} labels)`, async ({ page, request }) => {
 		await signIn(page);
 		await createList(page, 'Label source');
-		await page
-			.locator('.mdc-drawer .list-menu-item')
-			.filter({ hasText: 'Label source' })
-			.getByRole('button', { name: 'Edit list' })
-			.dispatchEvent('pointerdown');
+		await openSettings(page);
 		for (const name of ['Tail', 'Label B', 'Label A', 'Middle', 'Top']) {
-			await page.getByLabel('New label').fill(name);
-			await page.getByRole('button', { name: 'Create label' }).click();
-			await expect(page.getByLabel('New label')).toHaveValue('');
+			await setting(page, 'Labels');
+			await page.getByRole('button', { name: '+ Create label', exact: true }).click();
+			await page.getByLabel('New label', { exact: true }).fill(name);
+			await saveSetting(page);
 		}
-		await page.getByRole('button', { name: 'Done', exact: true }).click();
-		await expect(page.getByText('Edit List', { exact: true })).toBeHidden();
+		await closeSettings(page);
 		const rows = page.locator('.mdc-drawer .listContainer .item:not(#ghost)');
 		const order = () =>
 			rows.evaluateAll((elements) => elements.map((el) => el.getAttribute('data-id')));
