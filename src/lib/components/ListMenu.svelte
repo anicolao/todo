@@ -101,6 +101,17 @@
 		}
 	}
 
+	let temporarilyCollapsedLabelIds = new Set<string>();
+	function toggleLabelExpansion(labelId: string) {
+		const next = new Set(temporarilyCollapsedLabelIds);
+		if (expandedLabelIds.has(labelId)) {
+			next.add(labelId);
+		} else {
+			next.delete(labelId);
+		}
+		temporarilyCollapsedLabelIds = next;
+	}
+
 	let items: string[] = [];
 	let labelPredicatesById: Record<string, LabelQuery[]> = {};
 	let labelPredicateGroupsById: Record<string, LabelPredicateGroup[]> = {};
@@ -155,7 +166,9 @@
 	);
 	$: expandedLabelIds = new Set(
 		[...buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds)].filter(
-			(labelId) => getLabelVisibility($store.labels.labelIdToLabel[labelId]) !== 'fully_hidden'
+			(labelId) =>
+				getLabelVisibility($store.labels.labelIdToLabel[labelId]) !== 'fully_hidden' &&
+				!temporarilyCollapsedLabelIds.has(labelId)
 		)
 	);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
@@ -516,6 +529,7 @@
 					labelExpanded={expandedLabelIds.has(listId)}
 					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
 					onTogglePinnedLabel={togglePinnedLabel}
+					onToggleLabelExpansion={toggleLabelExpansion}
 				/>
 				{#if expandedLabelIds.has(listId) && (labelPredicateGroupsById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 200 }}>
