@@ -80,7 +80,7 @@ Agents and developers working in separate worktrees must run E2E tests through t
 nix develop -c npm run playwright:isolated
 ```
 
-This command derives a stable port block from the current worktree path, generates `.e2e/firebase.json`, and runs Playwright with isolated app, Firestore, Auth, Firebase UI, and Firebase hub ports. It also uses a worktree-specific Firebase project ID such as `todo-e2e-<hash>` so emulator resets do not touch another worktree's data.
+This command derives a stable port block from the current worktree path, generates `.e2e/firebase.json`, and runs Playwright with isolated app, Firestore, Auth, Firebase UI, Firebase hub, and Firebase logging ports. It also uses a worktree-specific Firebase project ID such as `todo-e2e-<hash>` so emulator resets do not touch another worktree's data.
 
 Do not run broad cleanup commands such as `pkill firebase`, `killall firebase`, or `lsof -ti :8080 | xargs kill` while other agents may be working. Isolated Playwright runs should only manage their own child processes.
 
