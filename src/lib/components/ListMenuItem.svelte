@@ -25,6 +25,7 @@
 		goto('/' + name);
 	};
 	export let onTogglePinnedLabel: (listId: string) => void = () => {};
+	export let onToggleLabelExpansion: (listId: string) => void = () => {};
 	export let openEditDialog = () => {
 		store.dispatch(show_edit_dialog(true));
 	};
@@ -50,6 +51,7 @@
 			// only fires for taps — navigate regardless of how long the press was.
 			const isLabel = $store.lists.listIdToType[listId] === 'label';
 			if (isLabel) {
+				onToggleLabelExpansion(listId);
 				setActive(`labels?labelId=${encodeURIComponent(listId)}`, true);
 			} else {
 				const via = viaLabelId ? `&via=${encodeURIComponent(viaLabelId)}` : '';

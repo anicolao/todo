@@ -101,12 +101,24 @@
 		}
 	}
 
+	let temporarilyCollapsedLabelIds = new Set<string>();
+	function toggleLabelExpansion(labelId: string) {
+		const next = new Set(temporarilyCollapsedLabelIds);
+		if (expandedLabelIds.has(labelId)) {
+			next.add(labelId);
+		} else {
+			next.delete(labelId);
+		}
+		temporarilyCollapsedLabelIds = next;
+	}
+
 	let items: string[] = [];
 	let labelPredicatesById: Record<string, LabelQuery[]> = {};
 	let labelPredicateGroupsById: Record<string, LabelPredicateGroup[]> = {};
 	let grabbedLabelId = '';
 	function updateItems(displayItems: string[]) {
-		if (!arraysEqual(items, displayItems)) {
+		// Store notifications must not replace the order being previewed by a drag.
+		if (!grabbed && !arraysEqual(items, displayItems)) {
 			console.log('ListMenu.updateItems');
 			items = displayItems;
 		}
@@ -155,7 +167,9 @@
 	);
 	$: expandedLabelIds = new Set(
 		[...buildExpandedLabelIds($store.lists.pinnedLabelIds, routeExpandedLabelIds)].filter(
-			(labelId) => getLabelVisibility($store.labels.labelIdToLabel[labelId]) !== 'fully_hidden'
+			(labelId) =>
+				getLabelVisibility($store.labels.labelIdToLabel[labelId]) !== 'fully_hidden' &&
+				!temporarilyCollapsedLabelIds.has(labelId)
 		)
 	);
 	$: hiddenListIds = buildHiddenListIds(labelEntriesById, $store.lists);
@@ -197,7 +211,8 @@
 		let dataMap: DOMStringMap = grabbed.dataset;
 		grabbedLabelId = dataMap.labelId || '';
 		dragContainer = grabbedLabelId ? grabbed.parentElement || undefined : container;
-		startIndex = Number(dataMap.index);
+		startIndex = grabbedLabelId ? Number(dataMap.index) : items.indexOf(dataMap.id || '');
+		lastTarget = grabbed;
 		if (grabbedLabelId) {
 			const grabbedGroup = labelPredicateGroupsById[grabbedLabelId]?.[startIndex];
 			grabbedLabelPredicate = grabbedGroup?.predicate || null;
@@ -256,7 +271,12 @@
 			grabbed.dataset.index /* dataset entries are strings */ &&
 			target.dataset.index
 		) {
-			moveDatum(parseInt(grabbed.dataset.index), parseInt(target.dataset.index));
+			// Keyed rows can retain an old DOM index after earlier moves.
+			const from = grabbedLabelId ? Number(grabbed.dataset.index) : items.indexOf(grabbedItem);
+			const to = grabbedLabelId
+				? Number(target.dataset.index)
+				: items.indexOf(target.dataset.id || '');
+			if (from >= 0 && to >= 0 && from !== to) moveDatum(from, to);
 		}
 	}
 
@@ -319,7 +339,7 @@
 			$store.auth.uid &&
 			grabbed &&
 			(grabbedLabelId || grabbedId) &&
-			Number(grabbed.dataset.index) !== startIndex
+			(grabbedLabelId ? Number(grabbed.dataset.index) : items.indexOf(grabbedItem)) !== startIndex
 		) {
 			if (grabbedLabelId) {
 				const predicates = mergeVisiblePredicateOrder(
@@ -462,6 +482,7 @@
 			if (grabbed) {
 				autoScroller.stop();
 				clearGrab();
+				updateItems(displayItems);
 			}
 			if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
 				(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
@@ -501,10 +522,10 @@
 		{/if}
 	</div>
 	<List>
-		{#each items as listId, i (listId)}<div
+		{#each items as listId (listId)}<div
 				id={grabbed && !grabbedLabelId && listId == grabbed.dataset.id ? 'grabbed' : ''}
 				class="item"
-				data-index={i}
+				data-index={items.indexOf(listId)}
 				data-id={listId}
 				data-drag-scope="top-level"
 				animate:flipWhileDragging
@@ -516,6 +537,7 @@
 					labelExpanded={expandedLabelIds.has(listId)}
 					labelPinned={$store.lists.pinnedLabelIds.includes(listId)}
 					onTogglePinnedLabel={togglePinnedLabel}
+					onToggleLabelExpansion={toggleLabelExpansion}
 				/>
 				{#if expandedLabelIds.has(listId) && (labelPredicateGroupsById[listId] || []).length > 0}
 					<div class="nested-list-items" transition:slide={{ duration: 200 }}>

@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { resetEmulators } from '../helpers/emulator';
+import { emulatorProjectId, firestoreEmulatorOrigin, resetEmulators } from '../helpers/emulator';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -213,3 +213,93 @@ test('a task still picks up for a drag after another task was edited', async ({ 
 	await expect(row).toHaveAttribute('id', 'grabbed', { timeout: 1500 });
 	await page.mouse.up();
 });
+
+// New labels expose stale row indices after insertion; reloaded labels cover
+// a store notification replacing the preview during the second drag.
+for (const reloadBeforeDragging of [false, true]) {
+	test(`moving adjacent labels to the top preserves both moves (${
+		reloadBeforeDragging ? 'reloaded' : 'new'
+	} labels)`, async ({ page, request }) => {
+		await signIn(page);
+		await createList(page, 'Label source');
+		await page
+			.locator('.mdc-drawer .list-menu-item')
+			.filter({ hasText: 'Label source' })
+			.getByRole('button', { name: 'Edit list' })
+			.dispatchEvent('pointerdown');
+		for (const name of ['Tail', 'Label B', 'Label A', 'Middle', 'Top']) {
+			await page.getByLabel('New label').fill(name);
+			await page.getByRole('button', { name: 'Create label' }).click();
+			await expect(page.getByLabel('New label')).toHaveValue('');
+		}
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		await expect(page.getByText('Edit List', { exact: true })).toBeHidden();
+		const rows = page.locator('.mdc-drawer .listContainer .item:not(#ghost)');
+		const order = () =>
+			rows.evaluateAll((elements) => elements.map((el) => el.getAttribute('data-id')));
+		await expect(rows).toHaveCount(5);
+		await page.locator('.mdc-drawer').getByText('All', { exact: true }).click();
+		await expect(page.locator('.nested-list-items')).toHaveCount(0);
+		if (reloadBeforeDragging) {
+			await page.reload();
+			await expect(rows).toHaveCount(5);
+		}
+		const initial = await order();
+		const [top, middle, a, b, tail] = initial;
+		async function moveToTop(id: string) {
+			const source = page.locator(`.mdc-drawer .item[data-id="${id}"]`);
+			const box = (await source.boundingBox())!;
+			const first = (await rows.first().boundingBox())!;
+			const x = box.x + box.width / 2;
+			await page.mouse.move(x, box.y + box.height / 2);
+			await page.mouse.down();
+			await page.mouse.move(x, box.y + box.height / 2 + 12);
+			await expect(source).toHaveAttribute('id', 'grabbed');
+			await page.mouse.move(x, first.y + first.height / 2 + 12);
+		}
+		await moveToTop(b!);
+		await expect.poll(order).toEqual([b, top, middle, a, tail]);
+		await page.mouse.up();
+		await expect.poll(order).toEqual([b, top, middle, a, tail]);
+		await moveToTop(a!);
+		await expect.poll(order).toEqual([a, b, top, middle, tail]);
+		// Navigation updates the store while the second drag is still held.
+		// This models a background update/confirmation arriving during a drag.
+		await page.locator('.mdc-drawer').getByText('Starred', { exact: true }).dispatchEvent('click');
+		await expect.poll(order).toEqual([a, b, top, middle, tail]);
+		await page.mouse.up();
+		await expect.poll(order).toEqual([a, b, top, middle, tail]);
+		// The preview updates before Firestore acknowledges the drop. Wait for both
+		// writes before reloading, so this checks persisted order deterministically.
+		await expect
+			.poll(async () => {
+				const response = await request.post(
+					`${firestoreEmulatorOrigin}/v1/projects/${emulatorProjectId}/databases/(default)/documents:runQuery`,
+					{
+						headers: { Authorization: 'Bearer owner' },
+						data: {
+							structuredQuery: {
+								from: [{ collectionId: 'requests', allDescendants: true }],
+								where: {
+									fieldFilter: {
+										field: { fieldPath: 'type' },
+										op: 'EQUAL',
+										value: { stringValue: 'reorder_list' }
+									}
+								}
+							}
+						}
+					}
+				);
+				expect(response.ok()).toBe(true);
+				const results = await response.json();
+				return results.filter(
+					(row: { document?: { fields?: { timestamp?: { timestampValue?: string } } } }) =>
+						row.document?.fields?.timestamp?.timestampValue
+				).length;
+			})
+			.toBe(2);
+		await page.reload();
+		await expect.poll(order).toEqual([a, b, top, middle, tail]);
+	});
+}
