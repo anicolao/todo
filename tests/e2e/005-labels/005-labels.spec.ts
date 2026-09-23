@@ -594,6 +594,16 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	});
 
 	const labelRoute = page.url();
+	await clickDrawerLabel(page, labelName);
+	await expect(page).toHaveURL(labelRoute);
+	await expectNestedListHiddenUnderLabel(page, labelName, listName);
+	await expect(
+		drawerTopLevelItem(page, labelName).locator('.mdc-deprecated-list-item').first()
+	).toHaveAttribute('aria-expanded', 'false');
+	await clickDrawerLabel(page, labelName);
+	await expect(page).toHaveURL(labelRoute);
+	await expectNestedListVisibleUnderLabel(page, labelName, listName);
+
 	await page.getByRole('button', { name: `Pin label ${labelName}` }).click();
 	await expectPersistedGlobalAction(request, 'pin_label', labelId);
 	await helper.step('label_pinned_explicitly', {
@@ -635,6 +645,15 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 			}
 		]
 	});
+
+	await clickDrawerLabel(page, labelName);
+	await expect(page).toHaveURL(labelRoute);
+	await expectNestedListHiddenUnderLabel(page, labelName, listName);
+	await clickDrawerLabel(page, labelName);
+	await expect(page).toHaveURL(labelRoute);
+	await expectNestedListVisibleUnderLabel(page, labelName, listName);
+	await page.goto('/profile');
+	await openDrawerIfNeeded(page);
 
 	const profileRoute = page.url();
 	await startSidebarAnimationCapture(page);
@@ -715,6 +734,8 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 
 	await page.getByRole('button', { name: 'Cancel' }).click();
 	await openDrawerIfNeeded(page);
+	await clickDrawerLabel(page, labelName);
+	await expectNestedListHiddenUnderLabel(page, labelName, listName);
 	await clickDrawerLabel(page, labelName);
 
 	await helper.step('label_unchanged_after_cancel', {
