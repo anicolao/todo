@@ -34,7 +34,11 @@ async function signInAs(
 	await installAuthSession(page, request, user);
 	await page.goto('/profile');
 	await expect(page.locator('.drawer-container')).toBeVisible();
-	await expect(page.locator('p').filter({ hasText: user.email })).toBeVisible();
+	await expect(signedInAccount(page).getByText(user.email, { exact: true })).toBeVisible();
+}
+
+function signedInAccount(page: Page): Locator {
+	return page.getByLabel('Signed-in account');
 }
 
 async function createList(page: Page, listName: string) {
@@ -131,7 +135,9 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 				{
 					spec: 'Recipient profile is visible',
 					check: async () =>
-						expect(recipientPage.locator('p').filter({ hasText: recipient.email })).toBeVisible()
+						expect(
+							signedInAccount(recipientPage).getByText(recipient.email, { exact: true })
+						).toBeVisible()
 				}
 			]
 		});
@@ -144,7 +150,7 @@ test('share a list between two users', async ({ browser, page: ownerPage, reques
 				{
 					spec: 'Owner profile is visible',
 					check: async () =>
-						expect(ownerPage.locator('p').filter({ hasText: owner.email })).toBeVisible()
+						expect(signedInAccount(ownerPage).getByText(owner.email, { exact: true })).toBeVisible()
 				}
 			]
 		});
