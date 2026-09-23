@@ -145,7 +145,6 @@
               pkgs.coreutils
               pkgs.age
               pkgs.git
-              pkgs.gh
               pkgs.google-cloud-sdk
               pkgs.jdk21
               pkgs.nodejs_22
