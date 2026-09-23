@@ -87,9 +87,14 @@
 
 	let newlyCreatedListId = '';
 
-	function createList(name: string) {
-		newlyCreatedListId = crypto.randomUUID();
-		firebase.dispatch(create_list({ id: newlyCreatedListId, name }));
+	async function createList(name: string) {
+		const id = crypto.randomUUID();
+		// Finish permission setup before publishing the list: its details dialog can
+		// be opened immediately, while a listener racing the editor write can observe
+		// a missing document and incorrectly disable editing.
+		await createFirebaseListActions(id, $store.auth, name);
+		newlyCreatedListId = id;
+		firebase.dispatch(create_list({ id, name }));
 	}
 
 	let oldListLength = 0;

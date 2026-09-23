@@ -759,6 +759,8 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	await helper.generateDocs();
 });
 
+// Open settings as soon as each list appears, without waiting for its action-log
+// listener. This also guards against publishing a list before editor setup finishes.
 test('active list expands every containing label', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
