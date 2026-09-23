@@ -110,6 +110,7 @@ export type SvelteStore = Writable<GlobalState>;
 
 let rebasedLocalActions: AnyAction[] = [];
 const CACHE_INTERVAL = 1000;
+const ACTIONS_THAT_REMOVE_LIST_ACCESS = new Set(['delete_list', 'revoke_share']);
 let timestampOfPendingCache = Infinity;
 export function enableCaching() {
 	timestampOfPendingCache = 0;
@@ -209,6 +210,10 @@ const rebasingReducer = (state: GlobalState | undefined, action: AnyAction) => {
 		}
 		action.timestamp = timestamp;
 		serverSideStore.dispatch(action);
+		// These can be the last actions a former editor is allowed to read. Persist
+		// their resulting state immediately; otherwise the debounced write still
+		// contains the list and a reload can resurrect it after access is removed.
+		if (ACTIONS_THAT_REMOVE_LIST_ACCESS.has(action.type)) void writeCacheNow();
 		if (action.firebase_doc_id)
 			confirmedActionObservers.forEach((observer) => observer(action.firebase_doc_id));
 	} else {

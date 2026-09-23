@@ -93,7 +93,7 @@ export async function startTask(page: Page, listName = 'Details review') {
 }
 export async function chooseDate(page: Page, value = '2026-09-18') {
 	await page.getByRole('button', { name: /^Due date/ }).click();
-	await page.locator('input[aria-label="Due date"]').fill(value);
+	await page.getByRole('textbox', { name: 'Due date' }).fill(value);
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
 }
 export async function chooseRepeat(page: Page, type = 'Weekly', every = '2') {
