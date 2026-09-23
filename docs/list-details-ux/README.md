@@ -27,6 +27,10 @@ Existing [label navigation/query ordering](../../tests/e2e/005-labels/README.md)
 
 ## Validation
 
+The CI follow-up fixes a new-list creation race: editor permissions and the initial name now finish writing before the list is published in navigation. The existing “active list expands every containing label” phone scenario opens settings immediately after creation and passed 20 consecutive runs after the fix. The full functional E2E suite passed **45 tests (19 existing skips)**, and the unit suite passed **117 tests (1 existing skip)**. No waits or retries were added to hide the failure. The follow-up exact screenshot run passed 44 tests; the existing desktop date-picker story differed by six pixels in its externally hosted background avatar (also reproduced in isolation). Its dialog and functional assertions passed; the baseline was not changed.
+
+Original implementation validation:
+
 - Unit suite: **117 passed, 1 existing skip**. Includes request outcomes, cache boundaries, and retry after acknowledgment without resubmission.
 - Full isolated Playwright suite: **45 passed, 19 existing skips**, with exact screenshot comparison enabled and no snapshot-update flag.
 - All **10 list-settings stories** passed with **58 review frames** across desktop and phone; the existing task-details visual stories also passed.
