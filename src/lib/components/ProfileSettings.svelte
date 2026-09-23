@@ -4,6 +4,8 @@
 	import { set_background_url, set_density, type UiSettings } from './UiSettings';
 	import { profileSettingSession } from './profile-settings-save';
 	import { watch } from './ActionLog';
+	import ItemDisplay from './ItemDisplay.svelte';
+	import type { TodoItem } from './items';
 	import firebase from '$lib/firebase';
 	import { handleDocChanges, store } from '$lib/store';
 	import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
@@ -46,6 +48,38 @@
 	let watchAccess: Unsubscribe | undefined;
 	let watchLabelActions: Unsubscribe | undefined;
 	let session = profileSettingSession('account');
+	const spacingPreviewItems: (TodoItem & { id: string })[] = [
+		{
+			id: 'profile-preview-one',
+			description: 'Pick up groceries',
+			completed: false,
+			completedTimestamp: 0,
+			starred: false,
+			starTimestamp: 0,
+			prevDueDate: [],
+			prevCompletedTimestamp: []
+		},
+		{
+			id: 'profile-preview-two',
+			description: 'Call the dentist',
+			completed: false,
+			completedTimestamp: 0,
+			starred: true,
+			starTimestamp: 0,
+			prevDueDate: [],
+			prevCompletedTimestamp: []
+		},
+		{
+			id: 'profile-preview-three',
+			description: 'Water the plants',
+			completed: false,
+			completedTimestamp: 0,
+			starred: false,
+			starTimestamp: 0,
+			prevDueDate: [],
+			prevCompletedTimestamp: []
+		}
+	];
 
 	$: labelIds = $store.lists.visibleLists.filter((id) => $store.lists.listIdToType[id] === 'label');
 	$: labels = labelIds.map((id) => ({
@@ -536,15 +570,14 @@
 							/></label
 						>
 					</fieldset>
-					<section
-						class:comfortable={densityDraft === 'low'}
-						class="task-preview"
-						aria-label="Item spacing preview"
-					>
-						<span class="preview-check" aria-hidden="true"></span><span>Example task</span><span
-							class="material-icons"
-							aria-hidden="true">star_border</span
-						>
+					<p class="sr-only">
+						Three sample tasks at {densityDraft === 'low' ? 'Comfortable' : 'Compact'} spacing.
+					</p>
+					<section class="spacing-preview" aria-hidden="true">
+						<h2>Preview</h2>
+						{#each spacingPreviewItems as item (item.id)}
+							<ItemDisplay {item} density={densityDraft} preview />
+						{/each}
 					</section>
 				{:else if screen === 'background'}
 					<label for="background-url">Image URL</label>
@@ -926,33 +959,12 @@
 		height: 24px;
 		accent-color: var(--accent);
 	}
-	.task-preview {
-		display: grid;
-		grid-template-columns: 32px 1fr 32px;
-		align-items: center;
-		gap: 8px;
-		min-height: 44px;
+	.spacing-preview {
 		margin-top: 24px;
-		padding: 6px 10px;
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: 12px;
 	}
-	.task-preview.comfortable {
-		min-height: 64px;
-		padding-block: 12px;
-		grid-template-columns: 40px 1fr 40px;
-	}
-	.preview-check {
-		width: 22px;
-		height: 22px;
-		border: 2px solid var(--muted);
-		border-radius: 50%;
-		justify-self: center;
-	}
-	.comfortable .preview-check {
-		width: 28px;
-		height: 28px;
+	.spacing-preview h2 {
+		font-size: 1em;
+		margin: 0 0 8px;
 	}
 	.background-preview {
 		min-height: 180px;

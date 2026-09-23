@@ -20,6 +20,9 @@
 	export let listId = '';
 	export let showListName = false;
 	export let enableUndo = false;
+	export let density: 'low' | 'high' | undefined = undefined;
+	export let preview = false;
+	$: renderedDensity = density ?? $store.uiSettings.density;
 
 	let listName = '';
 	$: if (listId !== '') {
@@ -31,6 +34,7 @@
 
 	function showEditDetailsDialog(list_id: string, id: string) {
 		return () => {
+			if (preview) return;
 			if ($store.auth.uid) {
 				store.dispatch(set_current_listid(list_id));
 				store.dispatch(set_current_item(id));
@@ -41,6 +45,7 @@
 
 	function star(list_id: string, id: string, starred: boolean) {
 		return () => {
+			if (preview) return;
 			if ($store.auth.uid) {
 				dispatch(
 					'lists',
@@ -54,6 +59,7 @@
 
 	function complete(list_id: string, id: string, completed: boolean) {
 		return () => {
+			if (preview) return;
 			if (completed) {
 				// play completion sound
 				const sound = new Audio('/completed.mp3');
@@ -74,6 +80,7 @@
 
 	function completeForever(list_id: string, id: string) {
 		return () => {
+			if (preview) return;
 			if ($store.auth.uid) {
 				const sound = new Audio('/completed.mp3');
 				sound.play();
@@ -98,6 +105,7 @@
 
 	function uncomplete(list_id: string, id: string) {
 		return () => {
+			if (preview) return;
 			if ($store.auth.uid) {
 				dispatch('lists', list_id, $store.auth.uid, uncomplete_item({ list_id, id }));
 			}
@@ -105,6 +113,7 @@
 	}
 
 	function handleEnterKey(e: KeyboardEvent | CustomEvent) {
+		if (preview) return;
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
 			const target = e.target as HTMLInputElement;
@@ -114,6 +123,7 @@
 
 	function handleBlur(list_id: string, item: TodoItem & { id: string }) {
 		return (e: any) => {
+			if (preview) return;
 			dispatchEvent('blur', { originalEvent: e });
 			if ($store.auth.uid) {
 				const origItem = $store.items.listIdToListOfItems[list_id].itemIdToItem[item.id];
@@ -136,25 +146,27 @@
 	}
 </script>
 
-<div class="container {$store.uiSettings.density}">
+<div class="container {renderedDensity}" class:preview>
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	{#if enableUndo}<span class="material-icons" on:click={uncomplete(listId, item.id)}>undo</span
 		>{:else if item.completed}<span
 			class="check material-icons"
 			role="button"
-			tabindex="0"
+			tabindex={preview ? -1 : 0}
 			aria-label={`Mark ${item.description} active`}
 			on:click={complete(listId, item.id, false)}>check_box</span
 		>{:else}<span
 			class="check material-icons"
 			role="button"
-			tabindex="0"
+			tabindex={preview ? -1 : 0}
 			aria-label={`Complete ${item.description}`}
 			on:click={complete(listId, item.id, true)}>check_box_outline_blank</span
 		>{/if}<input
 		class="description"
 		aria-label={`Task ${item.description}`}
+		readonly={preview}
+		tabindex={preview ? -1 : undefined}
 		value={item.description}
 		on:keydown={handleEnterKey}
 		on:blur={handleBlur(listId, item)}
@@ -177,7 +189,7 @@
 			}
 		}}
 		role="button"
-		tabindex="0"
+		tabindex={preview ? -1 : 0}
 		aria-label={`Edit details for ${item.description}`}
 		class="details material-icons">edit_note</span
 	><!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -186,13 +198,13 @@
 			class="star material-icons"
 			style="color: #ffb74d"
 			role="button"
-			tabindex="0"
+			tabindex={preview ? -1 : 0}
 			aria-label={`Unstar ${item.description}`}
 			on:click={star(listId, item.id, false)}>star</span
 		>{:else}<span
 			class="star material-icons"
 			role="button"
-			tabindex="0"
+			tabindex={preview ? -1 : 0}
 			aria-label={`Star ${item.description}`}
 			on:click={star(listId, item.id, true)}>star_outline</span
 		>{/if}
@@ -283,5 +295,12 @@
 	.low {
 		padding: 0.3em;
 		margin: 0.2em;
+	}
+	.preview {
+		pointer-events: none;
+		user-select: none;
+	}
+	.preview .description {
+		cursor: default;
 	}
 </style>
