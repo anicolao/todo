@@ -41,8 +41,7 @@ by release automation. TODO's current team-scoped sandbox-and-production key is
 `ios/secrets/apns.enc.json`, encrypted for the Alex and Andrew SSH recipients in
 `.sops.yaml`.
 
-Install the encrypted key on a new development machine and mirror it into the
-repository's GitHub Actions secrets with:
+Install the encrypted key on a new development machine with:
 
 ```sh
 nix develop
@@ -51,14 +50,12 @@ npm run ios:push:configure
 
 The command validates the private key, writes it to
 `~/.config/todo/private_keys/AuthKey_B953ZM4LJZ.p8` with owner-only
-permissions, and updates `TODO_APNS_AUTH_KEY_P8`, `TODO_APNS_KEY_ID`, and
-`TODO_APPLE_TEAM_ID` through the authenticated GitHub CLI. The SOPS document is
-the recoverable source; GitHub Actions secrets are write-only workflow inputs,
-not a backup.
+permissions, and prints the Firebase console upload location. The committed
+SOPS document is the recoverable source.
 
 If the APNs key is ever rotated, use the **Dobutsu** browser profile to create a
 team-scoped APNs key for both sandbox and production in Apple Developer, then
-replace the encrypted document and the local/GitHub copies in one command:
+replace the encrypted document and install the new local copy in one command:
 
 ```sh
 npm run ios:push:configure -- \
@@ -69,7 +66,10 @@ npm run ios:push:configure -- \
 
 Apple allows the `.p8` download only once. Do not leave it in Downloads after
 the command succeeds. Review and commit the changed encrypted SOPS file; never
-commit the downloaded plaintext key.
+commit the downloaded plaintext key. The helper deliberately leaves any earlier
+`AuthKey_*.p8` files in place because an Apple team key can be shared by other
+apps. After revoking the previous key and confirming that no other app uses it,
+remove its local file manually.
 
 Firebase's documented APNs-key setup remains a console upload rather than a
 supported Firebase CLI operation. If the Firebase credential is absent or the

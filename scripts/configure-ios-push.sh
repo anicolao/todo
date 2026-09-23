@@ -7,7 +7,6 @@ umask 077
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 secret_file="$repo_root/ios/secrets/apns.enc.json"
-sync_github=1
 import_path=''
 key_id=''
 team_id=''
@@ -16,18 +15,16 @@ usage() {
 	cat <<'USAGE'
 Usage:
   npm run ios:push:configure
-  npm run ios:push:configure -- --local-only
   npm run ios:push:configure -- --import PATH --key-id ID --team-id ID
 
 Without --import, decrypts the committed SOPS file, installs the APNs key under
-~/.config/todo/private_keys, and mirrors it to GitHub Actions secrets.
+~/.config/todo/private_keys, and prints the Firebase console upload location.
 
 Options:
   --import PATH   Validate a newly downloaded APNs .p8 key and replace the
                   committed SOPS-encrypted credential before installing it.
   --key-id ID     Ten-character Apple APNs key ID. Required with --import.
   --team-id ID    Ten-character Apple Developer team ID. Required with --import.
-  --local-only    Do not update GitHub Actions secrets.
   -h, --help      Show this help.
 USAGE
 }
@@ -57,10 +54,6 @@ while [[ $# -gt 0 ]]; do
 			[[ $# -ge 2 ]] || fail '--team-id requires a value'
 			team_id="$2"
 			shift 2
-			;;
-		--local-only)
-			sync_github=0
-			shift
 			;;
 		-h | --help)
 			usage
@@ -138,15 +131,6 @@ if [[ -e "$key_target" ]] && ! cmp -s "$plain_key" "$key_target"; then
 	fail "a different key already exists at $key_target"
 fi
 install -m 600 "$plain_key" "$key_target"
-
-if [[ "$sync_github" -eq 1 ]]; then
-	require_command gh
-	gh auth status >/dev/null 2>&1 || fail 'GitHub CLI is not authenticated'
-	gh secret set TODO_APNS_AUTH_KEY_P8 < "$key_target"
-	printf '%s' "$key_id" | gh secret set TODO_APNS_KEY_ID
-	printf '%s' "$team_id" | gh secret set TODO_APPLE_TEAM_ID
-	printf 'Updated GitHub Actions APNs secrets.\n'
-fi
 
 printf 'Installed APNs key %s for Apple team %s at %s.\n' "$key_id" "$team_id" "$key_target"
 printf 'Firebase upload URL: %s\n' 'https://console.firebase.google.com/project/todo-firebase-1a740/settings/cloudmessaging'
