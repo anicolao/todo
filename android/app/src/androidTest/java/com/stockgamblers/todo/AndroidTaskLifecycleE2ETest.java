@@ -99,19 +99,19 @@ public class AndroidTaskLifecycleE2ETest {
 
         navigateTo("Starred");
         waitFor(task("Lifecycle starred task"));
-        assertGone(task("Lifecycle regular task"));
-        assertGone(task("Lifecycle completed task"));
+        waitUntilGone(task("Lifecycle regular task"));
+        waitUntilGone(task("Lifecycle completed task"));
         captureStep("006-starred-view.png");
 
         navigateTo("Completed");
         waitFor(task("Lifecycle completed task"));
-        assertGone(task("Lifecycle starred task"));
+        waitUntilGone(task("Lifecycle starred task"));
         captureStep("007-completed-view.png");
 
         navigateTo("All");
         waitFor(task("Lifecycle starred task"));
         waitFor(task("Lifecycle regular task"));
-        assertGone(task("Lifecycle completed task"));
+        waitUntilGone(task("Lifecycle completed task"));
         captureStep("008-all-view.png");
     }
 
@@ -200,10 +200,6 @@ public class AndroidTaskLifecycleE2ETest {
         assertTrue(
                 "Timed out waiting for " + selector + " to disappear",
                 device.wait(Until.gone(selector), UI_TIMEOUT_MS));
-    }
-
-    private void assertGone(BySelector selector) {
-        assertTrue("Expected no object matching " + selector, !device.hasObject(selector));
     }
 
     private void waitForTopBarTitle(String title) {
