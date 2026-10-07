@@ -35,6 +35,7 @@
               ./src/lib/redux.ts
               ./src/lib/components/auth.ts
               ./src/lib/components/items.ts
+              ./src/lib/components/recurrence.ts
               ./src/lib/components/labels.ts
               ./src/lib/components/lists.ts
               ./src/lib/components/requests.ts

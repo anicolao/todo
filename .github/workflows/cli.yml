@@ -7,6 +7,43 @@ on:
     branches: [main]
 
 jobs:
+  cli-nix:
+    name: CLI Nix (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build packaged CLI and service
+        run: nix build --no-link --print-build-logs .#todo
+
+      - name: Smoke test packaged launchers without credentials
+        run: |
+          nix run . -- help
+          nix run .#todo -- help
+
+  cli-gate:
+    name: CLI Gate
+    if: ${{ always() }}
+    needs: [cli-tests, cli-nix]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require CLI tests and package builds to pass
+        env:
+          TEST_RESULT: ${{ needs.cli-tests.result }}
+          NIX_RESULT: ${{ needs.cli-nix.result }}
+        run: |
+          test "$TEST_RESULT" = success
+          test "$NIX_RESULT" = success
+
   cli-tests:
     name: CLI Tests
     runs-on: ubuntu-22.04
