@@ -47,8 +47,11 @@ for (const scenario of [
 		await profile.scrollIntoViewIfNeeded();
 		await expectSafe(profile);
 		await profile.click();
-		await page.getByRole('button', { name: 'Configure Hidden Lists' }).click();
-		await expectSafe(page.locator('.hidden-list-dialog .mdc-dialog__surface'));
-		await expectSafe(page.getByRole('button', { name: 'Done', exact: true }));
+		const labelVisibility = page.getByRole('button', { name: /^Label visibility/ });
+		await labelVisibility.scrollIntoViewIfNeeded();
+		await expectSafe(labelVisibility);
+		await labelVisibility.click();
+		await expect(page.locator('dialog.profile-editor')).toBeVisible();
+		await expectSafe(page.getByRole('button', { name: '‹ Profile', exact: true }));
 	});
 }
