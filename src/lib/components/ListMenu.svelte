@@ -359,7 +359,7 @@
 				if (dragTo) {
 					payload.goes_before = dragTo;
 				}
-				firebase.dispatch(reorder_list(payload));
+				if (payload.goes_before !== payload.id) firebase.dispatch(reorder_list(payload));
 			}
 		}
 		clearGrab();

@@ -190,33 +190,30 @@ describe('lists', () => {
 		expect(state.visibleLists[1]).to.equal('id1');
 	});
 
-	it('throws when a reordered list does not exist', () => {
-		let state = createList(initialState, 'id1', 'First List');
-		state = createList(state, 'id2', 'Second List');
-		expect(state.visibleLists.length).to.equal(2);
-		expect(state.visibleLists[0]).to.equal('id1');
-		expect(state.visibleLists[1]).to.equal('id2');
+	it('replays labels after a persisted self-reorder', () => {
+		let state = lists(initialState, create_label({ id: 'cars', name: 'Cars' }));
+		state = createList(state, 'list1', 'A list');
+		const beforeReorder = state;
 
-		try {
-			state = lists(state, reorder_list({ id: 'XYZ' }));
-		} catch (e) {
-			expect(e).to.equal('ERROR: list_id XYZ not found in visible lists');
-			expect(state.visibleLists[0]).to.equal('id1');
-			expect(state.visibleLists[1]).to.equal('id2');
-		}
+		state = lists(state, reorder_list({ id: 'list1', goes_before: 'list1' }));
+		expect(state).to.equal(beforeReorder);
+
+		state = lists(state, create_label({ id: 'house', name: 'House' }));
+		state = lists(state, create_label({ id: 'hobbies', name: 'Hobbies' }));
+		expect(state.visibleLists).to.deep.equal(['hobbies', 'house', 'cars', 'list1']);
 	});
 
-	it('reorders when list before does not exist', () => {
+	it('ignores a reorder for a list that is not visible', () => {
 		let state = createList(initialState, 'id1', 'First List');
 		state = createList(state, 'id2', 'Second List');
-		expect(state.visibleLists.length).to.equal(2);
-		expect(state.visibleLists[0]).to.equal('id1');
-		expect(state.visibleLists[1]).to.equal('id2');
+		expect(lists(state, reorder_list({ id: 'XYZ' }))).to.equal(state);
+		expect(state.visibleLists).to.deep.equal(['id1', 'id2']);
+	});
 
-		try {
-			state = lists(state, reorder_list({ id: 'id2', goes_before: 'XYZ' }));
-		} catch (e) {
-			expect(e).to.equal('ERROR: goes_before XYZ not found in visible lists');
-		}
+	it('ignores a reorder before a list that is not visible', () => {
+		let state = createList(initialState, 'id1', 'First List');
+		state = createList(state, 'id2', 'Second List');
+		expect(lists(state, reorder_list({ id: 'id2', goes_before: 'XYZ' }))).to.equal(state);
+		expect(state.visibleLists).to.deep.equal(['id1', 'id2']);
 	});
 });

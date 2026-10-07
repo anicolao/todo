@@ -1,6 +1,8 @@
 import { createReducer } from '$lib/redux';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+// Version 6 caches may have skipped global actions after an invalid reorder.
+// Rebuild them from Firestore once the replay reducer can handle those events.
+export const CURRENT_SCHEMA_VERSION = 7;
 
 export function isCompatibleCachedState(cachedState: any) {
 	return cachedState?.schemaVersion === CURRENT_SCHEMA_VERSION;

@@ -152,22 +152,22 @@ export const lists = createReducer(initialState, (r) => {
 		return state;
 	});
 	r.addCase(reorder_list, (state, action) => {
-		state = { ...state };
-		const lists = [...state.visibleLists];
-		const index = lists.indexOf(action.payload.id);
-		if (index !== -1) {
-			const removedItem = lists.splice(index, 1);
-			const newIndex = action.payload.goes_before
-				? lists.indexOf(action.payload.goes_before)
-				: lists.length;
-			if (newIndex === -1) {
-				throw `ERROR: goes_before ${action.payload.goes_before} not found in visible lists`;
-			}
-			state.visibleLists = [lists.slice(0, newIndex), removedItem[0], lists.slice(newIndex)].flat();
-		} else {
-			throw `ERROR: list_id ${action.payload.id} not found in visible lists`;
+		const { id, goes_before } = action.payload;
+		const index = state.visibleLists.indexOf(id);
+		// Reorder events are persisted and replayed on every new device. Ignore stale
+		// targets and self-moves so one invalid event cannot stop the entire replay.
+		if (
+			index === -1 ||
+			goes_before === id ||
+			(goes_before && !state.visibleLists.includes(goes_before))
+		) {
+			return state;
 		}
-		return state;
+		const visibleLists = [...state.visibleLists];
+		visibleLists.splice(index, 1);
+		const newIndex = goes_before ? visibleLists.indexOf(goes_before) : visibleLists.length;
+		visibleLists.splice(newIndex, 0, id);
+		return { ...state, visibleLists };
 	});
 	r.addCase(pin_label, (state, action) => {
 		if (
