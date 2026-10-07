@@ -16,12 +16,13 @@ import {
 	getFirestore,
 	serverTimestamp,
 	setDoc,
+	writeBatch,
 	type Firestore
 } from 'firebase/firestore';
 import { TodoApplication } from '../src/application';
 import { FirebaseRuntime } from '../src/firebase';
 import { runtimePaths } from '../src/paths';
-import { PROTOCOL_VERSION, type ItemView, type RpcRequest } from '../src/types';
+import { PROTOCOL_VERSION, type ItemView, type RpcRequest, type ServiceStatus } from '../src/types';
 
 const enabled = process.env.TODO_RUN_FIREBASE_EMULATOR_TESTS === 'true';
 const suite = enabled ? describe : describe.skip;
@@ -182,5 +183,46 @@ suite('Firebase emulator integration', () => {
 		} finally {
 			await runCli('service', 'stop');
 		}
+	});
+
+	test('reports real intermediate replay progress while status remains responsive', async () => {
+		const batch = writeBatch(seedFirestore);
+		for (let index = 0; index < 350; index++) {
+			batch.set(doc(seedFirestore, 'lists', 'list-1', 'actions', `bulk-${index}`), {
+				type: 'create_item',
+				payload: { list_id: 'list-1', id: `bulk-${index}`, description: `Bulk item ${index}` },
+				creator: uid,
+				timestamp: serverTimestamp()
+			});
+		}
+		await batch.commit();
+		application = new TodoApplication(runtimePaths(), new FirebaseRuntime());
+		const statuses: ServiceStatus[] = [];
+		let done = false;
+		const initialized = application.initialize().finally(() => {
+			done = true;
+		});
+		while (!done) {
+			statuses.push((await application.handle(request('service.status'))) as ServiceStatus);
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+		await initialized;
+		expect(application.status().phase).toBe('ready');
+		expect(
+			statuses.some(
+				({ phase, replay }) =>
+					phase === 'hydrating' &&
+					replay?.stream === 'list' &&
+					replay.actionsProcessed > 0 &&
+					replay.actionsProcessed < replay.actionsTotal
+			)
+		).toBe(true);
+		const counts = statuses.flatMap(({ replay }) => (replay ? [replay.completedWork] : []));
+		expect(counts).toEqual([...counts].sort((a, b) => a - b));
+		expect(application.status().replay?.listsCompleted).toBe(1);
+		const items = (await application.handle(
+			request('items.query', { list: 'Groceries', state: 'all' })
+		)) as ItemView[];
+		expect(items.filter((item) => item.id.startsWith('bulk-'))).toHaveLength(350);
 	});
 });

@@ -20,6 +20,7 @@ import {
 	type CursorState,
 	type ItemView,
 	type RpcRequest,
+	type ReplayProgress,
 	type ServicePhase,
 	type ServiceStatus,
 	type SnapshotData
@@ -89,6 +90,8 @@ export class TodoApplication {
 	#cursors: CursorState = { lists: {} };
 	#synchronizer?: FirestoreSynchronizer;
 	#phase: ServicePhase = 'starting';
+	#replay?: ReplayProgress;
+	#completedWork = 0;
 	#message?: string;
 	#requests = new Map<string, Promise<unknown>>();
 	#initialization?: Promise<void>;
@@ -219,6 +222,7 @@ export class TodoApplication {
 		return {
 			serviceVersion: SERVICE_VERSION,
 			phase: this.#phase,
+			...(this.#replay ? { replay: this.#replay } : {}),
 			projectId: this.firebase.projectId,
 			...(user ? { uid: user.uid, email: user.email || undefined } : {}),
 			listCount: this.#projection.listViews().length,
@@ -232,18 +236,24 @@ export class TodoApplication {
 		if (!user) throw new TodoServiceError('authentication', 'Sign in with `todo auth login`');
 		await this.#synchronizer?.stop();
 		this.#phase = 'hydrating';
+		this.#replay = undefined;
 		this.#message = undefined;
 		const snapshot = this.#snapshotEnabled
 			? await this.snapshots.load(this.firebase.projectId, user.uid)
 			: undefined;
 		this.#projection.reset(snapshot?.projection);
 		this.#cursors = snapshot?.cursors || { lists: {} };
+		const workOffset = this.#completedWork;
 		this.#synchronizer = new FirestoreSynchronizer(
 			this.firebase,
 			this.#projection,
 			this.#cursors,
 			() => this.scheduleSnapshot(),
-			(error) => this.synchronizationFailed(error)
+			(error) => this.synchronizationFailed(error),
+			(progress) => {
+				this.#completedWork = workOffset + progress.completedWork;
+				this.#replay = { ...progress, completedWork: this.#completedWork };
+			}
 		);
 		try {
 			await this.#synchronizer.start(user.uid);

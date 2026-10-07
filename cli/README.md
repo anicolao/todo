@@ -22,6 +22,19 @@ npm run todo -- search "oat milk"
 `npm link` exposes the root package's `todo` and `todo-service` binaries for local development.
 Ordinary commands start the service automatically, so an explicit `service start` is optional.
 
+While the service hydrates, commands (including `service start`) report account/list action
+processing and completed lists on stderr. JSON and Markdown results remain on stdout. There
+is no overall replay deadline: each increase in completed work renews a 30-second inactivity
+timeout. Repeated status responses without new work do not renew it. If replay stalls, inspect
+`todo service logs`; the CLI does not retry a timed-out mutation automatically.
+
+The service normally restores a local projection snapshot and replay cursors. Firestore
+subscriptions still fetch history, but actions already covered by the cursors are skipped.
+The progress meter counts documents processed, including those checked against saved cursors;
+it does not claim that every document was applied again. Missing, incompatible, or disabled
+snapshots require replay from scratch. Progress totals describe each received history batch,
+not an estimated download percentage.
+
 ## Run with Nix
 
 The root flake packages the CLI and its resident service as the default app and as the `todo`

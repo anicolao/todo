@@ -13,6 +13,49 @@ afterEach(async () => {
 });
 
 describe('local RPC', () => {
+	for (const advancing of [true, false]) {
+		test(
+			advancing
+				? 'waits beyond the deadline while real replay work advances'
+				: 'times out when responsive replay reports stop advancing',
+			async () => {
+				const directory = await mkdtemp(join(tmpdir(), 'todo-rpc-'));
+				directories.push(directory);
+				const socket = join(directory, 'service.sock');
+				let work = 0;
+				let polls = 0;
+				const server = new RpcServer(socket, async (request) => {
+					if (request.method === 'service.status') return { completedWork: work };
+					for (let batch = 0; batch < 12; batch++) {
+						await new Promise((resolve) => setTimeout(resolve, 25));
+						if (advancing || batch === 0) work++;
+					}
+					return 'ready';
+				});
+				await server.start();
+				try {
+					const result = rpcRequest(socket, 'items.query', undefined, 120, {
+						intervalMs: 10,
+						read: async () => {
+							polls++;
+							return ((await rpcRequest(socket, 'service.status')) as { completedWork: number })
+								.completedWork;
+						}
+					});
+					if (advancing) expect(await result).toBe('ready');
+					else await expect(result).rejects.toMatchObject({ code: 'service_timeout' });
+					// Polling must stop after both success and timeout.
+					await new Promise((resolve) => setTimeout(resolve, 25));
+					const finishedPolls = polls;
+					await new Promise((resolve) => setTimeout(resolve, 40));
+					expect(polls).toBe(finishedPolls);
+				} finally {
+					await server.stop();
+				}
+			}
+		);
+	}
+
 	test('round trips a versioned request', async () => {
 		const directory = await mkdtemp(join(tmpdir(), 'todo-rpc-'));
 		directories.push(directory);
