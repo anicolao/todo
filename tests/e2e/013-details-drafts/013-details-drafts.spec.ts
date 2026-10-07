@@ -32,7 +32,7 @@ test('drafts validation removal and accessible small-phone layout', async ({
 	await page.keyboard.press('Tab');
 	await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
 	await page.getByRole('button', { name: /^Repeat / }).click();
-	await page.locator('input[aria-label="Due date"]').fill('2026-09-18');
+	await page.getByRole('textbox', { name: 'Due date' }).fill('2026-09-18');
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	await page.getByRole('radio', { name: /^Weekly/ }).check();
 	await page.getByRole('button', { name: '‹ Details', exact: true }).click();

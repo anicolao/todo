@@ -20,7 +20,9 @@
 	export let viaLabelId = '';
 	export let labelExpanded = false;
 	export let labelPinned = false;
-	export let setActive: (name: string, keepDrawerOpen?: boolean) => void = (name: string) => {
+	export let setActive: (name: string, keepDrawerOpen?: boolean, source?: HTMLElement) => void = (
+		name: string
+	) => {
 		console.log('ListMenuItem.setActive DEFAULT goto ' + name);
 		goto('/' + name);
 	};
@@ -46,16 +48,19 @@
 	$: setIsShared($store.requests.completedRequests);
 
 	function gotoList(listId: string) {
-		return () => {
+		return (event: Event) => {
+			const source = (event.currentTarget as HTMLElement).closest<HTMLElement>(
+				'[data-navigation-id]'
+			);
 			// A real drag captures the pointer on the container, so this pointerup
 			// only fires for taps — navigate regardless of how long the press was.
 			const isLabel = $store.lists.listIdToType[listId] === 'label';
 			if (isLabel) {
 				onToggleLabelExpansion(listId);
-				setActive(`labels?labelId=${encodeURIComponent(listId)}`, true);
+				setActive(`labels?labelId=${encodeURIComponent(listId)}`, true, source || undefined);
 			} else {
 				const via = viaLabelId ? `&via=${encodeURIComponent(viaLabelId)}` : '';
-				setActive(`lists?listId=${encodeURIComponent(listId)}${via}`);
+				setActive(`lists?listId=${encodeURIComponent(listId)}${via}`, false, source || undefined);
 			}
 		};
 	}
@@ -97,7 +102,12 @@
 </script>
 
 {#if listId}
-	<div class="list-menu-item" class:nested>
+	<div
+		class="list-menu-item"
+		class:nested
+		data-navigation-id={listId}
+		data-navigation-active={activated ? 'true' : undefined}
+	>
 		<Item
 			on:pointerup={gotoList(listId)}
 			{activated}

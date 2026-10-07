@@ -6,6 +6,11 @@
 	import { watch } from './ActionLog';
 	import { doc, onSnapshot } from 'firebase/firestore';
 	import firebase from '$lib/firebase';
+	import {
+		hideOutgoingScreen,
+		mobileScreenSlide,
+		type ScreenMovement
+	} from '$lib/mobile-transitions';
 	import { getLabelPredicates, getLabelVisibility } from './labels';
 	import { changedSelections, sharingStatus } from './list-details-state';
 	import { listSettingsSession } from './list-details-save';
@@ -14,6 +19,7 @@
 	export let onDeleted: () => void;
 	type Screen = 'details' | 'name' | 'sharing' | 'labels' | 'delete';
 	let screen: Screen = 'details';
+	let panelMovement: ScreenMovement = 'forward';
 	const isLabel = $store.lists.listIdToType[listId] === 'label';
 	const kind = isLabel ? 'label' : 'list';
 	let savedName = $store.lists.listIdToList[listId];
@@ -168,6 +174,7 @@
 		conflict = false;
 	}
 	async function open(next: Screen, restore?: Screen) {
+		panelMovement = next === 'details' ? 'backward' : 'forward';
 		screen = next;
 		search = '';
 		error = '';
@@ -184,7 +191,12 @@
 		completionOnly = false;
 		await tick();
 		body?.scrollTo(0, 0);
-		if (restore) dialog.querySelector<HTMLButtonElement>(`[data-setting="${restore}"]`)?.focus();
+		if (restore)
+			dialog
+				.querySelector<HTMLButtonElement>(
+					`.editor-screen:not([aria-hidden="true"]) [data-setting="${restore}"]`
+				)
+				?.focus();
 		else if (next === 'delete') dialog.querySelector<HTMLButtonElement>('[data-keep]')?.focus();
 		else heading?.focus();
 	}
@@ -380,211 +392,228 @@
 			<span class="header-spacer"></span>
 		</header>
 		<div class="editor-body" bind:this={body}>
-			{#if !available && !saving}<p role="alert" class="notice">
-					This {kind} is no longer available. Changes cannot be saved.
-				</p>{/if}
-			{#if conflict}<section class="notice" role="alert">
-					<p>This setting changed elsewhere. Your edits are still here.</p>
-					<button on:click={() => resolve(true)}>Reload latest</button><button
-						on:click={() => resolve(false)}>Keep my changes</button
-					>
-				</section>{/if}
-			{#if error}<p role="alert" class="error">{error}</p>{/if}
-			{#if saving}<p role="status">
-					{online ? 'Saving changes…' : 'Waiting for connection to finish saving.'}
-				</p>{:else if notice && screen === 'details'}<p role="status">{notice}</p>{/if}
-			{#if confirmDiscard}
-				<section class="notice" aria-label="Discard changes">
-					<h2>Discard changes?</h2>
-					<p>Only unsaved changes on this screen will be discarded. Saved changes will remain.</p>
-					<button class="primary" on:click={() => (confirmDiscard = false)}>Keep editing</button
-					><button on:click={() => open('details', screen)}>Discard changes</button>
-				</section>
-			{/if}
-			{#if screen === 'details'}
-				<h2 class="section-label">Settings</h2>
-				<div class="settings">
-					<button data-setting="name" disabled={!available} on:click={() => open('name')}
-						><span class="material-icons" aria-hidden="true">edit</span><span
-							><strong>Name</strong><small>{savedName}</small></span
-						><span aria-hidden="true">›</span></button
-					>
-					<button data-setting="sharing" disabled={!available} on:click={() => open('sharing')}
-						><span class="material-icons" aria-hidden="true">people</span><span
-							><strong>Sharing</strong><small>{sharingSummary}</small></span
-						><span aria-hidden="true">›</span></button
-					>
-					{#if !isLabel}<button
-							data-setting="labels"
-							disabled={!available}
-							on:click={() => open('labels')}
-							><span class="material-icons" aria-hidden="true">label</span><span
-								><strong>Labels</strong><small>{labelsSummary}</small></span
-							><span aria-hidden="true">›</span></button
-						>{/if}
-				</div>
-				<p class="hint">Open a setting to make changes.</p>
-				<h2 class="section-label actions-title">{isLabel ? 'Label' : 'List'} actions</h2>
-				<div class="settings">
-					<button
-						class="danger"
-						data-setting="delete"
-						disabled={!available}
-						on:click={() => open('delete')}
-						><span class="material-icons" aria-hidden="true">delete_outline</span><span
-							><strong>Delete {kind}…</strong><small>Confirmation required</small></span
-						><span aria-hidden="true">›</span></button
-					>
-				</div>
-			{:else if screen === 'name'}
-				<label for="list-name">{isLabel ? 'Label' : 'List'} name</label><textarea
-					id="list-name"
-					use:autosize={name}
-					rows="3"
-					bind:value={name}
-					disabled={saving || completionOnly}
-					aria-invalid={!name.trim()}
-					aria-describedby={!name.trim() ? 'name-error' : undefined}
-				></textarea>
-				{#if !name.trim()}<p class="error" id="name-error">Enter a {kind} name.</p>{/if}
-				<p class="hint">Save updates this {kind}'s name.</p>
-			{:else if screen === 'sharing'}
-				<p class="context">{savedName}</p>
-				<label for="people-search">Search people</label><input
-					id="people-search"
-					type="search"
-					bind:value={search}
-					disabled={saving || completionOnly}
-				/>
-				<p class="hint">Choose from people already in the app.</p>
-				<p class="hint" role="status">
-					{filteredPeople.length}
-					{filteredPeople.length === 1 ? 'person' : 'people'}
-				</p>
-				{#each sharingGroups as group (group.id)}
-					{#if group.people.length}
-						<section class="sharing-group" aria-labelledby={group.id}>
-							<h2 class="section-label" id={group.id}>{group.title}</h2>
-							<div class="choices">
-								{#each group.people as user (user.uid)}
-									<label
-										class="choice recipient"
-										class:pending={['invitation', 'removal'].includes(user.status)}
-									>
-										<RecipientAvatar photo={user.photo} name={user.name || user.email || '?'} />
-										<span
-											><strong>{user.name || user.email || 'Unavailable person'}</strong><small
-												>{user.email || 'Email unavailable'}</small
-											><small
-												>{user.status === 'invitation'
-													? 'Invitation pending'
-													: user.status === 'removal'
-													? 'Removal pending'
-													: selected[user.uid] !== initial[user.uid]
-													? selected[user.uid]
-														? 'Invite on Save'
-														: 'Remove on Save'
-													: user.status === 'shared'
-													? 'Shared'
-													: user.status === 'rejected'
-													? 'Invitation declined'
-													: 'Not shared'}</small
-											></span
-										>
-										{#if !['invitation', 'removal'].includes(user.status)}<input
-												type="checkbox"
-												aria-label={`Share with ${user.email || user.name}`}
-												checked={selected[user.uid] ?? false}
-												disabled={saving || completionOnly || !user.email}
-												on:change={() => toggle(user.uid)}
-											/>{/if}
-									</label>
-								{/each}
-							</div>
+			{#key screen}
+				<div
+					class="editor-screen"
+					data-transition-direction={panelMovement}
+					in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+					out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+					on:outrostart={hideOutgoingScreen}
+				>
+					{#if !available && !saving}<p role="alert" class="notice">
+							This {kind} is no longer available. Changes cannot be saved.
+						</p>{/if}
+					{#if conflict}<section class="notice" role="alert">
+							<p>This setting changed elsewhere. Your edits are still here.</p>
+							<button on:click={() => resolve(true)}>Reload latest</button><button
+								on:click={() => resolve(false)}>Keep my changes</button
+							>
+						</section>{/if}
+					{#if error}<p role="alert" class="error">{error}</p>{/if}
+					{#if saving}<p role="status">
+							{online ? 'Saving changes…' : 'Waiting for connection to finish saving.'}
+						</p>{:else if notice && screen === 'details'}<p role="status">{notice}</p>{/if}
+					{#if confirmDiscard}
+						<section class="notice" aria-label="Discard changes">
+							<h2>Discard changes?</h2>
+							<p>
+								Only unsaved changes on this screen will be discarded. Saved changes will remain.
+							</p>
+							<button class="primary" on:click={() => (confirmDiscard = false)}>Keep editing</button
+							><button on:click={() => open('details', screen)}>Discard changes</button>
 						</section>
 					{/if}
-				{/each}
-				{#if !filteredPeople.length}<p>
-						{people.length ? 'No matching people' : 'No other people available yet'}
-					</p>{/if}
-				{#if changes.length}<section class="notice">
-						<h2>On Save</h2>
-						<ul>
-							{#each changes as id}<li>
-									{selected[id] ? 'Invite' : 'Remove'}
-									{people.find((user) => user.uid === id)?.name ||
-										people.find((user) => user.uid === id)?.email}
-								</li>{/each}
-						</ul>
-					</section>{/if}
-				<p class="hint">Save sends invitations and removal requests.</p>
-			{:else if screen === 'labels'}
-				<p class="context">{savedName}</p>
-				<label for="labels-search">Search labels</label><input
-					id="labels-search"
-					type="search"
-					bind:value={search}
-					disabled={saving || completionOnly}
-				/>
-				<p class="hint">Include this list in these labels.</p>
-				<div class="choices">
-					{#each filteredLabels as label (label.id)}<label class="choice"
-							><span class="material-icons" aria-hidden="true">label</span><span>{label.name}</span
-							><input
-								type="checkbox"
-								aria-label={`Include in ${label.name}`}
-								checked={selected[label.id] ?? false}
-								disabled={saving || completionOnly}
-								on:change={() => toggle(label.id)}
-							/></label
-						>{/each}
-				</div>
-				{#if !filteredLabels.length}<p>
-						{labels.length ? 'No matching labels' : 'No labels yet'}
-					</p>{/if}
-				{#if creating}<section class="notice composer">
-						<label for="new-label-name">New label</label><input
-							id="new-label-name"
-							bind:value={newName}
+					{#if screen === 'details'}
+						<h2 class="section-label">Settings</h2>
+						<div class="settings">
+							<button data-setting="name" disabled={!available} on:click={() => open('name')}
+								><span class="material-icons" aria-hidden="true">edit</span><span
+									><strong>Name</strong><small>{savedName}</small></span
+								><span aria-hidden="true">›</span></button
+							>
+							<button data-setting="sharing" disabled={!available} on:click={() => open('sharing')}
+								><span class="material-icons" aria-hidden="true">people</span><span
+									><strong>Sharing</strong><small>{sharingSummary}</small></span
+								><span aria-hidden="true">›</span></button
+							>
+							{#if !isLabel}<button
+									data-setting="labels"
+									disabled={!available}
+									on:click={() => open('labels')}
+									><span class="material-icons" aria-hidden="true">label</span><span
+										><strong>Labels</strong><small>{labelsSummary}</small></span
+									><span aria-hidden="true">›</span></button
+								>{/if}
+						</div>
+						<p class="hint">Open a setting to make changes.</p>
+						<h2 class="section-label actions-title">{isLabel ? 'Label' : 'List'} actions</h2>
+						<div class="settings">
+							<button
+								class="danger"
+								data-setting="delete"
+								disabled={!available}
+								on:click={() => open('delete')}
+								><span class="material-icons" aria-hidden="true">delete_outline</span><span
+									><strong>Delete {kind}…</strong><small>Confirmation required</small></span
+								><span aria-hidden="true">›</span></button
+							>
+						</div>
+					{:else if screen === 'name'}
+						<label for="list-name">{isLabel ? 'Label' : 'List'} name</label><textarea
+							id="list-name"
+							use:autosize={name}
+							rows="3"
+							bind:value={name}
 							disabled={saving || completionOnly}
-							aria-invalid={!newName.trim()}
-						/>{#if !newName.trim()}<p class="error">Enter a label name.</p>{/if}
-						<p class="hint">Save creates this label and includes the list.</p>
-						{#each matches as label}<button
-								disabled={saving || completionOnly}
-								on:click={() => {
-									selected = { ...selected, [label.id]: true };
-									creating = false;
-									newName = '';
-								}}>Use existing {label.name}</button
-							>{/each}<button
+							aria-invalid={!name.trim()}
+							aria-describedby={!name.trim() ? 'name-error' : undefined}
+						></textarea>
+						{#if !name.trim()}<p class="error" id="name-error">Enter a {kind} name.</p>{/if}
+						<p class="hint">Save updates this {kind}'s name.</p>
+					{:else if screen === 'sharing'}
+						<p class="context">{savedName}</p>
+						<label for="people-search">Search people</label><input
+							id="people-search"
+							type="search"
+							bind:value={search}
 							disabled={saving || completionOnly}
-							on:click={() => {
-								creating = false;
-								newName = '';
-							}}>Cancel new label</button
-						>
-					</section>
-				{:else}<button class="outlined create" disabled={saving || completionOnly} on:click={create}
-						>+ Create label</button
-					>{/if}
-				<p class="hint">Tasks stay in their original list.</p>
-			{:else}
-				<h2>Delete “{savedName}”?</h2>
-				<p>This removes the {kind} from navigation for people who receive this {kind}'s updates.</p>
-				{#if isLabel}<p>Source lists and their tasks remain intact.</p>{/if}
-				<p class="hint">Review the {kind} name before deleting.</p>
-				<div class="delete-actions">
-					<button
-						class="outlined"
-						data-keep
-						disabled={saving || completionOnly}
-						on:click={() => open('details', 'delete')}>Keep {kind}</button
-					><button class="destructive" disabled={saving || !available} on:click={save}
-						>{error ? 'Retry deletion' : `Delete ${kind}`}</button
-					>
+						/>
+						<p class="hint">Choose from people already in the app.</p>
+						<p class="hint" role="status">
+							{filteredPeople.length}
+							{filteredPeople.length === 1 ? 'person' : 'people'}
+						</p>
+						{#each sharingGroups as group (group.id)}
+							{#if group.people.length}
+								<section class="sharing-group" aria-labelledby={group.id}>
+									<h2 class="section-label" id={group.id}>{group.title}</h2>
+									<div class="choices">
+										{#each group.people as user (user.uid)}
+											<label
+												class="choice recipient"
+												class:pending={['invitation', 'removal'].includes(user.status)}
+											>
+												<RecipientAvatar photo={user.photo} name={user.name || user.email || '?'} />
+												<span
+													><strong>{user.name || user.email || 'Unavailable person'}</strong><small
+														>{user.email || 'Email unavailable'}</small
+													><small
+														>{user.status === 'invitation'
+															? 'Invitation pending'
+															: user.status === 'removal'
+															? 'Removal pending'
+															: selected[user.uid] !== initial[user.uid]
+															? selected[user.uid]
+																? 'Invite on Save'
+																: 'Remove on Save'
+															: user.status === 'shared'
+															? 'Shared'
+															: user.status === 'rejected'
+															? 'Invitation declined'
+															: 'Not shared'}</small
+													></span
+												>
+												{#if !['invitation', 'removal'].includes(user.status)}<input
+														type="checkbox"
+														aria-label={`Share with ${user.email || user.name}`}
+														checked={selected[user.uid] ?? false}
+														disabled={saving || completionOnly || !user.email}
+														on:change={() => toggle(user.uid)}
+													/>{/if}
+											</label>
+										{/each}
+									</div>
+								</section>
+							{/if}
+						{/each}
+						{#if !filteredPeople.length}<p>
+								{people.length ? 'No matching people' : 'No other people available yet'}
+							</p>{/if}
+						{#if changes.length}<section class="notice">
+								<h2>On Save</h2>
+								<ul>
+									{#each changes as id}<li>
+											{selected[id] ? 'Invite' : 'Remove'}
+											{people.find((user) => user.uid === id)?.name ||
+												people.find((user) => user.uid === id)?.email}
+										</li>{/each}
+								</ul>
+							</section>{/if}
+						<p class="hint">Save sends invitations and removal requests.</p>
+					{:else if screen === 'labels'}
+						<p class="context">{savedName}</p>
+						<label for="labels-search">Search labels</label><input
+							id="labels-search"
+							type="search"
+							bind:value={search}
+							disabled={saving || completionOnly}
+						/>
+						<p class="hint">Include this list in these labels.</p>
+						<div class="choices">
+							{#each filteredLabels as label (label.id)}<label class="choice"
+									><span class="material-icons" aria-hidden="true">label</span><span
+										>{label.name}</span
+									><input
+										type="checkbox"
+										aria-label={`Include in ${label.name}`}
+										checked={selected[label.id] ?? false}
+										disabled={saving || completionOnly}
+										on:change={() => toggle(label.id)}
+									/></label
+								>{/each}
+						</div>
+						{#if !filteredLabels.length}<p>
+								{labels.length ? 'No matching labels' : 'No labels yet'}
+							</p>{/if}
+						{#if creating}<section class="notice composer">
+								<label for="new-label-name">New label</label><input
+									id="new-label-name"
+									bind:value={newName}
+									disabled={saving || completionOnly}
+									aria-invalid={!newName.trim()}
+								/>{#if !newName.trim()}<p class="error">Enter a label name.</p>{/if}
+								<p class="hint">Save creates this label and includes the list.</p>
+								{#each matches as label}<button
+										disabled={saving || completionOnly}
+										on:click={() => {
+											selected = { ...selected, [label.id]: true };
+											creating = false;
+											newName = '';
+										}}>Use existing {label.name}</button
+									>{/each}<button
+									disabled={saving || completionOnly}
+									on:click={() => {
+										creating = false;
+										newName = '';
+									}}>Cancel new label</button
+								>
+							</section>
+						{:else}<button
+								class="outlined create"
+								disabled={saving || completionOnly}
+								on:click={create}>+ Create label</button
+							>{/if}
+						<p class="hint">Tasks stay in their original list.</p>
+					{:else}
+						<h2>Delete “{savedName}”?</h2>
+						<p>
+							This removes the {kind} from navigation for people who receive this {kind}'s updates.
+						</p>
+						{#if isLabel}<p>Source lists and their tasks remain intact.</p>{/if}
+						<p class="hint">Review the {kind} name before deleting.</p>
+						<div class="delete-actions">
+							<button
+								class="outlined"
+								data-keep
+								disabled={saving || completionOnly}
+								on:click={() => open('details', 'delete')}>Keep {kind}</button
+							><button class="destructive" disabled={saving || !available} on:click={save}
+								>{error ? 'Retry deletion' : `Delete ${kind}`}</button
+							>
+						</div>
+					{/if}
 				</div>
-			{/if}
+			{/key}
 		</div>
 		{#if ['name', 'sharing', 'labels'].includes(screen)}<footer>
 				<button
@@ -674,11 +703,17 @@
 		cursor: default;
 	}
 	.editor-body {
+		display: grid;
 		padding: 12px 16px 24px;
 		overflow: auto;
 		flex: 1;
 		min-height: 0;
 		overscroll-behavior: contain;
+	}
+	.editor-screen {
+		grid-area: 1 / 1;
+		min-height: 100%;
+		min-width: 0;
 	}
 	.section-label {
 		text-transform: uppercase;

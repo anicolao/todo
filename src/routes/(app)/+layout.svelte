@@ -1,11 +1,12 @@
 <script lang="ts">
 	console.log('routes/(app)/+layout.svelte');
-	import { goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
+	import RouteTransitionContent from '$lib/components/RouteTransitionContent.svelte';
 	import TaskDetailsEditor from '$lib/components/TaskDetailsEditor.svelte';
 	import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 	import ListDetailsEditor from '$lib/components/ListDetailsEditor.svelte';
@@ -14,6 +15,14 @@
 	import { create_list } from '$lib/components/lists';
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import firebase from '$lib/firebase';
+	import {
+		hideOutgoingScreen,
+		isTouchFormFactor,
+		mobileScreenSlide,
+		prefersReducedMotion,
+		routeSnapshots,
+		type ScreenMovement
+	} from '$lib/mobile-transitions';
 	import {
 		logTime,
 		store,
@@ -26,7 +35,7 @@
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { Row, Section, Title } from '@smui/top-app-bar';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { createFirebaseListActions, load } from '$lib/database';
 	import { set_current_url } from '$lib/components/UiSettings';
 
@@ -43,18 +52,110 @@
 	onDestroy(pageData.cleanupSubscriptions);
 
 	let width = 0;
+	let height = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;
+	let touchFormFactor = false;
+	let reducedMotion = false;
+	let transitionsReady = false;
+	let routeMovement: ScreenMovement = 'none';
+	let routeTransitioning = false;
+	let plannedNavigation = false;
+	let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
 
-	$: drawerOpen = width > MOBILE_LAYOUT_WIDTH;
+	$: mobilePortrait = touchFormFactor && height >= width;
+	$: mobileLandscape = touchFormFactor && width > height;
+	$: persistentDrawer = width > MOBILE_LAYOUT_WIDTH || mobileLandscape;
+	$: drawerOpen = persistentDrawer;
+	$: screenKey = `${$page.url.pathname}${$page.url.search}`;
+	$: routeMotionEnabled = transitionsReady && touchFormFactor && !reducedMotion;
+
+	function navigationId(url: URL) {
+		return url.searchParams.get('listId') || url.searchParams.get('labelId') || '';
+	}
+
+	function navigationMovement(name: string, source?: HTMLElement): ScreenMovement {
+		if (mobilePortrait && drawerOpen) return 'none';
+		if (!mobileLandscape) return 'forward';
+
+		const targetUrl = new URL('/' + name, window.location.origin);
+		const currentId = navigationId($page.url);
+		const targetId = navigationId(targetUrl);
+		if (!currentId || !targetId || currentId === targetId) return 'forward';
+
+		const currentRow = document.querySelector<HTMLElement>(
+			`[data-navigation-id="${CSS.escape(currentId)}"][data-navigation-active="true"]`
+		);
+		const targetRow =
+			source ||
+			document.querySelector<HTMLElement>(`[data-navigation-id="${CSS.escape(targetId)}"]`);
+		if (!currentRow || !targetRow) return 'forward';
+		return targetRow.getBoundingClientRect().top > currentRow.getBoundingClientRect().top
+			? 'up'
+			: 'down';
+	}
 
 	let active: string;
-	function setActive(name: string, keepDrawerOpen = false) {
+	function setActive(name: string, keepDrawerOpen = false, source?: HTMLElement) {
 		console.log('setActive ' + name);
-		drawerOpen = keepDrawerOpen || width > MOBILE_LAYOUT_WIDTH;
+		routeMovement = navigationMovement(name, source);
+		plannedNavigation = true;
+		drawerOpen = keepDrawerOpen || persistentDrawer;
 		active = name;
 		firebase.dispatch(set_current_url('/' + name));
 		goto('/' + name);
 	}
+
+	function finishRouteTransition(event: Event) {
+		const element = event.currentTarget as HTMLElement;
+		if (element.dataset.screenKey === screenKey) routeTransitioning = false;
+	}
+
+	onMount(() => {
+		const touchQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const updatePreferences = () => {
+			touchFormFactor = isTouchFormFactor();
+			reducedMotion = prefersReducedMotion();
+		};
+		updatePreferences();
+		transitionsReady = true;
+		touchQuery.addEventListener('change', updatePreferences);
+		motionQuery.addEventListener('change', updatePreferences);
+		return () => {
+			touchQuery.removeEventListener('change', updatePreferences);
+			motionQuery.removeEventListener('change', updatePreferences);
+		};
+	});
+
+	beforeNavigate((navigation) => {
+		if (!navigation.to || !navigation.from) return;
+		if (!plannedNavigation) {
+			routeMovement = navigation.type === 'popstate' ? 'backward' : 'forward';
+		}
+		plannedNavigation = false;
+		if (!transitionsReady || !touchFormFactor || reducedMotion || routeMovement === 'none') return;
+		routeTransitioning = true;
+
+		const fromKey = `${navigation.from.url.pathname}${navigation.from.url.search}`;
+		const element = document.getElementById(
+			`route-screen-${fromKey.replace(/[^a-zA-Z0-9-]/g, '_')}`
+		);
+		if (element) {
+			routeSnapshots.update((snapshots) => ({
+				...snapshots,
+				[fromKey]: element.innerHTML
+			}));
+		}
+	});
+
+	afterNavigate(() => {
+		if (snapshotTimer) clearTimeout(snapshotTimer);
+		snapshotTimer = setTimeout(() => routeSnapshots.set({}), 350);
+	});
+
+	onDestroy(() => {
+		if (snapshotTimer) clearTimeout(snapshotTimer);
+	});
 
 	function getIconName(name: string) {
 		return name;
@@ -207,6 +308,7 @@
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
+		height = window.innerHeight;
 	}
 
 	$: loadingListPercent =
@@ -227,7 +329,11 @@
 	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
 </script>
 
-<svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
+<svelte:window
+	bind:innerWidth={width}
+	bind:innerHeight={height}
+	on:orientationchange={onOrientationChanged}
+/>
 
 {#await pageData.loaded.loaded}
 	<div class="loading-screen">
@@ -254,17 +360,21 @@
 		</div>
 	</div>
 {:then value}
-	<div class="drawer-container w{width} ">
+	<div
+		class="drawer-container w{width}"
+		class:mobile-portrait={mobilePortrait}
+		class:mobile-landscape={mobileLandscape}
+		class:drawer-open={drawerOpen}
+	>
 		<TopAppBar variant="fixed">
 			<Row>
-				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
+				<div class={persistentDrawer ? 'desk-margin' : 'mobile-margin'}>
 					<Section>
-						{#if width <= MOBILE_LAYOUT_WIDTH}
+						{#if !persistentDrawer}
 							<IconButton
 								class="material-icons"
 								aria-label="Open navigation menu"
-								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
-								>menu</IconButton
+								on:click={() => (drawerOpen = !drawerOpen || persistentDrawer)}>menu</IconButton
 							>
 						{/if}
 						<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
@@ -279,8 +389,8 @@
 		</TopAppBar>
 
 		<Drawer
-			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
-			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
+			variant={persistentDrawer ? undefined : 'modal'}
+			fixed={persistentDrawer ? undefined : false}
 			bind:open={drawerOpen}
 		>
 			<Content>
@@ -319,7 +429,25 @@
 		<Scrim fixed={false} />
 		<AppContent class="app-content">
 			<div class="backdrop" style:background-image={bgStyle}>
-				<slot />
+				<div class="route-stage" class:transition-active={routeTransitioning}>
+					{#if routeMotionEnabled}
+						{#key screenKey}
+							<div
+								class="route-screen"
+								data-screen-key={screenKey}
+								data-transition-direction={routeMovement}
+								in:mobileScreenSlide={{ movement: routeMovement, phase: 'in' }}
+								out:mobileScreenSlide={{ movement: routeMovement, phase: 'out' }}
+								on:introend={finishRouteTransition}
+								on:outrostart={hideOutgoingScreen}
+							>
+								<RouteTransitionContent {screenKey}><slot /></RouteTransitionContent>
+							</div>
+						{/key}
+					{:else}
+						<div class="route-screen" data-transition-direction="none"><slot /></div>
+					{/if}
+				</div>
 				{#if itemDetailsOpen}
 					<TaskDetailsEditor
 						item={$store.lists.listIdToList[$store.ui.listId] === undefined
@@ -482,6 +610,19 @@
 		z-index: 0;
 		flex-grow: 1;
 	}
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal) {
+		max-width: 100vw;
+		width: 100vw;
+	}
+	.drawer-container.mobile-portrait :global(.mdc-top-app-bar),
+	.drawer-container.mobile-portrait :global(.app-content) {
+		transition: transform 280ms cubic-bezier(0.215, 0.61, 0.355, 1);
+		will-change: transform;
+	}
+	.drawer-container.mobile-portrait.drawer-open :global(.mdc-top-app-bar),
+	.drawer-container.mobile-portrait.drawer-open :global(.app-content) {
+		transform: translate3d(100vw, 0, 0);
+	}
 
 	* :global(.app-content) {
 		position: relative;
@@ -513,8 +654,39 @@
 		display: flex;
 		flex: auto;
 		flex-grow: 1;
+		min-height: 0;
+		min-width: 0;
 		overflow: auto;
 
 		background-size: cover;
+	}
+	.route-stage {
+		display: contents;
+	}
+	.route-screen {
+		display: contents;
+	}
+	.route-stage.transition-active {
+		display: grid;
+		flex: 1 1 auto;
+		grid-template-areas: 'screen';
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.route-stage.transition-active > .route-screen {
+		display: block;
+		grid-area: screen;
+		min-height: 0;
+		min-width: 0;
+		overflow: auto;
+		width: 100%;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.drawer-container.mobile-portrait :global(.mdc-top-app-bar),
+		.drawer-container.mobile-portrait :global(.app-content) {
+			transition-duration: 0ms;
+		}
 	}
 </style>
