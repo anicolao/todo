@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { TodoServiceError } from './errors';
 import { ensurePrivateDirectories, runtimePaths } from './paths';
 import { rpcRequest } from './rpc';
+import { replayProgressReporter, replayProgressText } from './progress';
 import { SERVICE_VERSION, type ItemView, type ListView, type ServiceStatus } from './types';
 
 interface ParsedArgs {
@@ -109,16 +110,32 @@ async function call(
 ) {
 	const shouldStart = options?.start !== false;
 	if (shouldStart) await startService();
-	const timeout = options?.timeout || 10_000;
-	for (let attempt = 0; attempt < 150; attempt++) {
-		try {
-			return await rpcRequest(runtimePaths().socket, method, params, timeout);
-		} catch (error) {
-			if (!(error instanceof TodoServiceError) || error.code !== 'not_ready') throw error;
-			await sleep(100);
+	const timeout = options?.timeout || 30_000;
+	const reporter = replayProgressReporter();
+	try {
+		for (let attempt = 0; attempt < 150; attempt++) {
+			try {
+				return await rpcRequest(
+					runtimePaths().socket,
+					method,
+					params,
+					timeout,
+					method.startsWith('service.')
+						? undefined
+						: {
+								read: async () => reporter.update(await serviceStatus()),
+								stallTimeoutMs: 30_000
+						  }
+				);
+			} catch (error) {
+				if (!(error instanceof TodoServiceError) || error.code !== 'not_ready') throw error;
+				await sleep(100);
+			}
 		}
+		throw new TodoServiceError('service_timeout', 'Todo service did not become ready');
+	} finally {
+		reporter.finish();
 	}
-	throw new TodoServiceError('service_timeout', 'Todo service did not become ready');
 }
 
 function markdownText(value: string) {
@@ -159,6 +176,8 @@ function printStatus(status: ServiceStatus, verbose = false) {
 		lines.push('', `${status.listCount} lists, ${status.itemCount} items`);
 	if (verbose) lines.push('', `Project: \`${status.projectId}\``);
 	if (status.message) lines.push('', `> ${markdownText(status.message)}`);
+	if (status.phase === 'hydrating' && status.replay)
+		lines.push('', markdownText(replayProgressText(status.replay)));
 	printMarkdown(lines.join('\n'));
 }
 
@@ -278,7 +297,7 @@ export async function runCli(args = process.argv.slice(2)) {
 			const operation = positionals[0] || 'status';
 			if (operation === 'start') {
 				await startService();
-				printStatus((await call('service.status')) as ServiceStatus, verbose);
+				printStatus((await call('auth.status')) as ServiceStatus, verbose);
 				return;
 			}
 			if (operation === 'status') {

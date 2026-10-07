@@ -13,9 +13,10 @@ import {
 	type Unsubscribe
 } from 'firebase/firestore';
 import type { FirebaseRuntime } from './firebase';
-import type { CursorState, StreamCursor } from './types';
+import type { CursorState, StreamCursor, ReplayProgress } from './types';
 import type { Projection } from './projection';
 import { TodoServiceError } from './errors';
+import { replayInBatches } from './replay';
 
 interface TimestampValue {
 	seconds: number;
@@ -80,6 +81,42 @@ export class FirestoreSynchronizer {
 	#queue = Promise.resolve();
 	#stopped = false;
 	#uid = '';
+	#hydrating = true;
+	#loadedLists = new Set<string>();
+	#progress: ReplayProgress = {
+		completedWork: 0,
+		stream: 'global',
+		listsCompleted: 0,
+		listsTotal: 0,
+		actionsProcessed: 0,
+		actionsTotal: 0
+	};
+
+	private reportProgress() {
+		if (this.#hydrating) this.progress({ ...this.#progress });
+	}
+
+	private async replay(
+		documents: QueryDocumentSnapshot<DocumentData>[],
+		apply: (document: QueryDocumentSnapshot<DocumentData>) => void
+	) {
+		let previous = 0;
+		await replayInBatches(
+			sortDocuments(documents),
+			(document) => {
+				if (this.#stopped) throw new TodoServiceError('service_unavailable', 'Replay stopped');
+				apply(document);
+			},
+			(processed, total) => {
+				this.#progress.completedWork += processed - previous;
+				previous = processed;
+				this.#progress.actionsProcessed = processed;
+				this.#progress.actionsTotal = total;
+				this.reportProgress();
+			}
+		);
+	}
+
 	#reconcilePromise?: Promise<void>;
 	#reconcileRequested = false;
 	#waiters = new Map<string, Set<() => void>>();
@@ -89,19 +126,24 @@ export class FirestoreSynchronizer {
 		readonly projection: Projection,
 		readonly cursors: CursorState,
 		readonly changed: () => void,
-		readonly failed: (error: unknown) => void
+		readonly failed: (error: unknown) => void,
+		readonly progress: (progress: ReplayProgress) => void = () => {}
 	) {}
 
 	async start(uid: string) {
 		this.#uid = uid;
 		this.#stopped = false;
+		this.reportProgress();
 		const globalQuery = query(
 			collectionGroup(this.firebase.firestore, 'requests'),
 			where('target', '==', uid),
 			orderBy('timestamp')
 		);
 		await this.subscribeGlobal(globalQuery);
+		this.#progress.completedWork++;
+		this.reportProgress();
 		await this.reconcileLists();
+		this.#hydrating = false;
 	}
 
 	private enqueue(task: () => void | Promise<void>) {
@@ -144,17 +186,19 @@ export class FirestoreSynchronizer {
 		});
 	}
 
-	private processGlobal(snapshot: QuerySnapshot<DocumentData>) {
+	private async processGlobal(snapshot: QuerySnapshot<DocumentData>) {
+		this.#progress.stream = 'global';
+		this.#progress.listName = undefined;
 		const documents = snapshot.docChanges().map((change) => change.doc);
-		for (const document of sortDocuments(documents)) {
+		await this.replay(documents, (document) => {
 			const data = document.data();
 			const timestamp = timestampOf(data);
-			if (!timestamp || !shouldApply(this.cursors.global, timestamp, document.id)) continue;
+			if (!timestamp || !shouldApply(this.cursors.global, timestamp, document.id)) return;
 			this.projection.dispatchGlobal(data as AnyAction, this.#uid, document.id, timestamp.seconds);
 			this.cursors.global = advanceCursor(this.cursors.global, timestamp, document.id);
 			this.confirm(document.id);
 			this.changed();
-		}
+		});
 	}
 
 	private reconcileLists() {
@@ -178,14 +222,29 @@ export class FirestoreSynchronizer {
 	private async doReconcileLists() {
 		if (this.#stopped) return;
 		const visible = new Set(this.projection.visibleDocumentIds());
+		this.#progress.listsTotal = visible.size;
 		for (const [id, unsubscribe] of this.#listUnsubscribes) {
 			if (!visible.has(id)) {
 				unsubscribe();
 				this.#listUnsubscribes.delete(id);
+				this.#loadedLists.delete(id);
 			}
 		}
+		this.#progress.listsCompleted = this.#loadedLists.size;
 		for (const id of visible) {
-			if (!this.#listUnsubscribes.has(id)) await this.subscribeList(id);
+			if (!this.#listUnsubscribes.has(id)) {
+				this.#progress.stream = 'list';
+				this.#progress.listName =
+					this.projection.listViews().find((list) => list.id === id)?.name || id;
+				this.#progress.actionsProcessed = 0;
+				this.#progress.actionsTotal = 0;
+				this.reportProgress();
+				await this.subscribeList(id);
+				this.#loadedLists.add(id);
+				this.#progress.listsCompleted = this.#loadedLists.size;
+				this.#progress.completedWork++;
+				this.reportProgress();
+			}
 		}
 	}
 
@@ -225,13 +284,16 @@ export class FirestoreSynchronizer {
 		return started.finally(() => this.#listStarts.delete(id));
 	}
 
-	private processList(id: string, snapshot: QuerySnapshot<DocumentData>) {
+	private async processList(id: string, snapshot: QuerySnapshot<DocumentData>) {
+		this.#progress.stream = 'list';
+		this.#progress.listName =
+			this.projection.listViews().find((list) => list.id === id)?.name || id;
 		const documents = snapshot.docChanges().map((change) => change.doc);
-		for (const document of sortDocuments(documents)) {
+		await this.replay(documents, (document) => {
 			const data = document.data();
 			const timestamp = timestampOf(data);
 			const cursor = this.cursors.lists[id];
-			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) continue;
+			if (!timestamp || !shouldApply(cursor, timestamp, document.id)) return;
 			const result = this.projection.dispatchList(
 				data as AnyAction,
 				document.id,
@@ -247,7 +309,7 @@ export class FirestoreSynchronizer {
 			this.cursors.lists[id] = advanceCursor(cursor, timestamp, document.id);
 			this.confirm(document.id);
 			this.changed();
-		}
+		});
 	}
 
 	waitForAction(documentId: string, timeoutMs = 10_000) {

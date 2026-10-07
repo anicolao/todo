@@ -112,7 +112,12 @@ export async function rpcRequest(
 	socketPath: string,
 	method: string,
 	params?: unknown,
-	timeoutMs = 10_000
+	timeoutMs = 10_000,
+	progress?: {
+		read: () => Promise<number | undefined>;
+		intervalMs?: number;
+		stallTimeoutMs?: number;
+	}
 ) {
 	const request: RpcRequest = {
 		protocol: PROTOCOL_VERSION,
@@ -124,18 +129,45 @@ export async function rpcRequest(
 		const socket = createConnection(socketPath);
 		let input = '';
 		let settled = false;
+		let pollTimer: ReturnType<typeof setTimeout> | undefined;
+		let completedWork = 0;
+		let observedReplay = false;
 		const finish = (callback: () => void) => {
 			if (settled) return;
 			settled = true;
 			clearTimeout(timeout);
+			clearTimeout(pollTimer);
 			callback();
 		};
-		const timeout = setTimeout(() => {
+		const timedOut = () => {
 			socket.destroy();
 			finish(() =>
-				reject(new TodoServiceError('service_timeout', 'Timed out waiting for Todo service'))
+				reject(
+					new TodoServiceError(
+						'service_timeout',
+						observedReplay
+							? 'Todo service stopped making startup progress; see `todo service logs`'
+							: 'Timed out waiting for Todo service'
+					)
+				)
 			);
-		}, timeoutMs);
+		};
+		let timeout = setTimeout(timedOut, timeoutMs);
+		const pollProgress = async () => {
+			try {
+				const value = await progress!.read();
+				if (value !== undefined) observedReplay = true;
+				if (!settled && value !== undefined && Number.isFinite(value) && value > completedWork) {
+					completedWork = value;
+					clearTimeout(timeout);
+					timeout = setTimeout(timedOut, progress!.stallTimeoutMs ?? timeoutMs);
+				}
+			} catch {
+				// An unavailable status endpoint is not evidence of progress.
+			}
+			if (!settled) pollTimer = setTimeout(pollProgress, progress!.intervalMs ?? 250);
+		};
+		if (progress) pollTimer = setTimeout(pollProgress, progress.intervalMs ?? 250);
 		const fail = (error: unknown) => {
 			finish(() => reject(error));
 		};
@@ -152,6 +184,7 @@ export async function rpcRequest(
 			if (settled) return;
 			settled = true;
 			clearTimeout(timeout);
+			clearTimeout(pollTimer);
 			socket.destroy();
 			try {
 				const response = JSON.parse(input.slice(0, newline)) as RpcResponse;

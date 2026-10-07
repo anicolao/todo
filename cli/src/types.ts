@@ -4,7 +4,7 @@ import type { ListsState } from '$lib/components/lists';
 import type { RequestsState } from '$lib/components/requests';
 
 export const PROTOCOL_VERSION = 1;
-export const SERVICE_VERSION = 5;
+export const SERVICE_VERSION = 6;
 export const SNAPSHOT_VERSION = 3;
 
 export type ServicePhase = 'starting' | 'needs-auth' | 'hydrating' | 'ready' | 'offline' | 'error';
@@ -53,8 +53,19 @@ export interface SnapshotData {
 	cursors: CursorState;
 }
 
+export interface ReplayProgress {
+	completedWork: number;
+	stream: 'global' | 'list';
+	listName?: string;
+	listsCompleted: number;
+	listsTotal: number;
+	actionsProcessed: number;
+	actionsTotal: number;
+}
+
 export interface ServiceStatus {
 	serviceVersion: number;
+	replay?: ReplayProgress;
 	phase: ServicePhase;
 	projectId: string;
 	uid?: string;
