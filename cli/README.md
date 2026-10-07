@@ -42,6 +42,13 @@ Nix caches the built package, while the service continues to keep its writable c
 credentials, logs, and snapshot in the platform-specific locations described below. Install the
 command into your profile with `nix profile install github:anicolao/todo#todo`.
 
+The required `CLI Gate` check combines the CLI typecheck, unit and Firebase emulator tests,
+and Nix package builds with launcher smoke tests on Linux and macOS. It runs on every pull
+request to `main` and every push to `main`. To check packaging locally, run
+`nix build --no-link .#todo`, `nix run . -- help`, and `nix run .#todo -- help`.
+When adding imports to shared application code used by the CLI, include any new runtime
+dependencies in the source fileset in `flake.nix`.
+
 The Nix package also contains the production OAuth client configuration encrypted with SOPS for
 Alex's and Andrew's GitHub SSH keys. SOPS automatically tries `~/.ssh/id_ed25519` and
 `~/.ssh/id_rsa`. When the matching private key has another name, select it explicitly:
