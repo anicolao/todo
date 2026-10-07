@@ -12,6 +12,10 @@ describe('schema', () => {
 		expect(isCompatibleCachedState({ schemaVersion: CURRENT_SCHEMA_VERSION + 1 })).to.equal(false);
 	});
 
+	it('rebuilds version 6 caches that may have skipped label creation events', () => {
+		expect(isCompatibleCachedState({ schemaVersion: 6 })).to.equal(false);
+	});
+
 	it('accepts cached state with the current schema version', () => {
 		expect(isCompatibleCachedState({ schemaVersion: CURRENT_SCHEMA_VERSION })).to.equal(true);
 	});
