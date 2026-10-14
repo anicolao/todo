@@ -108,6 +108,10 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
 ## Firebase deploy credentials
 
+Production releases normally use the automatic, version-aware GitHub workflow documented in
+[RELEASE_PROCESS.md](RELEASE_PROCESS.md). The commands below support its preflight and deployment
+steps and are also useful for diagnosis.
+
 Check that a Firebase deploy service account can see the project, has the required IAM permissions, and can inspect the configured Cloud Functions:
 
 ```bash
