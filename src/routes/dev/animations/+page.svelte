@@ -472,11 +472,17 @@
 		}
 
 		try {
-			await new Promise<void>((resolve) => {
+			await new Promise<void>((resolve, reject) => {
 				const request = indexedDB.deleteDatabase('TODOS');
 				request.onsuccess = () => resolve();
-				request.onerror = () => resolve();
-				request.onblocked = () => resolve();
+				request.onerror = () =>
+					reject(request.error || new Error('Could not clear the Todo animation-lab cache.'));
+				request.onblocked = () =>
+					reject(
+						new Error(
+							'Another Todo animation-lab tab is using the local cache. Close the other lab tabs, then reload this page.'
+						)
+					);
 			});
 			await prepareAnimationLabFixture();
 			prepared = true;
@@ -525,9 +531,15 @@
 			</div>
 		{:else}
 			<div class="boot">
-				<span class="spinner"></span><strong>Preparing real Todo…</strong><small
-					>Starting an isolated Firebase-backed product session.</small
-				>
+				{#if playerState === 'error'}
+					<strong>Could not prepare the animation lab</strong>
+					<small>{error}</small>
+					<button on:click={() => location.reload()}>Reload</button>
+				{:else}
+					<span class="spinner"></span><strong>Preparing real Todo…</strong><small
+						>Starting an isolated Firebase-backed product session.</small
+					>
+				{/if}
 			</div>
 		{/if}
 	</section>
@@ -702,6 +714,17 @@
 	}
 	.boot small {
 		color: #bbaaa3;
+		max-width: 32rem;
+		text-align: center;
+	}
+	.boot button {
+		min-height: 34px;
+		border: 1px solid #9f7d6e;
+		border-radius: 6px;
+		padding: 5px 12px;
+		background: #3b2c27;
+		color: #f7ede8;
+		cursor: pointer;
 	}
 	.spinner {
 		width: 26px;
