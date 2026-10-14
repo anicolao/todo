@@ -106,6 +106,10 @@
 		goto('/' + name);
 	}
 
+	function closeDrawerFromKey(event: CustomEvent<KeyboardEvent>) {
+		if (event.detail?.key === 'Escape') drawerOpen = persistentDrawer;
+	}
+
 	function finishRouteTransition(event: Event) {
 		const element = event.currentTarget as HTMLElement;
 		if (element.dataset.screenKey === screenKey) routeTransitioning = false;
@@ -394,6 +398,7 @@
 			variant={persistentDrawer ? undefined : 'modal'}
 			fixed={persistentDrawer ? undefined : false}
 			bind:open={drawerOpen}
+			on:keydown={closeDrawerFromKey}
 		>
 			<Content>
 				<FilterMenu {setActive} />
@@ -428,7 +433,7 @@
 			</Content>
 		</Drawer>
 
-		<Scrim fixed={false} />
+		<Scrim fixed={false} on:click={() => (drawerOpen = persistentDrawer)} />
 		<AppContent class="app-content">
 			<div class="backdrop" style:background-image={bgStyle}>
 				<div class="route-stage" class:transition-active={routeTransitioning}>
@@ -615,6 +620,12 @@
 	.drawer-container.mobile-portrait :global(.mdc-drawer--modal) {
 		max-width: 100vw;
 		width: 100vw;
+	}
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal.mdc-drawer--opening),
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal.mdc-drawer--closing),
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal + .mdc-drawer-scrim) {
+		transition-duration: 280ms;
+		transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
 	}
 	.drawer-container.mobile-portrait :global(.mdc-top-app-bar),
 	.drawer-container.mobile-portrait :global(.app-content) {
