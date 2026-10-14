@@ -1,0 +1,149 @@
+name: Generate Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: generate-release-pr
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    env:
+      BUMP: ${{ inputs.bump }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Require main and no pending release
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::Release PRs must be generated from main."
+            exit 1
+          fi
+
+          pending="$(gh pr list --repo "$REPOSITORY" --state open --label release --json number --jq 'length')"
+          if [ "$pending" != 0 ]; then
+            echo "::error::There is already an open PR labeled release."
+            exit 1
+          fi
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Bump version
+        id: release
+        run: |
+          npm version "$BUMP" --no-git-tag-version
+          version="$(node -p "require('./package.json').version")"
+          branch="release/v$version"
+          tag="v$version"
+
+          changed_files="$(git diff --name-only | sort)"
+          expected_files="$(printf 'package-lock.json\npackage.json')"
+          if [ "$changed_files" != "$expected_files" ]; then
+            echo "::error::Version generation changed unexpected files."
+            printf 'Changed files:\n%s\n' "$changed_files"
+            exit 1
+          fi
+
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists."
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "::error::Branch $branch already exists on origin."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Commit release candidate
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          git switch -c "$BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "release: v$VERSION"
+          git push --set-upstream origin "$BRANCH"
+
+      - name: Open release pull request
+        id: pr
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh label create release \
+            --repo "$REPOSITORY" \
+            --color 0e8a16 \
+            --description "Version-only PR that deploys when merged" \
+            --force
+
+          body="$(printf '%s\n\n%s\n\n%s\n' \
+            'This generated PR advances the application version.' \
+            'Review the checks and preview, then merge to deploy this release automatically.' \
+            "Do not add application changes to this branch; release PRs may change only \`package.json\` and \`package-lock.json\`.")"
+          pr_url="$(gh pr create \
+            --repo "$REPOSITORY" \
+            --base main \
+            --head "$BRANCH" \
+            --title "Release v$VERSION" \
+            --label release \
+            --body "$body")"
+          pr_number="$(gh pr view "$pr_url" --repo "$REPOSITORY" --json number --jq .number)"
+
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Start release checks and preview
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          # Pull requests opened by GITHUB_TOKEN do not emit another pull_request
+          # workflow event, so explicitly start the same checks and preview.
+          gh workflow run ci.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          gh workflow run cli.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          gh workflow run pr-previews.yml --repo "$REPOSITORY" --ref main -f pr_number="$PR_NUMBER"
+
+      - name: Summarize release candidate
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          {
+            echo "## Release candidate v$VERSION"
+            echo
+            echo "- Pull request: $PR_URL"
+            echo "- CI, CLI Gate, and the PR preview were started explicitly."
+            echo "- Production will deploy only after this release PR is merged and main passes its checks."
+          } >> "$GITHUB_STEP_SUMMARY"
