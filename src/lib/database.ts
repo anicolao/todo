@@ -493,6 +493,7 @@ export function load() {
 
 			store.subscribe((state: any) => {
 				if (state.lists.visibleLists !== lastVisibleLists) {
+					const previousVisibleLists = lastVisibleLists;
 					lastVisibleLists = state.lists.visibleLists;
 					const currentListId = getCurrentListId();
 					if (initialListsLoading === undefined) {
@@ -509,6 +510,17 @@ export function load() {
 					}
 					if (initialListsLoading === null) {
 						watchPendingShareLists(state);
+						// The global action log can reveal a list after startup. Subscribe as soon as
+						// it becomes visible so aggregate views receive its items even when the
+						// activity notification arrived first (or has not arrived yet).
+						state.lists.visibleLists
+							.filter(
+								(id: string) =>
+									state.lists.listIdToType[id] === 'list' &&
+									previousVisibleLists !== undefined &&
+									previousVisibleLists.indexOf(id) === -1
+							)
+							.forEach((id: string) => loadList(id));
 						// A pending share can be opened before it is accepted. Once accepting it
 						// makes that route's list visible, attach the live listener after startup.
 						if (currentListId && state.lists.visibleLists.indexOf(currentListId) !== -1) {
