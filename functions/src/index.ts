@@ -1,6 +1,12 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { deliverNotification } from './notifications';
+import {
+	deliverNotification,
+	notificationActionForListActivity,
+	pendingShareReminder,
+	type NotificationAction,
+	type RequestActionRecord
+} from './notifications';
 
 interface AnyAction {
 	type: string;
@@ -30,6 +36,30 @@ async function notifyUser(id: string, currentAction: AnyAction): Promise<any> {
 	});
 }
 
+async function notifyUserOfListActivity(
+	id: string,
+	listId: string,
+	currentAction: NotificationAction
+): Promise<void> {
+	const db = admin.firestore();
+	const requestSnapshot = await db
+		.collectionGroup('requests')
+		.where('target', '==', id)
+		.orderBy('timestamp')
+		.get();
+	const requestRecords: RequestActionRecord[] = requestSnapshot.docs.map((doc) => ({
+		id: doc.id,
+		action: doc.data() as NotificationAction
+	}));
+	const notificationAction = notificationActionForListActivity(
+		id,
+		listId,
+		currentAction,
+		requestRecords
+	);
+	if (notificationAction) await notifyUser(id, notificationAction);
+}
+
 exports.onTodoItemChanged = functions.firestore
 	.document('lists/{listId}/actions/{action}')
 	.onCreate(async (change, _context) => {
@@ -52,7 +82,9 @@ exports.onTodoItemChanged = functions.firestore
 					console.log(id);
 					if (id !== currentAction.creator) {
 						console.log('try to notify', id);
-						promises.push(notifyUser(id, currentAction as AnyAction));
+						promises.push(
+							notifyUserOfListActivity(id, listId, currentAction as NotificationAction)
+						);
 					}
 				}
 			}
@@ -95,7 +127,7 @@ exports.onTodoListShared = functions.firestore
 		console.log(JSON.stringify(currentAction));
 		if (currentAction.type === 'accept_pending_share') {
 			const targetUserId = currentAction.target;
-			promises.push(notifyUser(targetUserId, currentAction as AnyAction));
+			promises.push(notifyUser(targetUserId, pendingShareReminder()));
 		}
 		return Promise.all(promises);
 	});
