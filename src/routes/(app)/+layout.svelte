@@ -54,6 +54,7 @@
 	let width = 0;
 	let height = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;
+	const animationLab = import.meta.env.VITE_ANIMATION_LAB === 'true';
 	let touchFormFactor = false;
 	let reducedMotion = false;
 	let transitionsReady = false;
@@ -114,7 +115,7 @@
 		const touchQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
 		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 		const updatePreferences = () => {
-			touchFormFactor = isTouchFormFactor();
+			touchFormFactor = animationLab ? window.innerWidth < 900 : isTouchFormFactor();
 			reducedMotion = prefersReducedMotion();
 		};
 		updatePreferences();
@@ -365,6 +366,7 @@
 		class:mobile-portrait={mobilePortrait}
 		class:mobile-landscape={mobileLandscape}
 		class:drawer-open={drawerOpen}
+		class:reduced-motion={reducedMotion}
 	>
 		<TopAppBar variant="fixed">
 			<Row>
@@ -622,6 +624,10 @@
 	.drawer-container.mobile-portrait.drawer-open :global(.mdc-top-app-bar),
 	.drawer-container.mobile-portrait.drawer-open :global(.app-content) {
 		transform: translate3d(100vw, 0, 0);
+	}
+	.drawer-container.reduced-motion :global(*) {
+		animation-duration: 0ms !important;
+		transition-duration: 0ms !important;
 	}
 
 	* :global(.app-content) {

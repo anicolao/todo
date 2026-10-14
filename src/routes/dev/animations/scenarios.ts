@@ -1,21 +1,48 @@
-import type { ScreenMovement } from '$lib/mobile-transitions';
-
 export type LabViewport = 'portrait' | 'landscape' | 'desktop';
-export type LabSurface = 'route' | 'task' | 'list' | 'profile' | 'drawer';
-export type LabMotion = 'paired' | 'drawer-open' | 'drawer-select' | 'instant';
+export type LabSetup =
+	| 'upper-list'
+	| 'upper-list-drawer'
+	| 'lower-list'
+	| 'task-details'
+	| 'task-date'
+	| 'task-repeat-via-date'
+	| 'task-repeat-after-date'
+	| 'list-details'
+	| 'list-sharing'
+	| 'profile'
+	| 'profile-spacing'
+	| 'profile-labels'
+	| 'profile-label';
+export type LabTrigger =
+	| 'open-drawer'
+	| 'dismiss-drawer'
+	| 'select-upper-list'
+	| 'select-lower-list'
+	| 'select-profile'
+	| 'open-task'
+	| 'close-task'
+	| 'open-date'
+	| 'open-repeat'
+	| 'finish-date'
+	| 'back-details'
+	| 'back-date'
+	| 'open-list-details'
+	| 'close-list-details'
+	| 'open-sharing'
+	| 'back-list-details'
+	| 'open-spacing'
+	| 'back-profile'
+	| 'open-profile-label'
+	| 'back-labels';
 
 export type AnimationScenario = {
 	id: string;
 	group: string;
 	name: string;
 	viewport: LabViewport;
-	surface: LabSurface;
-	fromSurface?: LabSurface;
-	toSurface?: LabSurface;
-	motion: LabMotion;
-	movement: ScreenMovement;
-	from: string;
-	to: string;
+	setup: LabSetup;
+	trigger: LabTrigger;
+	reducedMotion?: boolean;
 	expected: string;
 };
 
@@ -25,291 +52,218 @@ export const animationScenarios: AnimationScenario[] = [
 		group: 'Portrait navigation',
 		name: 'Open full-screen drawer',
 		viewport: 'portrait',
-		surface: 'drawer',
-		motion: 'drawer-open',
-		movement: 'forward',
-		from: 'Weekend errands',
-		to: 'Navigation',
+		setup: 'upper-list',
+		trigger: 'open-drawer',
 		expected:
-			'The drawer enters from the left and completely covers the phone while the current list is pushed off the right edge.'
+			'The real drawer enters from the left and covers the phone while the current list is pushed off the right edge.'
 	},
 	{
 		id: 'portrait-drawer-dismiss',
 		group: 'Portrait navigation',
 		name: 'Dismiss drawer',
 		viewport: 'portrait',
-		surface: 'drawer',
-		motion: 'drawer-select',
-		movement: 'backward',
-		from: 'Navigation',
-		to: 'Weekend errands',
+		setup: 'upper-list-drawer',
+		trigger: 'dismiss-drawer',
 		expected:
-			'The drawer exits left and the unchanged current list returns from the right on the same track.'
+			'The real drawer exits left and the unchanged current list returns from the right on the same track.'
 	},
 	{
 		id: 'portrait-drawer-select',
 		group: 'Portrait navigation',
 		name: 'Choose a list from drawer',
 		viewport: 'portrait',
-		surface: 'drawer',
-		motion: 'drawer-select',
-		movement: 'backward',
-		from: 'Navigation',
-		to: 'Today',
+		setup: 'upper-list-drawer',
+		trigger: 'select-lower-list',
 		expected:
-			'The drawer exits left as the selected list follows it in from the right, without a second route animation or a flash of the old list.'
-	},
-	{
-		id: 'route-forward',
-		group: 'Route navigation',
-		name: 'Navigate forward',
-		viewport: 'portrait',
-		surface: 'route',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Today',
-		to: 'Profile',
-		expected:
-			'The current route leaves to the left while the destination enters from the right on the same track.'
-	},
-	{
-		id: 'route-backward',
-		group: 'Route navigation',
-		name: 'Navigate back',
-		viewport: 'portrait',
-		surface: 'route',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Profile',
-		to: 'Today',
-		expected:
-			'The current route leaves to the right while the previous route returns from the left.'
+			'The drawer exits left as Weekend errands follows from the right, with no second route animation or stale Today content.'
 	},
 	{
 		id: 'landscape-list-lower',
-		group: 'Landscape list ordering',
+		group: 'Landscape navigation',
 		name: 'Choose list below',
 		viewport: 'landscape',
-		surface: 'route',
-		motion: 'paired',
-		movement: 'up',
-		from: 'Today',
-		to: 'Weekend errands',
+		setup: 'upper-list',
+		trigger: 'select-lower-list',
 		expected:
-			'The drawer stays fixed. The old right pane leaves upward and the lower list rises from below.'
+			'The real drawer stays fixed. Today leaves upward and the lower Weekend errands list rises from below.'
 	},
 	{
 		id: 'landscape-list-upper',
-		group: 'Landscape list ordering',
+		group: 'Landscape navigation',
 		name: 'Choose list above',
 		viewport: 'landscape',
-		surface: 'route',
-		motion: 'paired',
-		movement: 'down',
-		from: 'Weekend errands',
-		to: 'Today',
+		setup: 'lower-list',
+		trigger: 'select-upper-list',
 		expected:
-			'The drawer stays fixed. The old right pane leaves downward and the higher list descends from above.'
+			'The real drawer stays fixed. Weekend errands leaves downward and the higher Today list descends from above.'
+	},
+	{
+		id: 'landscape-route-forward',
+		group: 'Landscape navigation',
+		name: 'List → Profile',
+		viewport: 'landscape',
+		setup: 'upper-list',
+		trigger: 'select-profile',
+		expected:
+			'The right pane uses the standard horizontal forward transition because Profile has no relative list position.'
 	},
 	{
 		id: 'task-open',
 		group: 'Task details',
 		name: 'Open task details',
 		viewport: 'portrait',
-		surface: 'task',
-		fromSurface: 'route',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Today',
-		to: 'Task details',
-		expected: 'Task details enters from the right as the list leaves left.'
+		setup: 'upper-list',
+		trigger: 'open-task',
+		expected:
+			'The real task editor should enter as a forward screen without exposing the list beneath it.'
 	},
 	{
-		id: 'task-drill-in',
+		id: 'task-date',
 		group: 'Task details',
 		name: 'Task details → Due date',
 		viewport: 'portrait',
-		surface: 'task',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Task details',
-		to: 'Due date',
-		expected: 'Due date enters from the right as Task details exits left.'
+		setup: 'task-details',
+		trigger: 'open-date',
+		expected: 'The real Due date editor enters from the right as Task details exits left.'
 	},
 	{
-		id: 'task-repeat-drill-in',
-		group: 'Task details',
-		name: 'Due date → Repeat',
-		viewport: 'portrait',
-		surface: 'task',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Due date',
-		to: 'Repeat',
-		expected: 'Repeat enters from the right as the Due date step exits left.'
-	},
-	{
-		id: 'task-repeat-return',
-		group: 'Task details',
-		name: 'Repeat → Due date',
-		viewport: 'portrait',
-		surface: 'task',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Repeat',
-		to: 'Due date',
-		expected: 'Due date returns from the left as Repeat exits right.'
-	},
-	{
-		id: 'task-return',
+		id: 'task-date-return',
 		group: 'Task details',
 		name: 'Due date → Task details',
 		viewport: 'portrait',
-		surface: 'task',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Due date',
-		to: 'Task details',
-		expected: 'Task details returns from the left as Due date exits right.'
+		setup: 'task-date',
+		trigger: 'back-details',
+		expected: 'The real Task details screen returns from the left as Due date exits right.'
+	},
+	{
+		id: 'task-repeat',
+		group: 'Task details',
+		name: 'Task details → Repeat',
+		viewport: 'portrait',
+		setup: 'task-details',
+		trigger: 'open-repeat',
+		expected: 'The real Repeat editor enters from the right as Task details exits left.'
+	},
+	{
+		id: 'task-date-to-repeat',
+		group: 'Task details',
+		name: 'New due date → Repeat',
+		viewport: 'portrait',
+		setup: 'task-repeat-via-date',
+		trigger: 'finish-date',
+		expected: 'The real Repeat editor continues forward from the Due date step.'
+	},
+	{
+		id: 'task-repeat-to-date',
+		group: 'Task details',
+		name: 'Repeat → Due date',
+		viewport: 'portrait',
+		setup: 'task-repeat-after-date',
+		trigger: 'back-date',
+		expected: 'The real Due date step returns from the left as Repeat exits right.'
 	},
 	{
 		id: 'task-close',
 		group: 'Task details',
 		name: 'Close task details',
 		viewport: 'portrait',
-		surface: 'task',
-		toSurface: 'route',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Task details',
-		to: 'Today',
-		expected: 'The task list returns from the left as Task details leaves right.'
+		setup: 'task-details',
+		trigger: 'close-task',
+		expected: 'The real list should return as a backward screen while Task details exits right.'
 	},
 	{
 		id: 'list-open',
 		group: 'List details',
 		name: 'Open list details',
 		viewport: 'portrait',
-		surface: 'list',
-		fromSurface: 'route',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Weekend errands',
-		to: 'List details',
-		expected: 'List details enters from the right as the list leaves left.'
+		setup: 'upper-list-drawer',
+		trigger: 'open-list-details',
+		expected: 'The real List details editor should enter as a forward screen.'
 	},
 	{
-		id: 'list-drill-in',
+		id: 'list-sharing',
 		group: 'List details',
 		name: 'List details → Sharing',
 		viewport: 'portrait',
-		surface: 'list',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'List details',
-		to: 'Sharing',
-		expected: 'Sharing enters from the right as the settings overview exits left.'
+		setup: 'list-details',
+		trigger: 'open-sharing',
+		expected: 'The real Sharing screen enters from the right as List details exits left.'
 	},
 	{
-		id: 'list-return',
+		id: 'list-sharing-return',
 		group: 'List details',
 		name: 'Sharing → List details',
 		viewport: 'portrait',
-		surface: 'list',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Sharing',
-		to: 'List details',
-		expected: 'The list settings overview returns from the left as Sharing exits right.'
+		setup: 'list-sharing',
+		trigger: 'back-list-details',
+		expected: 'The real List details overview returns from the left as Sharing exits right.'
 	},
 	{
 		id: 'list-close',
 		group: 'List details',
 		name: 'Close list details',
 		viewport: 'portrait',
-		surface: 'list',
-		toSurface: 'route',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'List details',
-		to: 'Weekend errands',
-		expected: 'The list returns from the left as List details leaves right.'
+		setup: 'list-details',
+		trigger: 'close-list-details',
+		expected: 'The real list should return as a backward screen while List details exits right.'
 	},
 	{
-		id: 'profile-drill-in',
+		id: 'profile-spacing',
 		group: 'Profile settings',
 		name: 'Profile → Item spacing',
 		viewport: 'portrait',
-		surface: 'profile',
-		fromSurface: 'route',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Profile',
-		to: 'Item spacing',
-		expected: 'Item spacing enters from the right as Profile exits left.'
+		setup: 'profile',
+		trigger: 'open-spacing',
+		expected: 'The real Item spacing editor enters from the right as Profile moves away.'
 	},
 	{
-		id: 'profile-return',
+		id: 'profile-spacing-return',
 		group: 'Profile settings',
 		name: 'Item spacing → Profile',
 		viewport: 'portrait',
-		surface: 'profile',
-		toSurface: 'route',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Item spacing',
-		to: 'Profile',
-		expected: 'Profile returns from the left as Item spacing exits right.'
+		setup: 'profile-spacing',
+		trigger: 'back-profile',
+		expected: 'The real Profile screen returns from the left as Item spacing exits right.'
 	},
 	{
-		id: 'profile-label-drill-in',
+		id: 'profile-label',
 		group: 'Profile settings',
 		name: 'Label visibility → Label',
 		viewport: 'portrait',
-		surface: 'profile',
-		motion: 'paired',
-		movement: 'forward',
-		from: 'Label visibility',
-		to: 'Visibility',
-		expected: 'The individual label editor enters from the right; the label index exits left.'
+		setup: 'profile-labels',
+		trigger: 'open-profile-label',
+		expected:
+			'The real House visibility editor enters from the right as the label index exits left.'
 	},
 	{
 		id: 'profile-label-return',
 		group: 'Profile settings',
 		name: 'Label → Label visibility',
 		viewport: 'portrait',
-		surface: 'profile',
-		motion: 'paired',
-		movement: 'backward',
-		from: 'Visibility',
-		to: 'Label visibility',
-		expected: 'The label index returns from the left as the individual label editor exits right.'
+		setup: 'profile-label',
+		trigger: 'back-labels',
+		expected: 'The real label index returns from the left as the House editor exits right.'
 	},
 	{
 		id: 'desktop-instant',
 		group: 'Motion preferences',
 		name: 'Desktop navigation',
 		viewport: 'desktop',
-		surface: 'route',
-		motion: 'instant',
-		movement: 'none',
-		from: 'Today',
-		to: 'Weekend errands',
+		setup: 'upper-list',
+		trigger: 'select-lower-list',
 		expected:
-			'The destination replaces the current screen immediately; desktop has no screen transition.'
+			'The real destination replaces the current screen immediately; desktop has no transition.'
 	},
 	{
 		id: 'reduced-motion-instant',
 		group: 'Motion preferences',
 		name: 'Reduced motion',
 		viewport: 'portrait',
-		surface: 'route',
-		motion: 'instant',
-		movement: 'none',
-		from: 'Today',
-		to: 'Profile',
+		setup: 'upper-list-drawer',
+		trigger: 'select-lower-list',
+		reducedMotion: true,
 		expected:
-			'The destination replaces the current screen immediately when reduced motion is requested.'
+			'The real destination replaces the current screen immediately when reduced motion is enabled.'
 	}
 ];
 
