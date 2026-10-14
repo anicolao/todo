@@ -18,10 +18,12 @@ closing and drilling into the real task/list/profile editors, desktop
 navigation, and reduced motion. Triggering a scenario clicks the same controls
 as a user; there is no parallel screen implementation.
 
-Use slow playback, Pause, and the timeline to inspect the paired incoming and
-outgoing screens. “Looks right” and “Needs changes” are stored in local storage
-for review convenience. Product writes, subscriptions and replay use only the
-ephemeral emulators and cannot touch production data.
+Each animated scenario is staged at 0% as soon as it is ready, so the timeline
+can inspect the paired incoming and outgoing screens before playback, while
+paused, or after reaching 100%. Use the playback-speed control and Play/Pause to
+review the motion continuously. “Looks right” and “Needs changes” are stored in
+local storage for review convenience. Product writes, subscriptions and replay
+use only the ephemeral emulators and cannot touch production data.
 
 The iframe is the real product shell: application layout, routes, components,
 dialogs, store, Firestore listeners and animation code. The harness is limited
