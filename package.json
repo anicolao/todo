@@ -28,7 +28,6 @@
 		"lint": "prettier --check . && eslint .",
 		"package": "svelte-kit package",
 		"prepare": "smui-theme compile static/smui.css -i src/theme",
-		"postversion": "./bin/packagedist",
 		"preview": "vite preview",
 		"test": "vitest run --coverage",
 		"test:cli": "bun test cli/test",
