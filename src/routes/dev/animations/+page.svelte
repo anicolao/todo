@@ -20,6 +20,9 @@
 	let tracked: Animation[] = [];
 	let inspectFrame = 0;
 	let setupGeneration = 0;
+	let primed = false;
+	let playbackStartedAt = 0;
+	let playbackStartedProgress = 0;
 
 	$: scenario = animationScenarios.find((item) => item.id === subject) || animationScenarios[0];
 	$: reviewed = animationScenarios.filter(
@@ -224,6 +227,7 @@
 		const generation = ++setupGeneration;
 		tracked.forEach((animation) => animation.cancel());
 		tracked = [];
+		primed = false;
 		playerState = 'preparing';
 		progress = 0;
 		moving = 0;
@@ -232,6 +236,19 @@
 			await tick();
 			await prepareSetup(scenario.setup);
 			if (generation !== setupGeneration) return;
+			performTrigger(scenario.trigger);
+			await captureAnimations();
+			if (generation !== setupGeneration) return;
+			if (tracked.length) {
+				primed = true;
+				setProgress(0);
+			} else {
+				// Some product actions are deliberately instant. Reload their setup so
+				// priming does not leave the preview in its post-trigger state.
+				await prepareSetup(scenario.setup);
+				if (generation !== setupGeneration) return;
+				progress = 0;
+			}
 			playerState = 'ready';
 			const url = new URL(location.href);
 			url.searchParams.set('scenario', subject);
@@ -319,15 +336,16 @@
 
 	async function captureAnimations() {
 		// Route changes do not necessarily mount their keyed screen in the same
-		// frame as the click. Wait briefly for a product-screen animation, while
-		// excluding ripples and other incidental Material effects from playback.
+		// frame as the click. Catch and pause each product-screen animation as
+		// soon as it appears. Keeping the real animation paused lets the timeline
+		// inspect any frame without allowing component cleanup to remove its DOM.
 		const found = new Set<Animation>();
 		const started = performance.now();
 		do {
 			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 			for (const animation of reviewAnimations()) {
 				if (animation.playState !== 'running' && !animation.pending) continue;
-				animation.updatePlaybackRate(speed);
+				animation.pause();
 				found.add(animation);
 			}
 		} while (
@@ -335,22 +353,35 @@
 			(!found.size && performance.now() - started < 140)
 		);
 		tracked = [...found];
-		moving = tracked.length;
-		playerState = tracked.length ? 'moving' : 'complete';
-		if (!tracked.length) progress = 100;
+		moving = 0;
 	}
 
 	async function trigger() {
-		if (playerState === 'moving' || playerState === 'paused') {
+		if (playerState === 'moving') {
 			togglePause();
+			return;
+		}
+		if (playerState === 'paused') {
+			toolsOpen = false;
+			startPlayback();
 			return;
 		}
 		if (playerState === 'complete') await setupSelected();
 		if (playerState !== 'ready') return;
 		toolsOpen = false;
 		try {
-			performTrigger(scenario.trigger);
-			await captureAnimations();
+			if (!primed) {
+				performTrigger(scenario.trigger);
+				await captureAnimations();
+				if (!tracked.length) {
+					progress = 100;
+					playerState = 'complete';
+					return;
+				}
+				primed = true;
+				setProgress(0);
+			}
+			startPlayback();
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : String(cause);
 			playerState = 'error';
@@ -360,45 +391,54 @@
 
 	function togglePause() {
 		if (!tracked.length) return;
-		if (playerState === 'paused') {
-			tracked.forEach((animation) => animation.play());
-			playerState = 'moving';
-		} else {
-			tracked.forEach((animation) => animation.pause());
+		if (playerState === 'paused') startPlayback();
+		else {
+			moving = 0;
 			playerState = 'paused';
 		}
 	}
 
-	function animationProgress() {
-		if (!tracked.length) return progress;
-		return Math.max(
-			0,
-			Math.min(
-				100,
-				Math.max(
-					...tracked.map((animation) => {
-						const duration = Number(animation.effect?.getTiming().duration || 1);
-						return (Number(animation.currentTime || 0) / duration) * 100;
-					})
-				)
-			)
-		);
+	function animationEndTime(animation: Animation) {
+		return Number(animation.effect?.getComputedTiming().endTime || 1);
+	}
+
+	function timelineDuration() {
+		return Math.max(1, ...tracked.map(animationEndTime));
+	}
+
+	function setProgress(value: number) {
+		const clamped = Math.max(0, Math.min(100, value));
+		const timelineTime = (timelineDuration() * clamped) / 100;
+		tracked.forEach((animation) => {
+			animation.pause();
+			// Landing exactly on endTime dispatches the product transition's finish
+			// cleanup. Stop an imperceptible fraction short so 100% remains rewindable.
+			const reviewableEnd = Math.max(0, animationEndTime(animation) - 0.01);
+			animation.currentTime = Math.min(reviewableEnd, timelineTime);
+		});
+		progress = clamped;
+	}
+
+	function startPlayback() {
+		if (!tracked.length) return;
+		playbackStartedAt = performance.now();
+		playbackStartedProgress = progress;
+		moving = tracked.length;
+		playerState = 'moving';
 	}
 
 	function seek(event: Event) {
 		const value = Number((event.currentTarget as HTMLInputElement).value);
 		if (!tracked.length) return;
-		tracked.forEach((animation) => {
-			animation.pause();
-			const duration = Number(animation.effect?.getTiming().duration || 0);
-			animation.currentTime = (duration * value) / 100;
-		});
-		progress = value;
+		setProgress(value);
+		moving = 0;
 		playerState = value >= 100 ? 'complete' : 'paused';
 	}
 
 	function changeSpeed() {
-		tracked.forEach((animation) => animation.updatePlaybackRate(Number(speed)));
+		if (playerState !== 'moving') return;
+		playbackStartedAt = performance.now();
+		playbackStartedProgress = progress;
 	}
 
 	function setReview(value: Review) {
@@ -447,15 +487,14 @@
 			playerState = 'error';
 		}
 
-		const inspect = () => {
-			if (tracked.length) {
-				progress = animationProgress();
-				moving = tracked.filter(
-					(animation) => animation.playState === 'running' || animation.pending
-				).length;
-				if (!moving && playerState === 'moving') {
+		const inspect = (now: number) => {
+			if (tracked.length && playerState === 'moving') {
+				const elapsed = (now - playbackStartedAt) * Number(speed);
+				const next = playbackStartedProgress + (elapsed / timelineDuration()) * 100;
+				setProgress(next);
+				if (next >= 100) {
+					moving = 0;
 					playerState = 'complete';
-					progress = 100;
 				}
 			}
 			inspectFrame = requestAnimationFrame(inspect);
@@ -506,9 +545,11 @@
 				{playerState === 'moving'
 					? 'Pause'
 					: playerState === 'paused'
-					? 'Resume'
+					? 'Play'
 					: playerState === 'complete'
 					? 'Replay'
+					: primed
+					? 'Play'
 					: 'Trigger'}
 			</button>
 			<button disabled={!prepared || playerState === 'preparing'} on:click={setupSelected}
