@@ -2,6 +2,7 @@
 	import '../safe-area.css';
 	console.log('src/routes/+layout.svelte');
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { signed_in, signed_out } from '$lib/components/auth';
 	import firebase from '$lib/firebase';
 	import { getNotificationCoordinator } from '$lib/notifications';
@@ -15,6 +16,7 @@
 		messaging: firebase.messaging,
 		vapidKey: firebase.vapidKey
 	});
+	$: isAnimationLab = $page.url.pathname.startsWith('/dev/animations');
 
 	async function persistNotificationToken(token: string) {
 		const user = firebase.auth.currentUser;
@@ -30,6 +32,7 @@
 	}
 
 	onMount(() => {
+		if (isAnimationLab) return;
 		console.log('src/routes/+layout.svelte set up auth state callback');
 		const stopTokenUpdates = notifications.onToken(persistNotificationToken);
 		const stopForegroundRefresh = notifications.startForegroundRefresh(
@@ -74,11 +77,11 @@
 		};
 	});
 
-	$: if ($store.auth.signedIn === false) {
+	$: if (!isAnimationLab && $store.auth.signedIn === false) {
 		console.log('...redirect to /login', { 'signedIn?': $store.auth.signedIn });
 		goto('/login');
 	}
 </script>
 
-<svelte:head><title>Todo</title></svelte:head>
+<svelte:head><title>{isAnimationLab ? 'Animation lab · Todo' : 'Todo'}</title></svelte:head>
 <slot />
