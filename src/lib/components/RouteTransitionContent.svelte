@@ -8,8 +8,10 @@
 </script>
 
 <div id={wrapperId} class="route-transition-content">
-	{#if useSnapshot && $routeSnapshots[screenKey]}
-		{@html $routeSnapshots[screenKey].html}
+	{#if useSnapshot}
+		{#if $routeSnapshots[screenKey]}
+			{@html $routeSnapshots[screenKey].html}
+		{/if}
 	{:else}
 		<slot />
 	{/if}

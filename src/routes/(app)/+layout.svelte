@@ -19,6 +19,7 @@
 		animateEditorBase,
 		hideOutgoingScreen,
 		isTouchFormFactor,
+		MOBILE_SCREEN_DURATION,
 		mobileScreenSlide,
 		prefersReducedMotion,
 		routeSnapshots,
@@ -63,12 +64,15 @@
 	let routeTransitioning = false;
 	let plannedNavigation = false;
 	let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+	let drawerTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+	let drawerComponent: { getElement: () => HTMLElement } | undefined;
 	let routePageSurface: HTMLElement;
 
 	$: mobilePortrait = touchFormFactor && height >= width;
 	$: mobileLandscape = touchFormFactor && width > height;
 	$: persistentDrawer = width > MOBILE_LAYOUT_WIDTH || mobileLandscape;
 	$: drawerOpen = persistentDrawer;
+	$: settleDrawerTransition(drawerComponent, drawerOpen);
 	$: screenKey = `${$page.url.pathname}${$page.url.search}`;
 	let routeBlockId = 0;
 	let routeBlockScreenKey = '';
@@ -83,6 +87,7 @@
 	}
 
 	function navigationMovement(name: string, source?: HTMLElement): ScreenMovement {
+		if (!touchFormFactor || reducedMotion) return 'none';
 		if (mobilePortrait && drawerOpen) return 'none';
 		if (!mobileLandscape) return 'forward';
 
@@ -124,6 +129,12 @@
 	let active: string;
 	async function setActive(name: string, keepDrawerOpen = false, source?: HTMLElement) {
 		console.log('setActive ' + name);
+		const targetUrl = new URL('/' + name, window.location.origin);
+		if (targetUrl.pathname === $page.url.pathname && targetUrl.search === $page.url.search) {
+			drawerOpen = keepDrawerOpen || persistentDrawer;
+			active = name;
+			return;
+		}
 		routeMovement = navigationMovement(name, source);
 		if (transitionsReady && touchFormFactor && !reducedMotion && routeMovement !== 'none')
 			captureRouteSnapshot(screenKey);
@@ -143,6 +154,25 @@
 
 	function closeDrawerFromKey(event: CustomEvent<KeyboardEvent>) {
 		if (event.detail?.key === 'Escape') drawerOpen = persistentDrawer;
+	}
+
+	function settleDrawerTransition(
+		component: { getElement: () => HTMLElement } | undefined,
+		open: boolean
+	) {
+		if (drawerTransitionTimer) clearTimeout(drawerTransitionTimer);
+		if (!component) return;
+		drawerTransitionTimer = setTimeout(() => {
+			const element = component.getElement();
+			const transitionClass = open ? 'mdc-drawer--opening' : 'mdc-drawer--closing';
+			if (element.classList.contains(transitionClass)) {
+				// MDC relies exclusively on transitionend to leave its opening and closing
+				// states. Android WebView can omit that event after a viewport resize (for
+				// example, the keyboard), leaving later closes disabled or the scrim visible.
+				// Complete the already elapsed transition in either direction.
+				element.dispatchEvent(new TransitionEvent('transitionend', { bubbles: true }));
+			}
+		}, MOBILE_SCREEN_DURATION + 40);
 	}
 
 	function finishRouteTransition(event: Event) {
@@ -193,6 +223,7 @@
 
 	onDestroy(() => {
 		if (snapshotTimer) clearTimeout(snapshotTimer);
+		if (drawerTransitionTimer) clearTimeout(drawerTransitionTimer);
 	});
 
 	function getIconName(name: string) {
@@ -219,7 +250,9 @@
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			submitNewList();
+			// Let blur submit after the software keyboard starts dismissing. Navigating while the
+			// native viewport is still keyboard-sized can strand SMUI's drawer closing transition.
+			(e.target as HTMLInputElement).blur();
 		}
 	}
 
@@ -427,6 +460,7 @@
 		class:reduced-motion={reducedMotion}
 	>
 		<Drawer
+			bind:this={drawerComponent}
 			variant={persistentDrawer ? undefined : 'modal'}
 			fixed={persistentDrawer ? undefined : false}
 			bind:open={drawerOpen}
@@ -509,7 +543,9 @@
 					<AppContent class="app-content">
 						<div class="backdrop" style:background-image={bgStyle}>
 							<div class="route-page-surface" bind:this={routePageSurface}>
-								<RouteTransitionContent screenKey={routeKey} useSnapshot={routeTransitioning}
+								<RouteTransitionContent
+									screenKey={routeKey}
+									useSnapshot={routeKey !== screenKey}
 									><slot /></RouteTransitionContent
 								>
 							</div>
@@ -736,7 +772,6 @@
 		flex: 1 1 auto;
 		min-height: 0;
 		min-width: 0;
-		overflow: auto;
 	}
 	.route-stage {
 		display: flex;

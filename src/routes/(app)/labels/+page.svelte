@@ -17,9 +17,17 @@
 	$: if (browser && labelId && fullyHidden) {
 		goto('/profile', { replaceState: true });
 	}
-	$: if (labelId && !fullyHidden) {
+	$: if (labelId && !fullyHidden && $store.ui.icon !== 'label') {
 		store.dispatch(set_icon('label'));
+	}
+	$: if (
+		labelId &&
+		!fullyHidden &&
+		$store.ui.title !== ($store.lists.listIdToList[labelId] || 'Label')
+	) {
 		store.dispatch(set_title($store.lists.listIdToList[labelId] || 'Label'));
+	}
+	$: if (labelId && !fullyHidden && $store.ui.listId !== labelId) {
 		store.dispatch(set_current_listid(labelId));
 	}
 
