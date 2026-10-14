@@ -8,6 +8,8 @@
 	import type { TodoItem } from './items';
 	import firebase from '$lib/firebase';
 	import {
+		animateEditorBase,
+		animationLabResetInProgress,
 		hideOutgoingScreen,
 		mobileScreenSlide,
 		type ScreenMovement
@@ -25,6 +27,7 @@
 	let dialog: HTMLDialogElement;
 	let heading: HTMLHeadingElement;
 	let opener: HTMLElement | undefined;
+	let closeFocus: HTMLElement | undefined;
 	let ownsHistoryEntry = false;
 	let confirmDiscard = false;
 	let saving = false;
@@ -33,6 +36,7 @@
 	let conflict = false;
 	let viewportHeight: number | undefined;
 	let viewportTop = 0;
+	let profileRoot: HTMLElement;
 	let avatarFailed = false;
 
 	let densityDraft: Density = 'high';
@@ -231,11 +235,13 @@
 		opener = (event?.currentTarget || document.activeElement) as HTMLElement;
 		initialize(next);
 		panelMovement = 'forward';
+		animateProfileBase(true);
 		screen = next;
 		await tick();
 		dialog.showModal();
-		if (next === 'signout') dialog.querySelector<HTMLElement>('[data-keep]')?.focus();
-		else heading.focus();
+		if (next === 'signout')
+			dialog.querySelector<HTMLElement>('[data-keep]')?.focus({ preventScroll: true });
+		else heading.focus({ preventScroll: true });
 		const url = location.href;
 		history.pushState({ ...history.state, profileSettings: true }, '', url);
 		ownsHistoryEntry = true;
@@ -267,7 +273,7 @@
 		panelMovement = 'forward';
 		screen = 'label';
 		await tick();
-		heading.focus();
+		heading.focus({ preventScroll: true });
 	}
 
 	function setPreview(value: string) {
@@ -309,15 +315,26 @@
 		watchAccess = undefined;
 		watchLabelActions?.();
 		watchLabelActions = undefined;
-		if (dialog?.open) dialog.close();
+		panelMovement = 'backward';
+		animateProfileBase(false);
 		screen = 'profile';
 		resetMessages();
 		if (popHistory && ownsHistoryEntry) {
 			ownsHistoryEntry = false;
 			history.back();
 		}
-		const target = opener;
-		tick().then(() => target?.focus());
+		closeFocus = opener;
+	}
+
+	function finishPanelClose() {
+		if (dialog?.open) dialog.close();
+		closeFocus?.focus({ preventScroll: true });
+		closeFocus = undefined;
+	}
+
+	function animateProfileBase(open: boolean) {
+		const route = profileRoot?.closest('.route-screen');
+		animateEditorBase([route?.querySelector<HTMLElement>('.mdc-top-app-bar'), profileRoot], open);
 	}
 
 	function returnToLabels() {
@@ -402,7 +419,9 @@
 			...dialog.querySelectorAll<HTMLElement>(
 				'button:not(:disabled), input:not(:disabled), [tabindex="0"]'
 			)
-		].filter((node) => node.getClientRects().length);
+		].filter(
+			(node) => node.getClientRects().length > 0 && !node.closest('[inert], [aria-hidden="true"]')
+		);
 		if (
 			event.shiftKey &&
 			(document.activeElement === nodes[0] || document.activeElement === heading)
@@ -416,6 +435,7 @@
 	}
 
 	beforeNavigate(({ cancel }) => {
+		if (animationLabResetInProgress()) return;
 		if (screen !== 'profile') {
 			cancel();
 			back();
@@ -456,7 +476,7 @@
 	});
 </script>
 
-<main class="profile-settings" aria-labelledby="profile-settings-title">
+<main bind:this={profileRoot} class="profile-settings" aria-labelledby="profile-settings-title">
 	<h1 id="profile-settings-title" class="sr-only">Profile</h1>
 	<section class="identity" aria-label="Signed-in account">
 		<div class="avatar" aria-hidden="true">
@@ -515,7 +535,11 @@
 	<dialog
 		bind:this={dialog}
 		class="profile-editor"
-		aria-labelledby="profile-editor-heading"
+		aria-labelledby={`profile-editor-heading-${screen}`}
+		in:mobileScreenSlide={{ movement: 'forward', phase: 'in' }}
+		out:mobileScreenSlide={{ movement: 'backward', phase: 'out' }}
+		on:outrostart={hideOutgoingScreen}
+		on:outroend={finishPanelClose}
 		on:cancel={(event) => {
 			event.preventDefault();
 			back();
@@ -525,32 +549,32 @@
 		style:--viewport-top={`${viewportTop}px`}
 	>
 		<div class="editor-shell">
-			<header>
-				<button disabled={saving} on:click={back}
-					>{screen === 'label' ? '‹ Labels' : '‹ Profile'}</button
+			{#key screen}
+				<div
+					class="editor-screen"
+					data-transition-direction={panelMovement}
+					in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+					out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+					on:outrostart={hideOutgoingScreen}
 				>
-				<h1 id="profile-editor-heading" tabindex="-1" bind:this={heading}>
-					{screen === 'spacing'
-						? 'Item spacing'
-						: screen === 'background'
-						? 'Background'
-						: screen === 'labels'
-						? 'Label visibility'
-						: screen === 'label'
-						? 'Visibility'
-						: 'Sign out'}
-				</h1>
-				<span class="header-spacer"></span>
-			</header>
-			<div class="editor-body">
-				{#key screen}
-					<div
-						class="editor-screen"
-						data-transition-direction={panelMovement}
-						in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
-						out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
-						on:outrostart={hideOutgoingScreen}
-					>
+					<header>
+						<button disabled={saving} on:click={back}
+							>{screen === 'label' ? '‹ Labels' : '‹ Profile'}</button
+						>
+						<h1 id={`profile-editor-heading-${screen}`} tabindex="-1" bind:this={heading}>
+							{screen === 'spacing'
+								? 'Item spacing'
+								: screen === 'background'
+								? 'Background'
+								: screen === 'labels'
+								? 'Label visibility'
+								: screen === 'label'
+								? 'Visibility'
+								: 'Sign out'}
+						</h1>
+						<span class="header-spacer"></span>
+					</header>
+					<div class="editor-body">
 						{#if conflict}<section class="notice" role="alert">
 								<p>This setting changed elsewhere. Your choice is still here.</p>
 								<button on:click={() => resolveConflict(true)}>Reload latest</button><button
@@ -749,15 +773,15 @@
 							</div>
 						{/if}
 					</div>
-				{/key}
-			</div>
-			{#if ['spacing', 'background', 'label'].includes(screen)}<footer>
-					<button
-						class="primary"
-						disabled={saving || !dirty || !saveValid || conflict || confirmDiscard}
-						on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
-					>
-				</footer>{/if}
+					{#if ['spacing', 'background', 'label'].includes(screen)}<footer>
+							<button
+								class="primary"
+								disabled={saving || !dirty || !saveValid || conflict || confirmDiscard}
+								on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
+							>
+						</footer>{/if}
+				</div>
+			{/key}
 		</div>
 	</dialog>
 {/if}
@@ -913,8 +937,8 @@
 	}
 	.editor-shell {
 		height: 100%;
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		overflow: hidden;
 		min-width: 0;
 		max-width: 100%;
 	}
@@ -947,7 +971,6 @@
 		min-width: 0;
 	}
 	.editor-body {
-		display: grid;
 		padding: 12px 16px 24px;
 		overflow: auto;
 		flex: 1;
@@ -959,10 +982,14 @@
 	}
 	.editor-screen {
 		grid-area: 1 / 1;
-		min-height: 100%;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 		min-width: 0;
+		background: var(--bg);
 	}
-	.editor-screen > label {
+	.editor-body > label {
 		display: block;
 		margin: 12px 0;
 	}
@@ -1110,6 +1137,9 @@
 			height: var(--viewport-height);
 			border-radius: 0;
 			box-shadow: none;
+		}
+		.profile-editor::backdrop {
+			background: transparent;
 		}
 	}
 	@media (prefers-color-scheme: dark) {

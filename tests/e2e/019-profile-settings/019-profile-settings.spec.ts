@@ -120,6 +120,21 @@ test('profile settings save independently and sign out confirms', async ({ page 
 	await page.getByLabel('Search labels').fill('weekend');
 	await expect(page.getByRole('button', { name: /Weekend archive Visible/ })).toBeVisible();
 	await page.getByRole('button', { name: /Weekend archive Visible/ }).click();
+	const profileEditor = page.locator('dialog.profile-editor');
+	const activeProfileEditorScreen = profileEditor.locator('.editor-screen:not([inert])');
+	await expect(
+		activeProfileEditorScreen.getByRole('heading', { name: 'Visibility', exact: true })
+	).toBeVisible();
+	await expect.poll(() => profileEditor.evaluate((node) => node.scrollLeft)).toBe(0);
+	await expect
+		.poll(() =>
+			activeProfileEditorScreen.evaluate(
+				(node) =>
+					node.getBoundingClientRect().width ===
+					node.closest('dialog')?.getBoundingClientRect().width
+			)
+		)
+		.toBe(true);
 	await page.getByRole('radio', { name: /^Hidden/ }).check();
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Label visibility', exact: true })).toBeVisible();
