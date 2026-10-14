@@ -139,6 +139,19 @@
           androidSdk = androidComposition.androidsdk;
         in
         {
+          animationLab = pkgs.mkShell {
+            packages = [
+              pkgs.jdk21
+              pkgs.nodejs_22
+            ];
+
+            JAVA_HOME = pkgs.jdk21.home;
+
+            shellHook = ''
+              echo "todo animation lab shell: npm run dev:animations"
+            '';
+          };
+
           default = pkgs.mkShell {
             packages = [
               androidSdk

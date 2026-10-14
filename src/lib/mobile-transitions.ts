@@ -17,14 +17,19 @@ export function hideOutgoingScreen(event: Event) {
 export function isTouchFormFactor() {
 	return (
 		typeof window !== 'undefined' &&
-		(Capacitor.isNativePlatform() ||
-			window.matchMedia('(hover: none) and (pointer: coarse)').matches)
+		(import.meta.env.VITE_ANIMATION_LAB === 'true'
+			? window.innerWidth < 900
+			: Capacitor.isNativePlatform() ||
+			  window.matchMedia('(hover: none) and (pointer: coarse)').matches)
 	);
 }
 
 export function prefersReducedMotion() {
 	return (
-		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		typeof window !== 'undefined' &&
+		((import.meta.env.VITE_ANIMATION_LAB === 'true' &&
+			localStorage.getItem('todo-animation-lab-reduced-motion') === 'true') ||
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 	);
 }
 

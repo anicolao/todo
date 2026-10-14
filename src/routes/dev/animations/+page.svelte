@@ -1,63 +1,404 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { MOBILE_SCREEN_DURATION } from '$lib/mobile-transitions';
-	import AnimationStage from './AnimationStage.svelte';
-	import { animationGroups, animationScenarios } from './scenarios';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import { animationLabFixture, prepareAnimationLabFixture } from '$lib/animation-lab-fixture';
+	import { animationGroups, animationScenarios, type LabSetup, type LabTrigger } from './scenarios';
 
 	type Review = 'pending' | 'approved' | 'issue';
-	type PlayerState = 'ready' | 'moving' | 'paused' | 'complete';
-	const reviewKey = 'todo-animation-lab-reviews-v1';
+	type PlayerState = 'preparing' | 'ready' | 'moving' | 'paused' | 'complete' | 'error';
+	const reviewKey = 'todo-real-animation-lab-reviews-v2';
+	const reducedMotionKey = 'todo-animation-lab-reduced-motion';
 	let subject = animationScenarios[0].id;
-	let stage: AnimationStage;
+	let frame: HTMLIFrameElement;
 	let speed = 1;
-	let playerState: PlayerState = 'ready';
+	let playerState: PlayerState = 'preparing';
 	let progress = 0;
+	let moving = 0;
 	let toolsOpen = true;
 	let reviews: Record<string, Review> = {};
-	let mounted = false;
+	let error = '';
+	let prepared = false;
+	let tracked: Animation[] = [];
+	let inspectFrame = 0;
+	let setupGeneration = 0;
 
 	$: scenario = animationScenarios.find((item) => item.id === subject) || animationScenarios[0];
-	$: approved = animationScenarios.filter((item) => reviews[item.id] === 'approved').length;
+	$: reviewed = animationScenarios.filter(
+		(item) => reviews[item.id] === 'approved' || reviews[item.id] === 'issue'
+	).length;
 	$: issues = animationScenarios.filter((item) => reviews[item.id] === 'issue').length;
-	$: reviewed = approved + issues;
+	$: frameWidth =
+		scenario.viewport === 'portrait' ? 393 : scenario.viewport === 'landscape' ? 852 : 960;
+	$: frameHeight =
+		scenario.viewport === 'portrait' ? 852 : scenario.viewport === 'landscape' ? 393 : 640;
 
-	function updateUrl() {
-		if (!mounted) return;
-		const url = new URL(location.href);
-		url.searchParams.set('scenario', subject);
-		url.searchParams.set('speed', String(speed));
-		history.replaceState(null, '', url);
+	function frameDocument() {
+		const document = frame?.contentDocument;
+		if (!document) throw new Error('The real Todo frame is not available.');
+		return document;
 	}
 
-	async function selectScenario(id = subject, autoplay = false) {
-		subject = id;
-		playerState = 'ready';
+	async function waitFor<T>(read: () => T | undefined | null | false, timeout = 12000): Promise<T> {
+		const started = Date.now();
+		while (Date.now() - started < timeout) {
+			const value = read();
+			if (value) return value;
+			await new Promise((resolve) => setTimeout(resolve, 25));
+		}
+		throw new Error('Timed out preparing the real Todo screen.');
+	}
+
+	function element(selector: string, root: ParentNode = frameDocument()) {
+		const match = root.querySelector<HTMLElement>(selector);
+		if (!match) throw new Error(`Real Todo control not found: ${selector}`);
+		return match;
+	}
+
+	function buttonWithText(text: string, root: ParentNode = frameDocument()) {
+		const match = [...root.querySelectorAll<HTMLButtonElement>('button')].find(
+			(button) => button.textContent?.replace(/\s+/g, ' ').trim() === text
+		);
+		if (!match) throw new Error(`Real Todo button not found: ${text}`);
+		return match;
+	}
+
+	function clickableWithText(selector: string, text: string, root: ParentNode = frameDocument()) {
+		const match = [...root.querySelectorAll<HTMLElement>(selector)].find(
+			(node) => node.textContent?.replace(/\s+/g, ' ').trim() === text
+		);
+		if (!match) throw new Error(`Real Todo control not found: ${text}`);
+		return match;
+	}
+
+	function setting(name: string, root: ParentNode = frameDocument()) {
+		const match = [...root.querySelectorAll<HTMLButtonElement>('button')].find(
+			(button) => button.querySelector('strong')?.textContent?.trim() === name
+		);
+		if (!match) throw new Error(`Real Todo setting not found: ${name}`);
+		return match;
+	}
+
+	function navigation(listId: string) {
+		return element(`[data-navigation-id="${listId}"] .mdc-deprecated-list-item`);
+	}
+
+	function tapNavigation(listId: string) {
+		navigation(listId).dispatchEvent(
+			new PointerEvent('pointerup', { bubbles: true, pointerId: 1, pointerType: 'touch' })
+		);
+	}
+
+	async function settle() {
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+		);
+		await waitFor(
+			() =>
+				reviewAnimations().every(
+					(animation) => animation.playState !== 'running' && !animation.pending
+				) || undefined,
+			4000
+		).catch(() => undefined);
+	}
+
+	function reviewAnimations() {
+		return frameDocument()
+			.getAnimations()
+			.filter((animation) => {
+				const target = (animation.effect as KeyframeEffect | null)?.target as Element | null;
+				return (
+					typeof target?.matches === 'function' &&
+					target.matches(
+						'.route-screen, .editor-screen, .mdc-drawer, .mdc-drawer-scrim, .mdc-top-app-bar, .app-content'
+					)
+				);
+			});
+	}
+
+	async function loadProduct(path: string, reducedMotion = false) {
+		localStorage.setItem(reducedMotionKey, reducedMotion ? 'true' : 'false');
+		const loaded = new Promise<void>((resolve, reject) => {
+			const timeout = setTimeout(
+				() => reject(new Error('Timed out loading the real Todo app.')),
+				15000
+			);
+			frame.onload = () => {
+				clearTimeout(timeout);
+				resolve();
+			};
+		});
+		frame.src = path;
+		await loaded;
+		await waitFor(() => frame.contentDocument?.querySelector<HTMLElement>('.drawer-container'));
+		await waitFor(() =>
+			frame.contentDocument?.querySelector('.loading-screen')
+				? undefined
+				: frame.contentDocument?.querySelector<HTMLElement>('.route-screen')
+		);
+		await settle();
+	}
+
+	async function openTask(id = animationLabFixture.starredItemId) {
+		element(
+			`[aria-label="Edit details for ${
+				id === animationLabFixture.starredItemId
+					? 'Review animation timing'
+					: 'Plan the next transition'
+			}"]`
+		).click();
+		await waitFor(() =>
+			frameDocument().querySelector<HTMLDialogElement>('dialog.task-details[open]')
+		);
+		await settle();
+	}
+
+	async function openListDetails() {
+		element('[aria-label="Edit list"]').click();
+		await waitFor(() =>
+			frameDocument().querySelector<HTMLDialogElement>('dialog.list-details[open]')
+		);
+		await settle();
+	}
+
+	async function prepareSetup(setup: LabSetup) {
+		const upper = `/lists?listId=${animationLabFixture.upperListId}`;
+		const lower = `/lists?listId=${animationLabFixture.lowerListId}`;
+		if (setup === 'lower-list') {
+			await loadProduct(lower, scenario.reducedMotion);
+			return;
+		}
+		if (setup.startsWith('profile')) {
+			await loadProduct('/profile', scenario.reducedMotion);
+			if (setup === 'profile') return;
+			if (setup === 'profile-spacing') {
+				element('[data-setting="spacing"]').click();
+				await waitFor(() => frameDocument().querySelector('dialog.profile-editor[open]'));
+				await settle();
+				return;
+			}
+			element('[data-setting="labels"]').click();
+			await waitFor(() => frameDocument().querySelector('dialog.profile-editor[open]'));
+			await settle();
+			if (setup === 'profile-labels') return;
+			setting('House', element('dialog.profile-editor')).click();
+			await settle();
+			return;
+		}
+
+		await loadProduct(upper, scenario.reducedMotion);
+		if (setup === 'upper-list') return;
+		if (setup === 'upper-list-drawer') {
+			element('[aria-label="Open navigation menu"]').click();
+			await waitFor(() => element('.drawer-container').classList.contains('drawer-open'));
+			await settle();
+			return;
+		}
+		if (setup.startsWith('list')) {
+			element('[aria-label="Open navigation menu"]').click();
+			await waitFor(() => frameDocument().querySelector('[aria-label="Edit list"]'));
+			await openListDetails();
+			if (setup === 'list-sharing') {
+				setting('Sharing', element('dialog.list-details')).click();
+				await settle();
+			}
+			return;
+		}
+		if (setup === 'task-repeat-via-date' || setup === 'task-repeat-after-date') {
+			await openTask(animationLabFixture.undatedItemId);
+			setting('Repeat', element('dialog.task-details')).click();
+			await settle();
+			if (setup === 'task-repeat-after-date') {
+				buttonWithText('Done', element('dialog.task-details')).click();
+				await settle();
+			}
+			return;
+		}
+		await openTask();
+		if (setup === 'task-date') {
+			setting('Due date', element('dialog.task-details')).click();
+			await settle();
+		}
+	}
+
+	async function setupSelected() {
+		if (!prepared) return;
+		const generation = ++setupGeneration;
+		tracked.forEach((animation) => animation.cancel());
+		tracked = [];
+		playerState = 'preparing';
 		progress = 0;
-		updateUrl();
-		await tick();
-		stage?.reset();
-		if (autoplay) stage?.play();
+		moving = 0;
+		error = '';
+		try {
+			await tick();
+			await prepareSetup(scenario.setup);
+			if (generation !== setupGeneration) return;
+			playerState = 'ready';
+			const url = new URL(location.href);
+			url.searchParams.set('scenario', subject);
+			url.searchParams.set('speed', String(speed));
+			history.replaceState(null, '', url);
+		} catch (cause) {
+			if (generation !== setupGeneration) return;
+			error = cause instanceof Error ? cause.message : String(cause);
+			playerState = 'error';
+		}
 	}
 
-	function trigger() {
-		if (playerState === 'moving' || playerState === 'paused') return stage.togglePause();
+	function performTrigger(trigger: LabTrigger) {
+		const document = frameDocument();
+		const taskDialog = () => element('dialog.task-details', document);
+		const listDialog = () => element('dialog.list-details', document);
+		const profileDialog = () => element('dialog.profile-editor', document);
+		switch (trigger) {
+			case 'open-drawer':
+				element('[aria-label="Open navigation menu"]').click();
+				break;
+			case 'dismiss-drawer':
+				element('.mdc-drawer-scrim').click();
+				break;
+			case 'select-upper-list':
+				tapNavigation(animationLabFixture.upperListId);
+				break;
+			case 'select-lower-list':
+				tapNavigation(animationLabFixture.lowerListId);
+				break;
+			case 'select-profile':
+				clickableWithText(
+					'.mdc-deprecated-list-item__text',
+					'Profile',
+					element('.mdc-drawer')
+				).click();
+				break;
+			case 'open-task':
+				element('[aria-label="Edit details for Review animation timing"]').click();
+				break;
+			case 'close-task':
+				buttonWithText('Cancel', taskDialog()).click();
+				break;
+			case 'open-date':
+				setting('Due date', taskDialog()).click();
+				break;
+			case 'open-repeat':
+				setting('Repeat', taskDialog()).click();
+				break;
+			case 'finish-date':
+				buttonWithText('Done', taskDialog()).click();
+				break;
+			case 'back-details':
+				buttonWithText('‹ Details', taskDialog()).click();
+				break;
+			case 'back-date':
+				buttonWithText('‹ Details', taskDialog()).click();
+				break;
+			case 'open-list-details':
+				element('[aria-label="Edit list"]').click();
+				break;
+			case 'close-list-details':
+				buttonWithText('Close', listDialog()).click();
+				break;
+			case 'open-sharing':
+				setting('Sharing', listDialog()).click();
+				break;
+			case 'back-list-details':
+				buttonWithText('‹ Details', listDialog()).click();
+				break;
+			case 'open-spacing':
+				element('[data-setting="spacing"]').click();
+				break;
+			case 'back-profile':
+				buttonWithText('‹ Profile', profileDialog()).click();
+				break;
+			case 'open-profile-label':
+				setting('House', profileDialog()).click();
+				break;
+			case 'back-labels':
+				buttonWithText('‹ Labels', profileDialog()).click();
+				break;
+		}
+	}
+
+	async function captureAnimations() {
+		// Route changes do not necessarily mount their keyed screen in the same
+		// frame as the click. Wait briefly for a product-screen animation, while
+		// excluding ripples and other incidental Material effects from playback.
+		const found = new Set<Animation>();
+		const started = performance.now();
+		do {
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			for (const animation of reviewAnimations()) {
+				if (animation.playState !== 'running' && !animation.pending) continue;
+				animation.updatePlaybackRate(speed);
+				found.add(animation);
+			}
+		} while (
+			performance.now() - started < 80 ||
+			(!found.size && performance.now() - started < 140)
+		);
+		tracked = [...found];
+		moving = tracked.length;
+		playerState = tracked.length ? 'moving' : 'complete';
+		if (!tracked.length) progress = 100;
+	}
+
+	async function trigger() {
+		if (playerState === 'moving' || playerState === 'paused') {
+			togglePause();
+			return;
+		}
+		if (playerState === 'complete') await setupSelected();
+		if (playerState !== 'ready') return;
 		toolsOpen = false;
-		stage.play();
+		try {
+			performTrigger(scenario.trigger);
+			await captureAnimations();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : String(cause);
+			playerState = 'error';
+			toolsOpen = true;
+		}
 	}
 
-	function next() {
-		const index = animationScenarios.findIndex((item) => item.id === subject);
-		void selectScenario(animationScenarios[(index + 1) % animationScenarios.length].id, true);
+	function togglePause() {
+		if (!tracked.length) return;
+		if (playerState === 'paused') {
+			tracked.forEach((animation) => animation.play());
+			playerState = 'moving';
+		} else {
+			tracked.forEach((animation) => animation.pause());
+			playerState = 'paused';
+		}
 	}
 
-	function nextPending() {
-		const index = animationScenarios.findIndex((item) => item.id === subject);
-		const ordered = [
-			...animationScenarios.slice(index + 1),
-			...animationScenarios.slice(0, index + 1)
-		];
-		const pending = ordered.find((item) => !reviews[item.id] || reviews[item.id] === 'pending');
-		void selectScenario((pending || ordered[0]).id, true);
+	function animationProgress() {
+		if (!tracked.length) return progress;
+		return Math.max(
+			0,
+			Math.min(
+				100,
+				Math.max(
+					...tracked.map((animation) => {
+						const duration = Number(animation.effect?.getTiming().duration || 1);
+						return (Number(animation.currentTime || 0) / duration) * 100;
+					})
+				)
+			)
+		);
+	}
+
+	function seek(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		if (!tracked.length) return;
+		tracked.forEach((animation) => {
+			animation.pause();
+			const duration = Number(animation.effect?.getTiming().duration || 0);
+			animation.currentTime = (duration * value) / 100;
+		});
+		progress = value;
+		playerState = value >= 100 ? 'complete' : 'paused';
+	}
+
+	function changeSpeed() {
+		tracked.forEach((animation) => animation.updatePlaybackRate(Number(speed)));
 	}
 
 	function setReview(value: Review) {
@@ -65,23 +406,20 @@
 		localStorage.setItem(reviewKey, JSON.stringify(reviews));
 	}
 
-	function changeSpeed() {
-		stage?.setSpeed(Number(speed));
-		updateUrl();
+	async function next(pendingOnly = false) {
+		const index = animationScenarios.findIndex((item) => item.id === subject);
+		const ordered = [
+			...animationScenarios.slice(index + 1),
+			...animationScenarios.slice(0, index + 1)
+		];
+		const target = pendingOnly
+			? ordered.find((item) => !reviews[item.id] || reviews[item.id] === 'pending') || ordered[0]
+			: ordered[0];
+		subject = target.id;
+		await setupSelected();
 	}
 
-	function stateChanged(event: CustomEvent<{ state: PlayerState; progress: number }>) {
-		playerState = event.detail.state;
-		progress = event.detail.progress;
-	}
-
-	function seek(event: Event) {
-		const value = Number((event.currentTarget as HTMLInputElement).value);
-		progress = value;
-		stage.seek(value);
-	}
-
-	onMount(() => {
+	onMount(async () => {
 		const params = new URLSearchParams(location.search);
 		if (animationScenarios.some((item) => item.id === params.get('scenario')))
 			subject = params.get('scenario')!;
@@ -92,30 +430,79 @@
 		} catch {
 			reviews = {};
 		}
-		mounted = true;
-		void selectScenario(subject);
+
+		try {
+			await new Promise<void>((resolve) => {
+				const request = indexedDB.deleteDatabase('TODOS');
+				request.onsuccess = () => resolve();
+				request.onerror = () => resolve();
+				request.onblocked = () => resolve();
+			});
+			await prepareAnimationLabFixture();
+			prepared = true;
+			await tick();
+			await setupSelected();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : String(cause);
+			playerState = 'error';
+		}
+
+		const inspect = () => {
+			if (tracked.length) {
+				progress = animationProgress();
+				moving = tracked.filter(
+					(animation) => animation.playState === 'running' || animation.pending
+				).length;
+				if (!moving && playerState === 'moving') {
+					playerState = 'complete';
+					progress = 100;
+				}
+			}
+			inspectFrame = requestAnimationFrame(inspect);
+		};
+		inspectFrame = requestAnimationFrame(inspect);
+	});
+
+	onDestroy(() => {
+		cancelAnimationFrame(inspectFrame);
+		localStorage.removeItem(reducedMotionKey);
 	});
 </script>
 
-<svelte:head>
-	<title>Animation lab · Todo</title>
-	<meta
-		name="description"
-		content="Review every mobile screen transition before integrating it into Todo."
-	/>
-</svelte:head>
+<svelte:head><title>Real-product animation lab · Todo</title></svelte:head>
 
 <main class="lab">
-	<section class="review-stage" aria-label={`${scenario.name} preview`}>
-		<AnimationStage bind:this={stage} {scenario} {speed} on:state={stateChanged} />
+	<section class="product-stage" aria-label={`${scenario.name} real Todo preview`}>
+		{#if prepared}
+			<div
+				class:portrait={scenario.viewport === 'portrait'}
+				class:landscape={scenario.viewport === 'landscape'}
+				class:desktop={scenario.viewport === 'desktop'}
+				class="device"
+				style:--frame-width={`${frameWidth}px`}
+				style:--frame-height={`${frameHeight}px`}
+			>
+				<iframe bind:this={frame} title="Real Todo product" src="about:blank"></iframe>
+			</div>
+		{:else}
+			<div class="boot">
+				<span class="spinner"></span><strong>Preparing real Todo…</strong><small
+					>Starting an isolated Firebase-backed product session.</small
+				>
+			</div>
+		{/if}
 	</section>
 
 	<aside class:open={toolsOpen} class="lab-tools" aria-label="Animation lab controls">
 		<div class="quick-controls">
 			<button class="lab-title" on:click={() => (toolsOpen = !toolsOpen)} aria-expanded={toolsOpen}
-				>Animation lab {toolsOpen ? '▾' : '▴'}</button
+				>Real Todo lab {toolsOpen ? '▾' : '▴'}</button
 			>
-			<button class="primary" on:click={trigger}>
+			<button
+				class="primary"
+				disabled={!prepared || playerState === 'preparing' || playerState === 'error'}
+				on:click={trigger}
+			>
 				{playerState === 'moving'
 					? 'Pause'
 					: playerState === 'paused'
@@ -124,55 +511,55 @@
 					? 'Replay'
 					: 'Trigger'}
 			</button>
-			<button on:click={() => stage.reset()}>Reset</button>
-			<button on:click={next}>Next →</button>
-			<span class:active={playerState === 'moving'} class="status" role="status">{playerState}</span
+			<button disabled={!prepared || playerState === 'preparing'} on:click={setupSelected}
+				>Reset</button
+			>
+			<button disabled={!prepared || playerState === 'preparing'} on:click={() => next()}
+				>Next →</button
+			>
+			<span class:active={playerState === 'moving'} class="status" role="status"
+				>{moving ? `${moving} moving` : playerState}</span
 			>
 		</div>
 
 		{#if toolsOpen}
 			<div class="settings">
-				<label>
-					Scenario
-					<select
+				<label
+					>Scenario<select
 						bind:value={subject}
-						on:change={() => selectScenario()}
+						on:change={setupSelected}
 						aria-label="Animation scenario"
+						disabled={!prepared || playerState === 'preparing'}
 					>
-						{#each animationGroups as group}
-							<optgroup label={group}>
-								{#each animationScenarios.filter((item) => item.group === group) as item}
-									<option value={item.id}>
-										{reviews[item.id] === 'approved'
+						{#each animationGroups as group}<optgroup label={group}
+								>{#each animationScenarios.filter((item) => item.group === group) as item}<option
+										value={item.id}
+										>{reviews[item.id] === 'approved'
 											? '✓ '
 											: reviews[item.id] === 'issue'
 											? '! '
-											: ''}{item.name}
-									</option>
-								{/each}
-							</optgroup>
-						{/each}
-					</select>
-				</label>
-
+											: ''}{item.name}</option
+									>{/each}</optgroup
+							>{/each}
+					</select></label
+				>
 				<div class="control-row">
-					<label>
-						Playback speed
-						<select bind:value={speed} on:change={changeSpeed} aria-label="Playback speed">
-							<option value={0.1}>¹⁄₁₀×</option>
-							<option value={0.25}>¼×</option>
-							<option value={0.5}>½×</option>
-							<option value={1}>Normal</option>
-							<option value={2}>2×</option>
-						</select>
-					</label>
-					<div class="facts" aria-label="Animation facts">
-						<strong>{scenario.viewport}</strong>
-						<span>{scenario.movement}</span>
-						<span>{scenario.motion === 'instant' ? '0' : MOBILE_SCREEN_DURATION} ms</span>
+					<label
+						>Playback speed<select
+							bind:value={speed}
+							on:change={changeSpeed}
+							aria-label="Playback speed"
+							><option value={0.1}>¹⁄₁₀×</option><option value={0.25}>¼×</option><option value={0.5}
+								>½×</option
+							><option value={1}>Normal</option><option value={2}>2×</option></select
+						></label
+					>
+					<div class="facts">
+						<strong>{scenario.viewport}</strong><span>{frameWidth} × {frameHeight}</span><span
+							>real UI</span
+						>
 					</div>
 				</div>
-
 				<label class="timeline-label" for="timeline">Timeline · {Math.round(progress)}%</label>
 				<input
 					id="timeline"
@@ -183,14 +570,13 @@
 					step="1"
 					value={progress}
 					on:input={seek}
+					disabled={!tracked.length}
 				/>
-
 				<section class="expectation">
 					<span>Expected</span>
 					<p>{scenario.expected}</p>
-					<small>{scenario.from} → {scenario.to}</small>
 				</section>
-
+				{#if error}<p class="error" role="alert">{error}</p>{/if}
 				<div class="review-controls">
 					<span
 						>{reviewed}/{animationScenarios.length} reviewed{issues
@@ -201,18 +587,16 @@
 						<button
 							class:chosen={reviews[subject] === 'approved'}
 							on:click={() => setReview('approved')}>✓ Looks right</button
-						>
-						<button
+						><button
 							class:chosen-issue={reviews[subject] === 'issue'}
 							on:click={() => setReview('issue')}>! Needs changes</button
 						>
 					</div>
-					<button class="next-pending" on:click={nextPending}>Next unreviewed →</button>
+					<button class="next-pending" on:click={() => next(true)}>Next unreviewed →</button>
 				</div>
-
 				<p class="note">
-					The preview uses Todo's shared direction offsets, {MOBILE_SCREEN_DURATION} ms timing, and cubic-out
-					curve. Slow, pause, or scrub to compare both screens. Review choices stay only in this browser.
+					This is the real Todo app, components, router, dialogs, store, and Firestore replay
+					running against isolated emulators. The lab only seeds data and drives real controls.
 				</p>
 			</div>
 		{/if}
@@ -233,25 +617,72 @@
 	.lab {
 		min-height: 100svh;
 		color: #f6eee9;
-		background: radial-gradient(circle at 50% 35%, #4f3b33 0, #211916 48%, #130e0d 100%);
+		background: radial-gradient(circle at 42% 35%, #4f3b33 0, #211916 48%, #130e0d 100%);
 	}
-	.review-stage {
+	.product-stage {
 		position: fixed;
 		inset: 0;
 		display: grid;
 		place-items: center;
 		box-sizing: border-box;
-		padding: 88px 16px 22px;
+		padding: 20px 424px 20px 16px;
 		overflow: auto;
+	}
+	.device {
+		width: var(--frame-width);
+		height: var(--frame-height);
+		max-width: calc(100vw - 456px);
+		max-height: calc(100svh - 40px);
+		overflow: hidden;
+		border: 9px solid #272321;
+		border-radius: 30px;
+		background: #111;
+		box-shadow: 0 18px 55px #160d0966;
+	}
+	.device.landscape {
+		border-radius: 24px;
+	}
+	.device.desktop {
+		border-width: 7px;
+		border-radius: 13px;
+	}
+	.device iframe {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border: 0;
+		background: #fafafa;
+	}
+	.boot {
+		display: grid;
+		justify-items: center;
+		gap: 10px;
+		color: #eadbd4;
+	}
+	.boot small {
+		color: #bbaaa3;
+	}
+	.spinner {
+		width: 26px;
+		height: 26px;
+		border: 3px solid #806359;
+		border-top-color: #e0b29d;
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 	.lab-tools {
 		position: fixed;
 		z-index: 100;
-		top: 8px;
-		left: 50%;
-		width: 560px;
+		top: 50%;
+		right: 12px;
+		width: 400px;
 		max-width: calc(100vw - 16px);
-		transform: translateX(-50%);
+		transform: translateY(-50%);
 		border: 1px solid #9f7d6e;
 		border-radius: 11px;
 		background: #231a17f5;
@@ -282,9 +713,11 @@
 		font: inherit;
 		cursor: pointer;
 	}
-	.quick-controls button:hover,
-	.settings button:hover {
-		background: #49352e;
+	.quick-controls button:disabled,
+	.settings button:disabled,
+	select:disabled {
+		opacity: 0.45;
+		cursor: default;
 	}
 	.quick-controls .primary {
 		background: #e0b29d;
@@ -297,14 +730,10 @@
 	}
 	.status {
 		margin-left: auto;
-		padding: 3px 6px;
-		border-radius: 20px;
 		color: #bdb0ab;
-		text-transform: capitalize;
 	}
 	.status.active {
-		color: #d9c5bc;
-		background: #50392f;
+		color: #f4ddd3;
 	}
 	.settings {
 		max-height: calc(100svh - 80px);
@@ -322,7 +751,7 @@
 	.control-row {
 		display: flex;
 		align-items: flex-end;
-		gap: 10px;
+		gap: 8px;
 	}
 	.control-row label {
 		display: grid;
@@ -331,21 +760,17 @@
 	}
 	.facts {
 		display: flex;
-		gap: 5px;
-		padding-bottom: 1px;
+		gap: 4px;
 	}
 	.facts > * {
 		min-height: 32px;
 		display: grid;
 		place-items: center;
-		padding: 0 8px;
+		padding: 0 7px;
 		border-radius: 6px;
 		background: #30231f;
 		color: #cdbeb8;
 		text-transform: capitalize;
-	}
-	.facts strong {
-		color: #f4ddd3;
 	}
 	.timeline-label {
 		display: block;
@@ -355,7 +780,6 @@
 	.timeline {
 		width: 100%;
 		accent-color: #dda98f;
-		cursor: ew-resize;
 	}
 	.expectation {
 		margin: 10px 0;
@@ -374,8 +798,11 @@
 	.expectation p {
 		margin: 4px 0;
 	}
-	.expectation small {
-		color: #a99a94;
+	.error {
+		padding: 8px;
+		border-radius: 5px;
+		background: #5a2924;
+		color: #ffd8d0;
 	}
 	.review-controls {
 		display: grid;
@@ -407,17 +834,26 @@
 		color: #aa9b95;
 		font-size: 11px;
 	}
-	@media (max-width: 620px) {
-		.review-stage {
-			align-items: start;
-			padding-top: 84px;
+	@media (max-width: 1049px) {
+		.product-stage {
+			padding: 76px 16px 16px;
+		}
+		.device {
+			max-width: calc(100vw - 32px);
+			max-height: calc(100svh - 92px);
 		}
 		.lab-tools {
-			top: 4px;
+			top: 8px;
+			left: 50%;
+			right: auto;
+			width: 560px;
+			transform: translateX(-50%);
 		}
 		.settings {
 			max-height: 55svh;
 		}
+	}
+	@media (max-width: 620px) {
 		.control-row {
 			align-items: stretch;
 			flex-direction: column;
@@ -427,18 +863,6 @@
 		}
 		.quick-controls .status {
 			display: none;
-		}
-	}
-	@media (min-width: 1050px) {
-		.review-stage {
-			padding-right: 424px;
-		}
-		.lab-tools {
-			top: 50%;
-			left: auto;
-			right: 12px;
-			width: 400px;
-			transform: translateY(-50%);
 		}
 	}
 </style>
