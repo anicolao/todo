@@ -39,10 +39,16 @@ export async function createList(page: Page, listName: string) {
 	const newList = page.getByLabel('New list');
 	page.on('console', onConsole);
 	try {
+		const previousListId = new URL(page.url()).searchParams.get('listId');
 		await newList.fill(listName);
 		await newList.press('Enter');
-		await expect(page).toHaveURL(/lists\/?\?listId=/);
-		const listId = new URL(page.url()).searchParams.get('listId');
+		let listId: string | null = null;
+		await expect
+			.poll(() => {
+				listId = new URL(page.url()).searchParams.get('listId');
+				return listId;
+			})
+			.not.toBe(previousListId);
 		await expect
 			.poll(() => consoleMessages.some((text) => text.endsWith(` on ${listId}`)), {
 				timeout: 15000
