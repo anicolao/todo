@@ -13,9 +13,13 @@
 	import { crossfade } from 'svelte/transition';
 
 	$: listId = $page.url.searchParams.get('listId') || 'hmph';
-	$: if (listId) {
+	$: if (listId && $store.ui.icon !== 'list') {
 		store.dispatch(set_icon('list'));
+	}
+	$: if (listId && $store.ui.title !== $store.lists.listIdToList[listId]) {
 		store.dispatch(set_title($store.lists.listIdToList[listId]));
+	}
+	$: if (listId && $store.ui.listId !== listId) {
 		store.dispatch(set_current_listid(listId));
 	}
 

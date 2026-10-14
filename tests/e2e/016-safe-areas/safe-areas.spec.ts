@@ -30,11 +30,17 @@ for (const scenario of [
 		}
 		await expectSafe(page.getByRole('button', { name: 'Sign In', exact: true }));
 		await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-		await expect(page.locator('.app-content')).toBeVisible({ timeout: 30000 });
-		await expectSafe(page.locator('.mdc-top-app-bar__row'));
-		await expectSafe(page.locator('.backdrop'));
-		const row = await page.locator('.mdc-top-app-bar__row').boundingBox();
-		const content = await page.locator('.backdrop').boundingBox();
+		await expect(
+			page.locator('.route-screen:not([aria-hidden="true"]) .app-content')
+		).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.route-stage')).not.toHaveClass(/transition-active/);
+		const activeScreen = page.locator('.route-screen:not([aria-hidden="true"])');
+		const topBarRow = activeScreen.locator('.mdc-top-app-bar__row');
+		const backdrop = activeScreen.locator('.backdrop');
+		await expectSafe(topBarRow);
+		await expectSafe(backdrop);
+		const row = await topBarRow.boundingBox();
+		const content = await backdrop.boundingBox();
 		// Keep the existing 64px content offset (an 8px gap below compact toolbars).
 		expect(content!.y).toBe(64 + scenario.top);
 		expect(content!.y).toBeGreaterThanOrEqual(row!.y + row!.height);

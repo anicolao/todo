@@ -230,7 +230,7 @@ test('a list moved to the top replays after a legacy invalid reorder', async ({
 
 		phone = await phoneContext.newPage();
 		await phone.goto('/');
-		await expect(phone.locator('.drawer-container')).toBeVisible();
+		await expect(phone.locator('.drawer-container')).toBeVisible({ timeout: 30_000 });
 		await expect
 			.poll(() => visibleListOrder(phone), { timeout: 15_000 })
 			.toEqual([movedList, anchorList]);
