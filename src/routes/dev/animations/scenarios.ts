@@ -85,7 +85,7 @@ export const animationScenarios: AnimationScenario[] = [
 		setup: 'upper-list',
 		trigger: 'select-lower-list',
 		expected:
-			'The real drawer stays fixed. Today leaves upward and the lower Weekend errands list rises from below.'
+			'The real drawer stays fixed. The Today title and items leave upward together as the lower Weekend errands list rises from below.'
 	},
 	{
 		id: 'landscape-list-upper',
@@ -95,7 +95,7 @@ export const animationScenarios: AnimationScenario[] = [
 		setup: 'lower-list',
 		trigger: 'select-upper-list',
 		expected:
-			'The real drawer stays fixed. Weekend errands leaves downward and the higher Today list descends from above.'
+			'The real drawer stays fixed. The Weekend errands title and items leave downward together as the higher Today list descends from above.'
 	},
 	{
 		id: 'landscape-route-forward',
@@ -178,7 +178,8 @@ export const animationScenarios: AnimationScenario[] = [
 		viewport: 'portrait',
 		setup: 'upper-list-drawer',
 		trigger: 'open-list-details',
-		expected: 'The real List details editor should enter as a forward screen.'
+		expected:
+			'The full-screen drawer exits left as the real List details editor enters from the right. The list is not the outgoing screen.'
 	},
 	{
 		id: 'list-sharing',
@@ -205,7 +206,8 @@ export const animationScenarios: AnimationScenario[] = [
 		viewport: 'portrait',
 		setup: 'list-details',
 		trigger: 'close-list-details',
-		expected: 'The real list should return as a backward screen while List details exits right.'
+		expected:
+			'List details exits right and reveals the selected list directly; the drawer does not return.'
 	},
 	{
 		id: 'profile-spacing',

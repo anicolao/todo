@@ -13,6 +13,7 @@
 	import DueDateEditor from './DueDateEditor.svelte';
 	import RepeatEditor from './RepeatEditor.svelte';
 	import {
+		animationLabResetInProgress,
 		hideOutgoingScreen,
 		mobileScreenSlide,
 		type ScreenMovement
@@ -91,9 +92,9 @@
 		confirmRemove = false;
 		await tick();
 		body?.scrollTo(0, 0);
-		if (focus === 'date') dateButton?.focus();
-		else if (focus === 'repeat') repeatButton?.focus();
-		else heading?.focus();
+		if (focus === 'date') dateButton?.focus({ preventScroll: true });
+		else if (focus === 'repeat') repeatButton?.focus({ preventScroll: true });
+		else heading?.focus({ preventScroll: true });
 	}
 	function openDate(forRepeat = false) {
 		setupRepeat = forRepeat;
@@ -181,7 +182,9 @@
 			...dialog.querySelectorAll<HTMLElement>(
 				'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
 			)
-		].filter((node) => node.getClientRects().length > 0);
+		].filter(
+			(node) => node.getClientRects().length > 0 && !node.closest('[inert], [aria-hidden="true"]')
+		);
 		const first = controls[0];
 		const last = controls[controls.length - 1];
 		if (!first) {
@@ -222,13 +225,14 @@
 		};
 	}
 	beforeNavigate(({ cancel }) => {
+		if (animationLabResetInProgress()) return;
 		cancel();
 		back();
 	});
 	onMount(() => {
 		const opener = document.activeElement as HTMLElement;
 		dialog.showModal();
-		heading.focus();
+		heading.focus({ preventScroll: true });
 		dialog.addEventListener('keydown', trapFocus);
 		// A history entry makes system Back work even when the previous app
 		// navigation used the same URL (for example closing the mobile drawer).
@@ -275,7 +279,10 @@
 <dialog
 	bind:this={dialog}
 	class="task-details"
-	aria-labelledby="details-heading"
+	aria-labelledby={`details-heading-${screen}`}
+	in:mobileScreenSlide|global={{ movement: 'forward', phase: 'in' }}
+	out:mobileScreenSlide|global={{ movement: 'backward', phase: 'out' }}
+	on:outrostart={hideOutgoingScreen}
 	on:cancel={(event) => {
 		event.preventDefault();
 		back();
@@ -284,29 +291,29 @@
 	style:--viewport-top={`${viewportTop}px`}
 >
 	<div class="editor-shell">
-		<header>
-			<button disabled={saving} on:click={back}
-				>{screen === 'details' ? 'Cancel' : '‹ Details'}</button
+		{#key screen}
+			<div
+				class="editor-screen"
+				data-transition-direction={panelMovement}
+				in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+				out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+				on:outrostart={hideOutgoingScreen}
 			>
-			<h1 id="details-heading" tabindex="-1" bind:this={heading}>
-				{screen === 'details' ? 'Task details' : screen === 'date' ? 'Due date' : 'Repeat'}
-			</h1>
-			{#if screen === 'details'}<button
-					class="primary"
-					on:click={save}
-					disabled={!dirty || !description.trim() || !item || conflict || saving}
-					>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
-				>{:else}<span class="header-spacer"></span>{/if}
-		</header>
-		<div class="editor-body" bind:this={body}>
-			{#key screen}
-				<div
-					class="editor-screen"
-					data-transition-direction={panelMovement}
-					in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
-					out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
-					on:outrostart={hideOutgoingScreen}
-				>
+				<header>
+					<button disabled={saving} on:click={back}
+						>{screen === 'details' ? 'Cancel' : '‹ Details'}</button
+					>
+					<h1 id={`details-heading-${screen}`} tabindex="-1" bind:this={heading}>
+						{screen === 'details' ? 'Task details' : screen === 'date' ? 'Due date' : 'Repeat'}
+					</h1>
+					{#if screen === 'details'}<button
+							class="primary"
+							on:click={save}
+							disabled={!dirty || !description.trim() || !item || conflict || saving}
+							>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
+						>{:else}<span class="header-spacer"></span>{/if}
+				</header>
+				<div class="editor-body" bind:this={body}>
 					{#if !item}<div class="notice" role="alert">
 							This task is no longer available. Your changes cannot be saved.
 						</div>{/if}
@@ -419,15 +426,15 @@
 						<RepeatEditor date={dateDraft} bind:type={repeatType} bind:every />
 					{/if}
 				</div>
-			{/key}
-		</div>
-		{#if screen !== 'details'}<footer>
-				<button
-					class="primary"
-					disabled={!item || conflict || (screen === 'date' ? !dateDraft : !validRepeat)}
-					on:click={screen === 'date' ? doneDate : doneRepeat}>Done</button
-				>
-			</footer>{/if}
+				{#if screen !== 'details'}<footer>
+						<button
+							class="primary"
+							disabled={!item || conflict || (screen === 'date' ? !dateDraft : !validRepeat)}
+							on:click={screen === 'date' ? doneDate : doneRepeat}>Done</button
+						>
+					</footer>{/if}
+			</div>
+		{/key}
 	</div>
 </dialog>
 
@@ -452,6 +459,7 @@
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		font-size: 17px;
 		box-shadow: 0 12px 60px #0004;
+		overflow: hidden;
 	}
 	.task-details::backdrop {
 		background: #21171080;
@@ -461,8 +469,8 @@
 		box-sizing: border-box;
 		padding-left: var(--safe-area-left);
 		padding-right: var(--safe-area-right);
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		overflow: hidden;
 	}
 	header {
 		display: flex;
@@ -508,7 +516,6 @@
 		width: 48px;
 	}
 	.editor-body {
-		display: grid;
 		padding: 12px 16px 24px;
 		overflow: auto;
 		flex: 1;
@@ -517,8 +524,12 @@
 	}
 	.editor-screen {
 		grid-area: 1 / 1;
-		min-height: 100%;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 		min-width: 0;
+		background: var(--detail-bg);
 	}
 	.task-label,
 	.section-label {
@@ -628,6 +639,9 @@
 			height: var(--viewport-height);
 			border-radius: 0;
 			box-shadow: none;
+		}
+		.task-details::backdrop {
+			background: transparent;
 		}
 	}
 	@media (max-width: 350px) {

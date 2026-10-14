@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { animationLabFixture, prepareAnimationLabFixture } from '$lib/animation-lab-fixture';
+	import { ANIMATION_LAB_RESET_KEY, MOBILE_SCREEN_DURATION } from '$lib/mobile-transitions';
 	import { animationGroups, animationScenarios, type LabSetup, type LabTrigger } from './scenarios';
 
 	type Review = 'pending' | 'approved' | 'issue';
@@ -23,6 +24,7 @@
 	let primed = false;
 	let playbackStartedAt = 0;
 	let playbackStartedProgress = 0;
+	let productLoad = 0;
 
 	$: scenario = animationScenarios.find((item) => item.id === subject) || animationScenarios[0];
 	$: reviewed = animationScenarios.filter(
@@ -108,10 +110,15 @@
 			.getAnimations()
 			.filter((animation) => {
 				const target = (animation.effect as KeyframeEffect | null)?.target as Element | null;
+				if (
+					target?.matches('.mdc-drawer, .mdc-drawer-scrim') &&
+					target.closest('.drawer-motion-suppressed')
+				)
+					return false;
 				return (
 					typeof target?.matches === 'function' &&
 					target.matches(
-						'.route-screen, .editor-screen, .mdc-drawer, .mdc-drawer-scrim, .mdc-top-app-bar, .app-content'
+						'.route-screen, .route-page-surface, .editor-screen, .task-details, .list-details, .profile-editor, .profile-settings, .mdc-drawer, .mdc-drawer-scrim, .mdc-top-app-bar, .app-content'
 					)
 				);
 			});
@@ -119,6 +126,13 @@
 
 	async function loadProduct(path: string, reducedMotion = false) {
 		localStorage.setItem(reducedMotionKey, reducedMotion ? 'true' : 'false');
+		const target = new URL(path, location.origin);
+		target.searchParams.set('__animationLabLoad', String(++productLoad));
+		target.searchParams.set('__animationLabViewport', scenario.viewport);
+		// Real editors protect their drafts from navigation. Scenario resets are
+		// the one lab-owned unload, so mark it narrowly and clear it in the newly
+		// loaded product before any reviewed interaction can begin.
+		frame.contentWindow?.sessionStorage.setItem(ANIMATION_LAB_RESET_KEY, 'true');
 		const loaded = new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(
 				() => reject(new Error('Timed out loading the real Todo app.')),
@@ -129,8 +143,9 @@
 				resolve();
 			};
 		});
-		frame.src = path;
+		frame.src = target.href;
 		await loaded;
+		frame.contentWindow?.sessionStorage.removeItem(ANIMATION_LAB_RESET_KEY);
 		await waitFor(() => frame.contentDocument?.querySelector<HTMLElement>('.drawer-container'));
 		await waitFor(() =>
 			frame.contentDocument?.querySelector('.loading-screen')
@@ -197,7 +212,8 @@
 		}
 		if (setup.startsWith('list')) {
 			element('[aria-label="Open navigation menu"]').click();
-			await waitFor(() => frameDocument().querySelector('[aria-label="Edit list"]'));
+			await waitFor(() => element('.drawer-container').classList.contains('drawer-open'));
+			await settle();
 			await openListDetails();
 			if (setup === 'list-sharing') {
 				setting('Sharing', element('dialog.list-details')).click();
@@ -245,6 +261,7 @@
 			} else {
 				// Some product actions are deliberately instant. Reload their setup so
 				// priming does not leave the preview in its post-trigger state.
+				await undoInstantTrigger(scenario.trigger);
 				await prepareSetup(scenario.setup);
 				if (generation !== setupGeneration) return;
 				progress = 0;
@@ -334,6 +351,19 @@
 		}
 	}
 
+	async function undoInstantTrigger(trigger: LabTrigger) {
+		if (trigger === 'open-task') {
+			buttonWithText('Cancel', element('dialog.task-details')).click();
+			await waitFor(() => !frameDocument().querySelector('dialog.task-details[open]'));
+		} else if (trigger === 'open-list-details') {
+			buttonWithText('Close', element('dialog.list-details')).click();
+			await waitFor(() => !frameDocument().querySelector('dialog.list-details[open]'));
+		} else if (trigger === 'open-spacing') {
+			buttonWithText('‹ Profile', element('dialog.profile-editor')).click();
+			await waitFor(() => !frameDocument().querySelector('dialog.profile-editor[open]'));
+		}
+	}
+
 	async function captureAnimations() {
 		// Route changes do not necessarily mount their keyed screen in the same
 		// frame as the click. Catch and pause each product-screen animation as
@@ -350,9 +380,79 @@
 			}
 		} while (
 			performance.now() - started < 80 ||
-			(!found.size && performance.now() - started < 140)
+			(!found.size && performance.now() - started < 600)
 		);
-		tracked = [...found];
+		tracked = [...found].map((animation) => {
+			const effect = animation.effect as KeyframeEffect | null;
+			const target = effect?.target as HTMLElement | null;
+			if (!effect || !target || typeof target.matches !== 'function') return animation;
+			if (animation.constructor.name !== 'CSSAnimation') return animation;
+			if (
+				!target.matches(
+					'.route-screen, .editor-screen, .task-details, .list-details, .profile-editor'
+				)
+			)
+				return animation;
+
+			// Svelte removes an outgoing element and clears an incoming element's
+			// generated animation on its own wall-clock, even when DevTools pauses
+			// that animation. Review a visual clone so every captured frame remains
+			// seekable after the real component has completed its cleanup.
+			const clone = target.cloneNode(true) as HTMLElement;
+			clone.dataset.animationLabClone = 'true';
+			clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+			// cloneNode also copies Svelte's generated CSS animation declaration.
+			// Letting that continue underneath the seekable Web Animation advances
+			// the clone on wall-clock time and makes the timeline lie about its frame.
+			clone.style.animation = 'none';
+			target.style.visibility = 'hidden';
+			// The product runs in an iframe, so cross-realm `instanceof
+			// HTMLDialogElement` is false even for a real dialog.
+			if (target.matches('dialog')) {
+				clone.setAttribute('open', '');
+				clone.style.display = 'block';
+				clone.style.zIndex = '2147483646';
+				// A cloned modal is no longer in the browser's top layer, so its auto
+				// margins otherwise give it a different origin from the real dialog.
+				// Pin the clone to the real dialog's untransformed box before replaying
+				// the captured transform keyframes.
+				clone.style.position = 'fixed';
+				clone.style.inset = 'auto';
+				clone.style.left = `${target.offsetLeft}px`;
+				clone.style.top = `${target.offsetTop}px`;
+				clone.style.width = `${target.offsetWidth}px`;
+				clone.style.height = `${target.offsetHeight}px`;
+				clone.style.margin = '0';
+				frameDocument().body.append(clone);
+			} else target.after(clone);
+			if (target.matches('.route-screen') && target.parentElement) {
+				const stage = target.parentElement;
+				stage.style.display = 'grid';
+				stage.style.gridTemplateAreas = "'screen'";
+				stage.querySelectorAll<HTMLElement>('.route-screen').forEach((screen) => {
+					screen.style.gridArea = 'screen';
+					screen.style.height = '100%';
+					screen.style.width = '100%';
+					screen.style.minHeight = '0';
+					screen.style.minWidth = '0';
+					screen.style.overflow = 'hidden';
+				});
+			}
+
+			const timing = effect.getTiming();
+			const replacement = clone.animate(effect.getKeyframes(), {
+				delay: timing.delay,
+				endDelay: timing.endDelay,
+				duration: timing.duration,
+				easing: timing.easing,
+				fill: timing.fill,
+				iterationStart: timing.iterationStart,
+				iterations: timing.iterations,
+				direction: timing.direction
+			});
+			replacement.pause();
+			return replacement;
+		});
 		moving = 0;
 	}
 
@@ -403,18 +503,20 @@
 	}
 
 	function timelineDuration() {
-		return Math.max(1, ...tracked.map(animationEndTime));
+		return MOBILE_SCREEN_DURATION;
 	}
 
 	function setProgress(value: number) {
 		const clamped = Math.max(0, Math.min(100, value));
-		const timelineTime = (timelineDuration() * clamped) / 100;
 		tracked.forEach((animation) => {
 			animation.pause();
 			// Landing exactly on endTime dispatches the product transition's finish
 			// cleanup. Stop an imperceptible fraction short so 100% remains rewindable.
-			const reviewableEnd = Math.max(0, animationEndTime(animation) - 0.01);
-			animation.currentTime = Math.min(reviewableEnd, timelineTime);
+			const reviewableEnd = Math.max(0, animationEndTime(animation) - 1);
+			animation.currentTime = Math.min(
+				reviewableEnd,
+				(animationEndTime(animation) * clamped) / 100
+			);
 		});
 		progress = clamped;
 	}

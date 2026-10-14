@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { resetEmulators } from '../helpers/emulator';
-import { createList, ensureListMenuVisible, signIn } from '../helpers/task-details';
+import {
+	createList,
+	createTask,
+	closeModalDrawerIfOpen,
+	ensureListMenuVisible,
+	openDetails,
+	signIn
+} from '../helpers/task-details';
 import { closeSettings, openSettings, setting, settings } from '../helpers/list-settings';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
@@ -9,6 +16,10 @@ function navigationRow(page: Page, listId: string) {
 		.locator(`[data-navigation-id="${listId}"]`)
 		.first()
 		.locator('.mdc-deprecated-list-item');
+}
+
+function activeRouteSurface(page: Page) {
+	return page.locator('.route-screen:not([aria-hidden="true"])');
 }
 
 async function selectList(page: Page, listId: string) {
@@ -51,7 +62,7 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 				{
 					spec: 'Desktop route content opts out of screen transitions',
 					check: async () =>
-						await expect(page.locator('.route-screen')).toHaveAttribute(
+						await expect(activeRouteSurface(page)).toHaveAttribute(
 							'data-transition-direction',
 							'none'
 						)
@@ -66,18 +77,18 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 	await ensureListMenuVisible(page);
 	const shell = page.locator('.drawer-container');
 	const drawer = page.locator('.mdc-drawer');
-	const appContent = page.locator('.app-content');
+	const routeSurface = activeRouteSurface(page);
 	await expect(shell).toHaveClass(/mobile-portrait/);
 	await expect(shell).toHaveClass(/drawer-open/);
 	await helper.step('portrait_drawer_covers_screen', {
 		verifications: [
 			{
-				spec: 'Portrait drawer covers the viewport while the current screen is pushed right',
+				spec: 'Portrait drawer covers the viewport while the complete current screen is pushed right',
 				check: async () => {
 					await expect(drawer).toHaveCSS('width', '393px');
 					await expect
 						.poll(async () =>
-							appContent.evaluate((node) => new DOMMatrix(getComputedStyle(node).transform).m41)
+							routeSurface.evaluate((node) => new DOMMatrix(getComputedStyle(node).transform).m41)
 						)
 						.toBeGreaterThanOrEqual(392);
 				}
@@ -93,8 +104,12 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 			{
 				spec: 'Closing the drawer reveals the selected list with no competing inner transition',
 				check: async () => {
-					await expect(appContent).toHaveCSS('transform', 'none');
-					await expect(page.locator('.route-screen')).toHaveAttribute(
+					await expect
+						.poll(async () =>
+							routeSurface.evaluate((node) => new DOMMatrix(getComputedStyle(node).transform).m41)
+						)
+						.toBe(0);
+					await expect(activeRouteSurface(page)).toHaveAttribute(
 						'data-transition-direction',
 						'none'
 					);
@@ -112,10 +127,7 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 			{
 				spec: 'Selecting a lower drawer row moves the right pane upward',
 				check: async () =>
-					await expect(page.locator('.route-screen')).toHaveAttribute(
-						'data-transition-direction',
-						'up'
-					)
+					await expect(activeRouteSurface(page)).toHaveAttribute('data-transition-direction', 'up')
 			}
 		]
 	});
@@ -126,7 +138,7 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 			{
 				spec: 'Selecting a higher drawer row moves the right pane downward',
 				check: async () =>
-					await expect(page.locator('.route-screen')).toHaveAttribute(
+					await expect(activeRouteSurface(page)).toHaveAttribute(
 						'data-transition-direction',
 						'down'
 					)
@@ -137,10 +149,18 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 	await page.setViewportSize({ width: 393, height: 852 });
 	await openSettings(page);
 	await setting(page, 'Name');
-	await expect(settings(page).locator('.editor-screen:not([inert])')).toHaveAttribute(
-		'data-transition-direction',
-		'forward'
-	);
+	const activeListEditorScreen = settings(page).locator('.editor-screen:not([inert])');
+	await expect(activeListEditorScreen).toHaveAttribute('data-transition-direction', 'forward');
+	await expect(activeListEditorScreen.getByRole('heading', { name: 'Name' })).toBeVisible();
+	await expect
+		.poll(() =>
+			activeListEditorScreen.evaluate(
+				(node) =>
+					node.getBoundingClientRect().width ===
+					node.closest('dialog')?.getBoundingClientRect().width
+			)
+		)
+		.toBe(true);
 	await page.getByRole('button', { name: '‹ Details', exact: true }).click();
 	await helper.step('focused_settings_slide_back', {
 		verifications: [
@@ -156,6 +176,26 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 	});
 	await closeSettings(page);
 
+	await createTask(page, 'Review full-screen task transition');
+	await closeModalDrawerIfOpen(page, 'Upper list');
+	await openDetails(page);
+	await page.getByRole('button', { name: /^Due date/ }).click();
+	const taskDialog = page.locator('dialog.task-details');
+	const dueDateScreen = taskDialog.locator('.editor-screen:not([inert])');
+	await expect(dueDateScreen.getByRole('heading', { name: 'Due date' })).toBeVisible();
+	await expect(dueDateScreen.getByRole('textbox', { name: 'Due date' })).toBeVisible();
+	await expect.poll(() => taskDialog.evaluate((node) => node.scrollLeft)).toBe(0);
+	await expect
+		.poll(() =>
+			dueDateScreen.evaluate((node) => ({
+				screen: node.getBoundingClientRect().width,
+				dialog: node.closest('dialog')?.getBoundingClientRect().width
+			}))
+		)
+		.toEqual({ screen: 393, dialog: 393 });
+	await page.getByRole('button', { name: '‹ Details', exact: true }).click();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.setViewportSize({ width: 852, height: 393 });
 	await selectList(page, lowerId!);
@@ -164,7 +204,7 @@ test('screen transitions follow mobile navigation context and stay off on deskto
 			{
 				spec: 'Reduced-motion preference disables route transitions',
 				check: async () =>
-					await expect(page.locator('.route-screen')).toHaveAttribute(
+					await expect(activeRouteSurface(page)).toHaveAttribute(
 						'data-transition-direction',
 						'none'
 					)

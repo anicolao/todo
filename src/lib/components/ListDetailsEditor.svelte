@@ -7,6 +7,7 @@
 	import { doc, onSnapshot } from 'firebase/firestore';
 	import firebase from '$lib/firebase';
 	import {
+		animationLabResetInProgress,
 		hideOutgoingScreen,
 		mobileScreenSlide,
 		type ScreenMovement
@@ -196,9 +197,10 @@
 				.querySelector<HTMLButtonElement>(
 					`.editor-screen:not([aria-hidden="true"]) [data-setting="${restore}"]`
 				)
-				?.focus();
-		else if (next === 'delete') dialog.querySelector<HTMLButtonElement>('[data-keep]')?.focus();
-		else heading?.focus();
+				?.focus({ preventScroll: true });
+		else if (next === 'delete')
+			dialog.querySelector<HTMLButtonElement>('[data-keep]')?.focus({ preventScroll: true });
+		else heading?.focus({ preventScroll: true });
 	}
 	function back() {
 		if (saving) return;
@@ -267,7 +269,9 @@
 			...dialog.querySelectorAll<HTMLElement>(
 				'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
 			)
-		].filter((n) => n.getClientRects().length);
+		].filter(
+			(node) => node.getClientRects().length > 0 && !node.closest('[inert], [aria-hidden="true"]')
+		);
 		if (
 			event.shiftKey &&
 			(document.activeElement === nodes[0] || document.activeElement === heading)
@@ -280,6 +284,7 @@
 		}
 	}
 	beforeNavigate(({ cancel }) => {
+		if (animationLabResetInProgress()) return;
 		cancel();
 		back();
 	});
@@ -315,7 +320,7 @@
 				}
 		});
 		dialog.showModal();
-		heading.focus();
+		heading.focus({ preventScroll: true });
 		dialog.addEventListener('keydown', trapFocus);
 		const url = location.href;
 		const state = { ...history.state, listDetailsEditor: true };
@@ -363,7 +368,10 @@
 <dialog
 	bind:this={dialog}
 	class="list-details"
-	aria-labelledby="list-details-heading"
+	aria-labelledby={`list-details-heading-${screen}`}
+	in:mobileScreenSlide|global={{ movement: 'forward', phase: 'in' }}
+	out:mobileScreenSlide|global={{ movement: 'backward', phase: 'out' }}
+	on:outrostart={hideOutgoingScreen}
 	on:cancel={(event) => {
 		event.preventDefault();
 		back();
@@ -372,34 +380,34 @@
 	style:--viewport-top={`${viewportTop}px`}
 >
 	<div class="editor-shell">
-		<header>
-			<button disabled={saving} on:click={back}
-				>{screen === 'details' ? 'Close' : '‹ Details'}</button
+		{#key screen}
+			<div
+				class="editor-screen"
+				data-transition-direction={panelMovement}
+				in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+				out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+				on:outrostart={hideOutgoingScreen}
 			>
-			<h1 id="list-details-heading" tabindex="-1" bind:this={heading}>
-				{screen === 'details'
-					? isLabel
-						? 'Label details'
-						: 'List details'
-					: screen === 'delete'
-					? `Delete ${kind}`
-					: screen === 'name'
-					? 'Name'
-					: screen === 'sharing'
-					? 'Sharing'
-					: 'Labels'}
-			</h1>
-			<span class="header-spacer"></span>
-		</header>
-		<div class="editor-body" bind:this={body}>
-			{#key screen}
-				<div
-					class="editor-screen"
-					data-transition-direction={panelMovement}
-					in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
-					out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
-					on:outrostart={hideOutgoingScreen}
-				>
+				<header>
+					<button disabled={saving} on:click={back}
+						>{screen === 'details' ? 'Close' : '‹ Details'}</button
+					>
+					<h1 id={`list-details-heading-${screen}`} tabindex="-1" bind:this={heading}>
+						{screen === 'details'
+							? isLabel
+								? 'Label details'
+								: 'List details'
+							: screen === 'delete'
+							? `Delete ${kind}`
+							: screen === 'name'
+							? 'Name'
+							: screen === 'sharing'
+							? 'Sharing'
+							: 'Labels'}
+					</h1>
+					<span class="header-spacer"></span>
+				</header>
+				<div class="editor-body" bind:this={body}>
 					{#if !available && !saving}<p role="alert" class="notice">
 							This {kind} is no longer available. Changes cannot be saved.
 						</p>{/if}
@@ -613,15 +621,15 @@
 						</div>
 					{/if}
 				</div>
-			{/key}
-		</div>
-		{#if ['name', 'sharing', 'labels'].includes(screen)}<footer>
-				<button
-					class="primary"
-					disabled={saving || !available || !valid || conflict || !dirty || confirmDiscard}
-					on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
-				>
-			</footer>{/if}
+				{#if ['name', 'sharing', 'labels'].includes(screen)}<footer>
+						<button
+							class="primary"
+							disabled={saving || !available || !valid || conflict || !dirty || confirmDiscard}
+							on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
+						>
+					</footer>{/if}
+			</div>
+		{/key}
 	</div>
 </dialog>
 
@@ -645,14 +653,15 @@
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		font-size: 17px;
 		box-shadow: 0 12px 60px #0004;
+		overflow: hidden;
 	}
 	.list-details::backdrop {
 		background: #21171080;
 	}
 	.editor-shell {
 		height: 100%;
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		overflow: hidden;
 	}
 	header {
 		display: flex;
@@ -703,7 +712,6 @@
 		cursor: default;
 	}
 	.editor-body {
-		display: grid;
 		padding: 12px 16px 24px;
 		overflow: auto;
 		flex: 1;
@@ -712,8 +720,12 @@
 	}
 	.editor-screen {
 		grid-area: 1 / 1;
-		min-height: 100%;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 		min-width: 0;
+		background: var(--bg);
 	}
 	.section-label {
 		text-transform: uppercase;
@@ -860,7 +872,12 @@
 			width: 100%;
 			height: var(--viewport-height);
 			border-radius: 0;
-			box-shadow: none;
+			/* Cover subpixel interpolation differences between the native drawer
+			 * transition and the Svelte-driven editor transition. */
+			box-shadow: -2px 0 0 var(--bg);
+		}
+		.list-details::backdrop {
+			background: transparent;
 		}
 	}
 	@media (prefers-color-scheme: dark) {

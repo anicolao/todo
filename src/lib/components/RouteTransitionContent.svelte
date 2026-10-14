@@ -2,13 +2,14 @@
 	import { routeSnapshots } from '$lib/mobile-transitions';
 
 	export let screenKey: string;
+	export let useSnapshot = false;
 
 	$: wrapperId = `route-screen-${screenKey.replace(/[^a-zA-Z0-9-]/g, '_')}`;
 </script>
 
 <div id={wrapperId} class="route-transition-content">
-	{#if $routeSnapshots[screenKey]}
-		{@html $routeSnapshots[screenKey]}
+	{#if useSnapshot && $routeSnapshots[screenKey]}
+		{@html $routeSnapshots[screenKey].html}
 	{:else}
 		<slot />
 	{/if}
