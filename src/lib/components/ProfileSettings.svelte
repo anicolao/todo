@@ -7,6 +7,13 @@
 	import ItemDisplay from './ItemDisplay.svelte';
 	import type { TodoItem } from './items';
 	import firebase from '$lib/firebase';
+	import {
+		animateEditorBase,
+		animationLabResetInProgress,
+		hideOutgoingScreen,
+		mobileScreenSlide,
+		type ScreenMovement
+	} from '$lib/mobile-transitions';
 	import { handleDocChanges, store } from '$lib/store';
 	import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 	import { signOut } from 'firebase/auth';
@@ -16,9 +23,11 @@
 	type Density = UiSettings['density'];
 
 	let screen: Screen = 'profile';
+	let panelMovement: ScreenMovement = 'forward';
 	let dialog: HTMLDialogElement;
 	let heading: HTMLHeadingElement;
 	let opener: HTMLElement | undefined;
+	let closeFocus: HTMLElement | undefined;
 	let ownsHistoryEntry = false;
 	let confirmDiscard = false;
 	let saving = false;
@@ -27,6 +36,7 @@
 	let conflict = false;
 	let viewportHeight: number | undefined;
 	let viewportTop = 0;
+	let profileRoot: HTMLElement;
 	let avatarFailed = false;
 
 	let densityDraft: Density = 'high';
@@ -224,11 +234,14 @@
 	async function open(next: Screen, event?: Event) {
 		opener = (event?.currentTarget || document.activeElement) as HTMLElement;
 		initialize(next);
+		panelMovement = 'forward';
+		animateProfileBase(true);
 		screen = next;
 		await tick();
 		dialog.showModal();
-		if (next === 'signout') dialog.querySelector<HTMLElement>('[data-keep]')?.focus();
-		else heading.focus();
+		if (next === 'signout')
+			dialog.querySelector<HTMLElement>('[data-keep]')?.focus({ preventScroll: true });
+		else heading.focus({ preventScroll: true });
 		const url = location.href;
 		history.pushState({ ...history.state, profileSettings: true }, '', url);
 		ownsHistoryEntry = true;
@@ -257,9 +270,10 @@
 				}
 			);
 		}
+		panelMovement = 'forward';
 		screen = 'label';
 		await tick();
-		heading.focus();
+		heading.focus({ preventScroll: true });
 	}
 
 	function setPreview(value: string) {
@@ -301,15 +315,26 @@
 		watchAccess = undefined;
 		watchLabelActions?.();
 		watchLabelActions = undefined;
-		if (dialog?.open) dialog.close();
+		panelMovement = 'backward';
+		animateProfileBase(false);
 		screen = 'profile';
 		resetMessages();
 		if (popHistory && ownsHistoryEntry) {
 			ownsHistoryEntry = false;
 			history.back();
 		}
-		const target = opener;
-		tick().then(() => target?.focus());
+		closeFocus = opener;
+	}
+
+	function finishPanelClose() {
+		if (dialog?.open) dialog.close();
+		closeFocus?.focus({ preventScroll: true });
+		closeFocus = undefined;
+	}
+
+	function animateProfileBase(open: boolean) {
+		const route = profileRoot?.closest('.route-screen');
+		animateEditorBase([route?.querySelector<HTMLElement>('.mdc-top-app-bar'), profileRoot], open);
 	}
 
 	function returnToLabels() {
@@ -317,6 +342,7 @@
 		watchAccess = undefined;
 		watchLabelActions?.();
 		watchLabelActions = undefined;
+		panelMovement = 'backward';
 		screen = 'labels';
 		resetMessages();
 		tick().then(() => opener?.focus());
@@ -393,7 +419,9 @@
 			...dialog.querySelectorAll<HTMLElement>(
 				'button:not(:disabled), input:not(:disabled), [tabindex="0"]'
 			)
-		].filter((node) => node.getClientRects().length);
+		].filter(
+			(node) => node.getClientRects().length > 0 && !node.closest('[inert], [aria-hidden="true"]')
+		);
 		if (
 			event.shiftKey &&
 			(document.activeElement === nodes[0] || document.activeElement === heading)
@@ -407,6 +435,7 @@
 	}
 
 	beforeNavigate(({ cancel }) => {
+		if (animationLabResetInProgress()) return;
 		if (screen !== 'profile') {
 			cancel();
 			back();
@@ -447,7 +476,7 @@
 	});
 </script>
 
-<main class="profile-settings" aria-labelledby="profile-settings-title">
+<main bind:this={profileRoot} class="profile-settings" aria-labelledby="profile-settings-title">
 	<h1 id="profile-settings-title" class="sr-only">Profile</h1>
 	<section class="identity" aria-label="Signed-in account">
 		<div class="avatar" aria-hidden="true">
@@ -506,7 +535,11 @@
 	<dialog
 		bind:this={dialog}
 		class="profile-editor"
-		aria-labelledby="profile-editor-heading"
+		aria-labelledby={`profile-editor-heading-${screen}`}
+		in:mobileScreenSlide={{ movement: 'forward', phase: 'in' }}
+		out:mobileScreenSlide={{ movement: 'backward', phase: 'out' }}
+		on:outrostart={hideOutgoingScreen}
+		on:outroend={finishPanelClose}
 		on:cancel={(event) => {
 			event.preventDefault();
 			back();
@@ -516,220 +549,239 @@
 		style:--viewport-top={`${viewportTop}px`}
 	>
 		<div class="editor-shell">
-			<header>
-				<button disabled={saving} on:click={back}
-					>{screen === 'label' ? '‹ Labels' : '‹ Profile'}</button
+			{#key screen}
+				<div
+					class="editor-screen"
+					data-transition-direction={panelMovement}
+					in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+					out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+					on:outrostart={hideOutgoingScreen}
 				>
-				<h1 id="profile-editor-heading" tabindex="-1" bind:this={heading}>
-					{screen === 'spacing'
-						? 'Item spacing'
-						: screen === 'background'
-						? 'Background'
-						: screen === 'labels'
-						? 'Label visibility'
-						: screen === 'label'
-						? 'Visibility'
-						: 'Sign out'}
-				</h1>
-				<span class="header-spacer"></span>
-			</header>
-			<div class="editor-body">
-				{#if conflict}<section class="notice" role="alert">
-						<p>This setting changed elsewhere. Your choice is still here.</p>
-						<button on:click={() => resolveConflict(true)}>Reload latest</button><button
-							on:click={() => resolveConflict(false)}>Keep my choice</button
+					<header>
+						<button disabled={saving} on:click={back}
+							>{screen === 'label' ? '‹ Labels' : '‹ Profile'}</button
 						>
-					</section>{/if}
-				{#if error}<p class="error" role="alert">{error}</p>{/if}
-				{#if saving}<p role="status">
-						{screen === 'signout' ? 'Signing out…' : 'Saving changes…'}
-					</p>{/if}
-				{#if confirmDiscard}<section class="notice" aria-label="Discard changes">
-						<h2>Discard changes?</h2>
-						<p>This setting has not been saved.</p>
-						<button class="primary" on:click={() => (confirmDiscard = false)}>Keep editing</button
-						><button on:click={discard}>Discard changes</button>
-					</section>{/if}
-
-				{#if screen === 'spacing'}
-					<p class="context">Choose how much room each task uses.</p>
-					<fieldset class="choices">
-						<legend class="sr-only">Item spacing</legend>
-						<label class="choice"
-							><span
-								><strong>Comfortable</strong><small>Larger controls and more breathing room</small
-								></span
-							><input type="radio" name="density" value="low" bind:group={densityDraft} /></label
-						>
-						<label class="choice"
-							><span><strong>Compact</strong><small>More tasks visible at once</small></span><input
-								type="radio"
-								name="density"
-								value="high"
-								bind:group={densityDraft}
-							/></label
-						>
-					</fieldset>
-					<p class="sr-only">
-						Three sample tasks at {densityDraft === 'low' ? 'Comfortable' : 'Compact'} spacing.
-					</p>
-					<section class="spacing-preview" aria-hidden="true">
-						<h2>Preview</h2>
-						{#each spacingPreviewItems as item (item.id)}
-							<ItemDisplay {item} density={densityDraft} preview />
-						{/each}
-					</section>
-				{:else if screen === 'background'}
-					<label for="background-url">Image URL</label>
-					<input
-						id="background-url"
-						type="url"
-						value={backgroundDraft}
-						disabled={saving}
-						aria-invalid={!backgroundValid}
-						aria-describedby={!backgroundValid ? 'background-error' : 'background-help'}
-						on:input={(event) => updateBackground(event.currentTarget.value)}
-					/>
-					{#if !backgroundValid}<p id="background-error" class="error">
-							Enter a complete http:// or https:// image URL, or use the default background.
-						</p>{/if}
-					<p id="background-help" class="hint">Todo requests this image from its host.</p>
-					<div class="background-preview" aria-live="polite">
-						{#if previewUrl}<img
-								src={previewUrl}
-								alt="Background preview"
-								referrerpolicy="no-referrer"
-								on:load={() => (previewLoading = false)}
-								on:error={() => {
-									previewLoading = false;
-									previewFailed = true;
-								}}
-							/>{:else}<span>Default background</span>{/if}
-						{#if previewLoading}<span class="preview-status">Loading preview…</span>{/if}
-						{#if previewFailed}<span class="preview-status error"
-								>Couldn't load this image. Check the URL.</span
-							>{/if}
-					</div>
-					<button
-						class="outlined default-background"
-						disabled={saving}
-						on:click={useDefaultBackground}>Use default background</button
-					>
-				{:else if screen === 'labels'}
-					<label for="label-search">Search labels</label><input
-						id="label-search"
-						type="search"
-						bind:value={labelSearch}
-					/>
-					<p class="hint">
-						Visibility changes navigation and aggregate views. It is not privacy or access control.
-						Changes affect everyone who edits the label.
-					</p>
-					{#if labels.length}
-						<div class="settings label-settings">
-							{#each filteredLabels as label (label.id)}<button
-									on:click={(event) => openLabel(label.id, event)}
+						<h1 id={`profile-editor-heading-${screen}`} tabindex="-1" bind:this={heading}>
+							{screen === 'spacing'
+								? 'Item spacing'
+								: screen === 'background'
+								? 'Background'
+								: screen === 'labels'
+								? 'Label visibility'
+								: screen === 'label'
+								? 'Visibility'
+								: 'Sign out'}
+						</h1>
+						<span class="header-spacer"></span>
+					</header>
+					<div class="editor-body">
+						{#if conflict}<section class="notice" role="alert">
+								<p>This setting changed elsewhere. Your choice is still here.</p>
+								<button on:click={() => resolveConflict(true)}>Reload latest</button><button
+									on:click={() => resolveConflict(false)}>Keep my choice</button
 								>
-									<span class="material-icons" aria-hidden="true">label</span><span
-										><strong>{label.name}</strong><small
-											>{visibilityName(label.visibility)}{label.owner &&
-											label.owner !== $store.auth.email
-												? ` · Shared by ${label.owner}`
-												: ''}</small
+							</section>{/if}
+						{#if error}<p class="error" role="alert">{error}</p>{/if}
+						{#if saving}<p role="status">
+								{screen === 'signout' ? 'Signing out…' : 'Saving changes…'}
+							</p>{/if}
+						{#if confirmDiscard}<section class="notice" aria-label="Discard changes">
+								<h2>Discard changes?</h2>
+								<p>This setting has not been saved.</p>
+								<button class="primary" on:click={() => (confirmDiscard = false)}
+									>Keep editing</button
+								><button on:click={discard}>Discard changes</button>
+							</section>{/if}
+
+						{#if screen === 'spacing'}
+							<p class="context">Choose how much room each task uses.</p>
+							<fieldset class="choices">
+								<legend class="sr-only">Item spacing</legend>
+								<label class="choice"
+									><span
+										><strong>Comfortable</strong><small
+											>Larger controls and more breathing room</small
 										></span
-									><span aria-hidden="true">›</span>
-								</button>{/each}
-						</div>
-						{#if !filteredLabels.length}<p>No matching labels.</p>{/if}
-					{:else}<p>No labels yet. Create a label from a list, then return here.</p>{/if}
-				{:else if screen === 'label'}
-					{#if selectedLabel}<p class="context">
-							<strong>{selectedLabel.name}</strong>{#if selectedLabel.owner}<span
-									>{selectedLabel.owner}</span
-								>{/if}
-						</p>{/if}
-					{#if !selectedLabelAvailable}<p role="alert" class="error">
-							This label is no longer available. Your choice cannot be saved.
-						</p>{:else if !canEditLabel}<p role="alert" class="notice">
-							You can view this label, but editing is unavailable.
-						</p>{/if}
-					<fieldset class="choices visibility-choices" disabled={saving || !canEditLabel}>
-						<legend class="sr-only">Visibility</legend>
-						<label class="choice"
-							><span
-								><strong>Visible</strong><small
-									>Show normally and include its lists in aggregate views.</small
-								></span
-							><input
-								type="radio"
-								name="visibility"
-								value="visible"
-								bind:group={visibilityDraft}
-							/></label
-						>
-						<label class="choice"
-							><span
-								><strong>Hidden</strong><small
-									>Keep it in Lists; exclude its lists from aggregate views.</small
-								></span
-							><input
-								type="radio"
-								name="visibility"
-								value="hidden"
-								bind:group={visibilityDraft}
-							/></label
-						>
-						<label class="choice"
-							><span
-								><strong>Fully hidden</strong><small
-									>Exclude its lists and show this label only in Profile → Label visibility.</small
-								></span
-							><input
-								type="radio"
-								name="visibility"
-								value="fully_hidden"
-								bind:group={visibilityDraft}
-							/></label
-						>
-					</fieldset>
-					<p class="hint">
-						This is not a privacy setting. Direct list access and permissions do not change.
-					</p>
-				{:else}
-					<section class="signout-identity">
-						<div class="avatar" aria-hidden="true">
-							{#if $store.auth.photo && !avatarFailed}<img
-									src={$store.auth.photo}
-									alt=""
-									referrerpolicy="no-referrer"
-									on:error={() => (avatarFailed = true)}
-								/>{:else}{initials($store.auth.name, $store.auth.email)}{/if}
-						</div>
-						<div>
-							<strong>{$store.auth.name || 'Signed-in user'}</strong><span>{$store.auth.email}</span
+									><input
+										type="radio"
+										name="density"
+										value="low"
+										bind:group={densityDraft}
+									/></label
+								>
+								<label class="choice"
+									><span><strong>Compact</strong><small>More tasks visible at once</small></span
+									><input
+										type="radio"
+										name="density"
+										value="high"
+										bind:group={densityDraft}
+									/></label
+								>
+							</fieldset>
+							<p class="sr-only">
+								Three sample tasks at {densityDraft === 'low' ? 'Comfortable' : 'Compact'} spacing.
+							</p>
+							<section class="spacing-preview" aria-hidden="true">
+								<h2>Preview</h2>
+								{#each spacingPreviewItems as item (item.id)}
+									<ItemDisplay {item} density={densityDraft} preview />
+								{/each}
+							</section>
+						{:else if screen === 'background'}
+							<label for="background-url">Image URL</label>
+							<input
+								id="background-url"
+								type="url"
+								value={backgroundDraft}
+								disabled={saving}
+								aria-invalid={!backgroundValid}
+								aria-describedby={!backgroundValid ? 'background-error' : 'background-help'}
+								on:input={(event) => updateBackground(event.currentTarget.value)}
+							/>
+							{#if !backgroundValid}<p id="background-error" class="error">
+									Enter a complete http:// or https:// image URL, or use the default background.
+								</p>{/if}
+							<p id="background-help" class="hint">Todo requests this image from its host.</p>
+							<div class="background-preview" aria-live="polite">
+								{#if previewUrl}<img
+										src={previewUrl}
+										alt="Background preview"
+										referrerpolicy="no-referrer"
+										on:load={() => (previewLoading = false)}
+										on:error={() => {
+											previewLoading = false;
+											previewFailed = true;
+										}}
+									/>{:else}<span>Default background</span>{/if}
+								{#if previewLoading}<span class="preview-status">Loading preview…</span>{/if}
+								{#if previewFailed}<span class="preview-status error"
+										>Couldn't load this image. Check the URL.</span
+									>{/if}
+							</div>
+							<button
+								class="outlined default-background"
+								disabled={saving}
+								on:click={useDefaultBackground}>Use default background</button
 							>
-						</div>
-					</section>
-					<h2>Sign out of this account?</h2>
-					<p>You can sign in again to return to your synced lists.</p>
-					<p class="hint">Todo may still be finishing changes in the background.</p>
-					<div class="signout-actions">
-						<button class="outlined" data-keep on:click={() => closePanel()}
-							>Keep me signed in</button
-						>
-						<button class="destructive" disabled={saving} on:click={signout}
-							>{saving ? 'Signing out…' : error ? 'Retry sign out' : 'Sign out'}</button
-						>
+						{:else if screen === 'labels'}
+							<label for="label-search">Search labels</label><input
+								id="label-search"
+								type="search"
+								bind:value={labelSearch}
+							/>
+							<p class="hint">
+								Visibility changes navigation and aggregate views. It is not privacy or access
+								control. Changes affect everyone who edits the label.
+							</p>
+							{#if labels.length}
+								<div class="settings label-settings">
+									{#each filteredLabels as label (label.id)}<button
+											on:click={(event) => openLabel(label.id, event)}
+										>
+											<span class="material-icons" aria-hidden="true">label</span><span
+												><strong>{label.name}</strong><small
+													>{visibilityName(label.visibility)}{label.owner &&
+													label.owner !== $store.auth.email
+														? ` · Shared by ${label.owner}`
+														: ''}</small
+												></span
+											><span aria-hidden="true">›</span>
+										</button>{/each}
+								</div>
+								{#if !filteredLabels.length}<p>No matching labels.</p>{/if}
+							{:else}<p>No labels yet. Create a label from a list, then return here.</p>{/if}
+						{:else if screen === 'label'}
+							{#if selectedLabel}<p class="context">
+									<strong>{selectedLabel.name}</strong>{#if selectedLabel.owner}<span
+											>{selectedLabel.owner}</span
+										>{/if}
+								</p>{/if}
+							{#if !selectedLabelAvailable}<p role="alert" class="error">
+									This label is no longer available. Your choice cannot be saved.
+								</p>{:else if !canEditLabel}<p role="alert" class="notice">
+									You can view this label, but editing is unavailable.
+								</p>{/if}
+							<fieldset class="choices visibility-choices" disabled={saving || !canEditLabel}>
+								<legend class="sr-only">Visibility</legend>
+								<label class="choice"
+									><span
+										><strong>Visible</strong><small
+											>Show normally and include its lists in aggregate views.</small
+										></span
+									><input
+										type="radio"
+										name="visibility"
+										value="visible"
+										bind:group={visibilityDraft}
+									/></label
+								>
+								<label class="choice"
+									><span
+										><strong>Hidden</strong><small
+											>Keep it in Lists; exclude its lists from aggregate views.</small
+										></span
+									><input
+										type="radio"
+										name="visibility"
+										value="hidden"
+										bind:group={visibilityDraft}
+									/></label
+								>
+								<label class="choice"
+									><span
+										><strong>Fully hidden</strong><small
+											>Exclude its lists and show this label only in Profile → Label visibility.</small
+										></span
+									><input
+										type="radio"
+										name="visibility"
+										value="fully_hidden"
+										bind:group={visibilityDraft}
+									/></label
+								>
+							</fieldset>
+							<p class="hint">
+								This is not a privacy setting. Direct list access and permissions do not change.
+							</p>
+						{:else}
+							<section class="signout-identity">
+								<div class="avatar" aria-hidden="true">
+									{#if $store.auth.photo && !avatarFailed}<img
+											src={$store.auth.photo}
+											alt=""
+											referrerpolicy="no-referrer"
+											on:error={() => (avatarFailed = true)}
+										/>{:else}{initials($store.auth.name, $store.auth.email)}{/if}
+								</div>
+								<div>
+									<strong>{$store.auth.name || 'Signed-in user'}</strong><span
+										>{$store.auth.email}</span
+									>
+								</div>
+							</section>
+							<h2>Sign out of this account?</h2>
+							<p>You can sign in again to return to your synced lists.</p>
+							<p class="hint">Todo may still be finishing changes in the background.</p>
+							<div class="signout-actions">
+								<button class="outlined" data-keep on:click={() => closePanel()}
+									>Keep me signed in</button
+								>
+								<button class="destructive" disabled={saving} on:click={signout}
+									>{saving ? 'Signing out…' : error ? 'Retry sign out' : 'Sign out'}</button
+								>
+							</div>
+						{/if}
 					</div>
-				{/if}
-			</div>
-			{#if ['spacing', 'background', 'label'].includes(screen)}<footer>
-					<button
-						class="primary"
-						disabled={saving || !dirty || !saveValid || conflict || confirmDiscard}
-						on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
-					>
-				</footer>{/if}
+					{#if ['spacing', 'background', 'label'].includes(screen)}<footer>
+							<button
+								class="primary"
+								disabled={saving || !dirty || !saveValid || conflict || confirmDiscard}
+								on:click={save}>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
+							>
+						</footer>{/if}
+				</div>
+			{/key}
 		</div>
 	</dialog>
 {/if}
@@ -885,8 +937,8 @@
 	}
 	.editor-shell {
 		height: 100%;
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		overflow: hidden;
 		min-width: 0;
 		max-width: 100%;
 	}
@@ -927,6 +979,15 @@
 		max-width: 100%;
 		box-sizing: border-box;
 		overscroll-behavior: contain;
+	}
+	.editor-screen {
+		grid-area: 1 / 1;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		background: var(--bg);
 	}
 	.editor-body > label {
 		display: block;
@@ -1076,6 +1137,9 @@
 			height: var(--viewport-height);
 			border-radius: 0;
 			box-shadow: none;
+		}
+		.profile-editor::backdrop {
+			background: transparent;
 		}
 	}
 	@media (prefers-color-scheme: dark) {

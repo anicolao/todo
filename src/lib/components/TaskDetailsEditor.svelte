@@ -12,6 +12,12 @@
 	} from './recurrence';
 	import DueDateEditor from './DueDateEditor.svelte';
 	import RepeatEditor from './RepeatEditor.svelte';
+	import {
+		animationLabResetInProgress,
+		hideOutgoingScreen,
+		mobileScreenSlide,
+		type ScreenMovement
+	} from '$lib/mobile-transitions';
 
 	export let item: TodoItem | undefined;
 	export let onSave: (description: string, dueDate: DueDate | undefined) => Promise<void>;
@@ -23,6 +29,7 @@
 	let description = item?.description ?? '';
 	let due = copy(item?.dueDate);
 	let screen: 'details' | 'date' | 'repeat' = 'details';
+	let panelMovement: ScreenMovement = 'forward';
 	let dateDraft: DueDate | undefined;
 	let dateSeed = dateParts(new Date());
 	let repeatType = RepeatType.NONE;
@@ -75,14 +82,19 @@
 			show('details');
 		}
 	}
-	async function show(next: typeof screen, focus?: 'date' | 'repeat') {
+	async function show(
+		next: typeof screen,
+		focus?: 'date' | 'repeat',
+		movement: ScreenMovement = next === 'details' ? 'backward' : 'forward'
+	) {
+		panelMovement = movement;
 		screen = next;
 		confirmRemove = false;
 		await tick();
 		body?.scrollTo(0, 0);
-		if (focus === 'date') dateButton?.focus();
-		else if (focus === 'repeat') repeatButton?.focus();
-		else heading?.focus();
+		if (focus === 'date') dateButton?.focus({ preventScroll: true });
+		else if (focus === 'repeat') repeatButton?.focus({ preventScroll: true });
+		else heading?.focus({ preventScroll: true });
 	}
 	function openDate(forRepeat = false) {
 		setupRepeat = forRepeat;
@@ -137,7 +149,7 @@
 		}
 		if (screen === 'repeat' && setupRepeat) {
 			dateSeed = copy(dateDraft!);
-			show('date');
+			show('date', undefined, 'backward');
 		} else if (screen !== 'details') {
 			const from = screen;
 			setupRepeat = false;
@@ -170,7 +182,9 @@
 			...dialog.querySelectorAll<HTMLElement>(
 				'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
 			)
-		].filter((node) => node.getClientRects().length > 0);
+		].filter(
+			(node) => node.getClientRects().length > 0 && !node.closest('[inert], [aria-hidden="true"]')
+		);
 		const first = controls[0];
 		const last = controls[controls.length - 1];
 		if (!first) {
@@ -211,13 +225,14 @@
 		};
 	}
 	beforeNavigate(({ cancel }) => {
+		if (animationLabResetInProgress()) return;
 		cancel();
 		back();
 	});
 	onMount(() => {
 		const opener = document.activeElement as HTMLElement;
 		dialog.showModal();
-		heading.focus();
+		heading.focus({ preventScroll: true });
 		dialog.addEventListener('keydown', trapFocus);
 		// A history entry makes system Back work even when the previous app
 		// navigation used the same URL (for example closing the mobile drawer).
@@ -264,7 +279,10 @@
 <dialog
 	bind:this={dialog}
 	class="task-details"
-	aria-labelledby="details-heading"
+	aria-labelledby={`details-heading-${screen}`}
+	in:mobileScreenSlide|global={{ movement: 'forward', phase: 'in' }}
+	out:mobileScreenSlide|global={{ movement: 'backward', phase: 'out' }}
+	on:outrostart={hideOutgoingScreen}
 	on:cancel={(event) => {
 		event.preventDefault();
 		back();
@@ -273,134 +291,150 @@
 	style:--viewport-top={`${viewportTop}px`}
 >
 	<div class="editor-shell">
-		<header>
-			<button disabled={saving} on:click={back}
-				>{screen === 'details' ? 'Cancel' : '‹ Details'}</button
+		{#key screen}
+			<div
+				class="editor-screen"
+				data-transition-direction={panelMovement}
+				in:mobileScreenSlide={{ movement: panelMovement, phase: 'in' }}
+				out:mobileScreenSlide={{ movement: panelMovement, phase: 'out' }}
+				on:outrostart={hideOutgoingScreen}
 			>
-			<h1 id="details-heading" tabindex="-1" bind:this={heading}>
-				{screen === 'details' ? 'Task details' : screen === 'date' ? 'Due date' : 'Repeat'}
-			</h1>
-			{#if screen === 'details'}<button
-					class="primary"
-					on:click={save}
-					disabled={!dirty || !description.trim() || !item || conflict || saving}
-					>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
-				>{:else}<span class="header-spacer"></span>{/if}
-		</header>
-		<div class="editor-body" bind:this={body}>
-			{#if !item}<div class="notice" role="alert">
-					This task is no longer available. Your changes cannot be saved.
-				</div>{/if}
-			{#if conflict}<div class="notice" role="alert">
-					<p>This task changed elsewhere. Your edits are still here.</p>
-					<button on:click={() => resolveConflict(true)}>Reload latest task</button><button
-						on:click={() => resolveConflict(false)}>Keep my edits</button
+				<header>
+					<button disabled={saving} on:click={back}
+						>{screen === 'details' ? 'Cancel' : '‹ Details'}</button
 					>
-				</div>{/if}
-			{#if error}<p class="error" role="alert">{error}</p>{/if}
-			{#if saving}<p role="status">
-					{online
-						? 'Saving your changes…'
-						: 'Changes are queued on this device. Waiting for connection to finish saving.'}
-				</p>{/if}
-			{#if confirmDiscard}<section class="notice" aria-label="Discard changes">
-					<h2>Discard changes?</h2>
-					<p>Your edits have not been saved.</p>
-					<button class="primary" on:click={() => (confirmDiscard = false)}>Keep editing</button
-					><button on:click={onClose}>Discard changes</button>
-				</section>{/if}
-			{#if screen === 'details'}
-				<label class="task-label" for="task-description">Task</label>
-				<textarea
-					id="task-description"
-					use:autosize={description}
-					bind:value={description}
-					rows="2"
-					disabled={saving}
-					aria-invalid={!description.trim()}
-					aria-describedby={!description.trim() ? 'task-error' : undefined}
-				/>
-				{#if !description.trim()}<p class="error" id="task-error">Enter a task description.</p>{/if}
-				<h2 class="section-label">Schedule</h2>
-				<div class="schedule">
-					<button bind:this={dateButton} disabled={saving} on:click={() => openDate()}
-						><span aria-hidden="true">▦</span><strong>Due date</strong><span class="value"
-							>{due ? formatDate(due) : 'Add date'}</span
-						><span aria-hidden="true">›</span></button
-					>
-					<button bind:this={repeatButton} disabled={saving} on:click={openRepeat}
-						><span aria-hidden="true">↻</span><strong>Repeat</strong><span class="value"
-							>{repeatSummary(due)}</span
-						><span aria-hidden="true">›</span></button
-					>
+					<h1 id={`details-heading-${screen}`} tabindex="-1" bind:this={heading}>
+						{screen === 'details' ? 'Task details' : screen === 'date' ? 'Due date' : 'Repeat'}
+					</h1>
+					{#if screen === 'details'}<button
+							class="primary"
+							on:click={save}
+							disabled={!dirty || !description.trim() || !item || conflict || saving}
+							>{saving ? 'Saving…' : error ? 'Retry' : 'Save'}</button
+						>{:else}<span class="header-spacer"></span>{/if}
+				</header>
+				<div class="editor-body" bind:this={body}>
+					{#if !item}<div class="notice" role="alert">
+							This task is no longer available. Your changes cannot be saved.
+						</div>{/if}
+					{#if conflict}<div class="notice" role="alert">
+							<p>This task changed elsewhere. Your edits are still here.</p>
+							<button on:click={() => resolveConflict(true)}>Reload latest task</button><button
+								on:click={() => resolveConflict(false)}>Keep my edits</button
+							>
+						</div>{/if}
+					{#if error}<p class="error" role="alert">{error}</p>{/if}
+					{#if saving}<p role="status">
+							{online
+								? 'Saving your changes…'
+								: 'Changes are queued on this device. Waiting for connection to finish saving.'}
+						</p>{/if}
+					{#if confirmDiscard}<section class="notice" aria-label="Discard changes">
+							<h2>Discard changes?</h2>
+							<p>Your edits have not been saved.</p>
+							<button class="primary" on:click={() => (confirmDiscard = false)}>Keep editing</button
+							><button on:click={onClose}>Discard changes</button>
+						</section>{/if}
+					{#if screen === 'details'}
+						<label class="task-label" for="task-description">Task</label>
+						<textarea
+							id="task-description"
+							use:autosize={description}
+							bind:value={description}
+							rows="2"
+							disabled={saving}
+							aria-invalid={!description.trim()}
+							aria-describedby={!description.trim() ? 'task-error' : undefined}
+						/>
+						{#if !description.trim()}<p class="error" id="task-error">
+								Enter a task description.
+							</p>{/if}
+						<h2 class="section-label">Schedule</h2>
+						<div class="schedule">
+							<button bind:this={dateButton} disabled={saving} on:click={() => openDate()}
+								><span aria-hidden="true">▦</span><strong>Due date</strong><span class="value"
+									>{due ? formatDate(due) : 'Add date'}</span
+								><span aria-hidden="true">›</span></button
+							>
+							<button bind:this={repeatButton} disabled={saving} on:click={openRepeat}
+								><span aria-hidden="true">↻</span><strong>Repeat</strong><span class="value"
+									>{repeatSummary(due)}</span
+								><span aria-hidden="true">›</span></button
+							>
+						</div>
+						{#if repeating}
+							<section class="summary" aria-label="Upcoming due dates">
+								<h2 class="section-label">Upcoming due dates</h2>
+								<ul>
+									{#each preview as date}<li>
+											{formatDate(
+												date
+											)}{#if localDate(date) < localDate(dateParts(new Date()))}<small>
+													· Overdue</small
+												>{/if}
+										</li>{/each}
+								</ul>
+							</section>
+							<p class="hint">Completing this task moves it to the next scheduled date.</p>
+							{#if due && localDate(due) < localDate(dateParts(new Date()))}<p class="hint">
+									Missed dates are skipped when you complete it.
+								</p>{/if}
+							{#if due && ((due.repeats?.type === RepeatType.MONTHLY && due.day > 28) || (due.repeats?.type === RepeatType.YEARLY && due.month === 2 && due.day === 29))}<p
+									class="hint"
+								>
+									Shorter months can move this schedule into the following month. Check the upcoming
+									dates.
+								</p>{/if}
+						{:else}<p class="hint">
+								{due
+									? 'Add a repeat schedule for recurring tasks.'
+									: 'Choose Repeat to set a first due date and schedule.'}
+							</p>{/if}
+					{:else if screen === 'date'}
+						<p class="hint">
+							{setupRepeat
+								? 'Choose a first due date to repeat this task.'
+								: 'Choose the first due date.'}
+						</p>
+						<DueDateEditor
+							value={dateSeed}
+							onChange={(value) =>
+								(dateDraft = value
+									? { ...value, repeats: dateDraft?.repeats ?? due?.repeats }
+									: undefined)}
+						/>
+						{#if dateDraft?.repeats && dateDraft.repeats.type !== RepeatType.NONE}<p
+								aria-live="polite"
+							>
+								{repeatSummary(dateDraft)}
+							</p>{/if}
+						{#if due}<button
+								class="remove"
+								on:click={() => {
+									if (repeating) confirmRemove = true;
+									else removeDate();
+								}}>Remove due date</button
+							>{/if}
+						{#if confirmRemove}<section class="notice" aria-label="Remove schedule">
+								<h2>Remove due date and repeat?</h2>
+								<button on:click={() => (confirmRemove = false)}>Keep schedule</button><button
+									on:click={removeDate}>Remove both</button
+								>
+							</section>{/if}
+					{:else if dateDraft}
+						<p class="hint task-context">{description}</p>
+						<RepeatEditor date={dateDraft} bind:type={repeatType} bind:every />
+					{/if}
 				</div>
-				{#if repeating}
-					<section class="summary" aria-label="Upcoming due dates">
-						<h2 class="section-label">Upcoming due dates</h2>
-						<ul>
-							{#each preview as date}<li>
-									{formatDate(date)}{#if localDate(date) < localDate(dateParts(new Date()))}<small>
-											· Overdue</small
-										>{/if}
-								</li>{/each}
-						</ul>
-					</section>
-					<p class="hint">Completing this task moves it to the next scheduled date.</p>
-					{#if due && localDate(due) < localDate(dateParts(new Date()))}<p class="hint">
-							Missed dates are skipped when you complete it.
-						</p>{/if}
-					{#if due && ((due.repeats?.type === RepeatType.MONTHLY && due.day > 28) || (due.repeats?.type === RepeatType.YEARLY && due.month === 2 && due.day === 29))}<p
-							class="hint"
+				{#if screen !== 'details'}<footer>
+						<button
+							class="primary"
+							disabled={!item || conflict || (screen === 'date' ? !dateDraft : !validRepeat)}
+							on:click={screen === 'date' ? doneDate : doneRepeat}>Done</button
 						>
-							Shorter months can move this schedule into the following month. Check the upcoming
-							dates.
-						</p>{/if}
-				{:else}<p class="hint">
-						{due
-							? 'Add a repeat schedule for recurring tasks.'
-							: 'Choose Repeat to set a first due date and schedule.'}
-					</p>{/if}
-			{:else if screen === 'date'}
-				<p class="hint">
-					{setupRepeat
-						? 'Choose a first due date to repeat this task.'
-						: 'Choose the first due date.'}
-				</p>
-				<DueDateEditor
-					value={dateSeed}
-					onChange={(value) =>
-						(dateDraft = value
-							? { ...value, repeats: dateDraft?.repeats ?? due?.repeats }
-							: undefined)}
-				/>
-				{#if dateDraft?.repeats && dateDraft.repeats.type !== RepeatType.NONE}<p aria-live="polite">
-						{repeatSummary(dateDraft)}
-					</p>{/if}
-				{#if due}<button
-						class="remove"
-						on:click={() => {
-							if (repeating) confirmRemove = true;
-							else removeDate();
-						}}>Remove due date</button
-					>{/if}
-				{#if confirmRemove}<section class="notice" aria-label="Remove schedule">
-						<h2>Remove due date and repeat?</h2>
-						<button on:click={() => (confirmRemove = false)}>Keep schedule</button><button
-							on:click={removeDate}>Remove both</button
-						>
-					</section>{/if}
-			{:else if dateDraft}
-				<p class="hint task-context">{description}</p>
-				<RepeatEditor date={dateDraft} bind:type={repeatType} bind:every />
-			{/if}
-		</div>
-		{#if screen !== 'details'}<footer>
-				<button
-					class="primary"
-					disabled={!item || conflict || (screen === 'date' ? !dateDraft : !validRepeat)}
-					on:click={screen === 'date' ? doneDate : doneRepeat}>Done</button
-				>
-			</footer>{/if}
+					</footer>{/if}
+			</div>
+		{/key}
 	</div>
 </dialog>
 
@@ -425,6 +459,7 @@
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		font-size: 17px;
 		box-shadow: 0 12px 60px #0004;
+		overflow: hidden;
 	}
 	.task-details::backdrop {
 		background: #21171080;
@@ -434,8 +469,8 @@
 		box-sizing: border-box;
 		padding-left: var(--safe-area-left);
 		padding-right: var(--safe-area-right);
-		display: flex;
-		flex-direction: column;
+		display: grid;
+		overflow: hidden;
 	}
 	header {
 		display: flex;
@@ -486,6 +521,15 @@
 		flex: 1;
 		min-height: 0;
 		overscroll-behavior: contain;
+	}
+	.editor-screen {
+		grid-area: 1 / 1;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		background: var(--detail-bg);
 	}
 	.task-label,
 	.section-label {
@@ -595,6 +639,9 @@
 			height: var(--viewport-height);
 			border-radius: 0;
 			box-shadow: none;
+		}
+		.task-details::backdrop {
+			background: transparent;
 		}
 	}
 	@media (max-width: 350px) {

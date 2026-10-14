@@ -1,11 +1,12 @@
 <script lang="ts">
 	console.log('routes/(app)/+layout.svelte');
-	import { goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AcceptShare from '$lib/components/AcceptShare.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FilterMenu from '$lib/components/FilterMenu.svelte';
 	import ListMenu from '$lib/components/ListMenu.svelte';
+	import RouteTransitionContent from '$lib/components/RouteTransitionContent.svelte';
 	import TaskDetailsEditor from '$lib/components/TaskDetailsEditor.svelte';
 	import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 	import ListDetailsEditor from '$lib/components/ListDetailsEditor.svelte';
@@ -14,6 +15,17 @@
 	import { create_list } from '$lib/components/lists';
 	import { show_edit_dialog, show_item_detail_dialog } from '$lib/components/ui';
 	import firebase from '$lib/firebase';
+	import {
+		animateEditorBase,
+		hideOutgoingScreen,
+		isTouchFormFactor,
+		MOBILE_SCREEN_DURATION,
+		mobileScreenSlide,
+		prefersReducedMotion,
+		routeSnapshots,
+		snapshotElementHtml,
+		type ScreenMovement
+	} from '$lib/mobile-transitions';
 	import {
 		logTime,
 		store,
@@ -26,7 +38,7 @@
 	import List, { Graphic, Item, Subheader, Text } from '@smui/list';
 	import Textfield from '@smui/textfield';
 	import TopAppBar, { Row, Section, Title } from '@smui/top-app-bar';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { createFirebaseListActions, load } from '$lib/database';
 	import { set_current_url } from '$lib/components/UiSettings';
 
@@ -43,18 +55,176 @@
 	onDestroy(pageData.cleanupSubscriptions);
 
 	let width = 0;
+	let height = 0;
 	const MOBILE_LAYOUT_WIDTH = 720;
+	let touchFormFactor = false;
+	let reducedMotion = false;
+	let transitionsReady = false;
+	let routeMovement: ScreenMovement = 'none';
+	let routeTransitioning = false;
+	let plannedNavigation = false;
+	let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+	let drawerTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+	let drawerComponent: { getElement: () => HTMLElement } | undefined;
+	let routePageSurface: HTMLElement;
 
-	$: drawerOpen = width > MOBILE_LAYOUT_WIDTH;
+	$: mobilePortrait = touchFormFactor && height >= width;
+	$: mobileLandscape = touchFormFactor && width > height;
+	$: persistentDrawer = width > MOBILE_LAYOUT_WIDTH || mobileLandscape;
+	$: drawerOpen = persistentDrawer;
+	$: settleDrawerTransition(drawerComponent, drawerOpen);
+	$: screenKey = `${$page.url.pathname}${$page.url.search}`;
+	let routeBlockId = 0;
+	let routeBlockScreenKey = '';
+	$: if (screenKey !== routeBlockScreenKey) {
+		if (routeTransitioning) routeBlockId += 1;
+		routeBlockScreenKey = screenKey;
+	}
+	$: routeBlock = { id: routeBlockId, screenKey: routeBlockScreenKey };
+
+	function navigationId(url: URL) {
+		return url.searchParams.get('listId') || url.searchParams.get('labelId') || '';
+	}
+
+	function navigationMovement(name: string, source?: HTMLElement): ScreenMovement {
+		if (!touchFormFactor || reducedMotion) return 'none';
+		if (mobilePortrait && drawerOpen) return 'none';
+		if (!mobileLandscape) return 'forward';
+
+		const targetUrl = new URL('/' + name, window.location.origin);
+		const currentId = navigationId($page.url);
+		const targetId = navigationId(targetUrl);
+		if (!currentId || !targetId || currentId === targetId) return 'forward';
+
+		const currentRow = document.querySelector<HTMLElement>(
+			`[data-navigation-id="${CSS.escape(currentId)}"][data-navigation-active="true"]`
+		);
+		const targetRow =
+			source ||
+			document.querySelector<HTMLElement>(`[data-navigation-id="${CSS.escape(targetId)}"]`);
+		if (!currentRow || !targetRow) return 'forward';
+		return targetRow.getBoundingClientRect().top > currentRow.getBoundingClientRect().top
+			? 'up'
+			: 'down';
+	}
+
+	function captureRouteSnapshot(key: string) {
+		const element = document.getElementById(`route-screen-${key.replace(/[^a-zA-Z0-9-]/g, '_')}`);
+		if (!element) return;
+		if (snapshotTimer) {
+			clearTimeout(snapshotTimer);
+			snapshotTimer = undefined;
+		}
+		const state = store.getState();
+		routeSnapshots.update((snapshots) => ({
+			...snapshots,
+			[key]: {
+				html: snapshotElementHtml(element),
+				title: state.ui.title,
+				icon: state.ui.icon
+			}
+		}));
+	}
 
 	let active: string;
-	function setActive(name: string, keepDrawerOpen = false) {
+	async function setActive(name: string, keepDrawerOpen = false, source?: HTMLElement) {
 		console.log('setActive ' + name);
-		drawerOpen = keepDrawerOpen || width > MOBILE_LAYOUT_WIDTH;
+		const targetUrl = new URL('/' + name, window.location.origin);
+		if (targetUrl.pathname === $page.url.pathname && targetUrl.search === $page.url.search) {
+			drawerOpen = keepDrawerOpen || persistentDrawer;
+			active = name;
+			return;
+		}
+		routeMovement = navigationMovement(name, source);
+		if (transitionsReady && touchFormFactor && !reducedMotion && routeMovement !== 'none')
+			captureRouteSnapshot(screenKey);
+		plannedNavigation = true;
+		const closeDrawerAfterNavigation = mobilePortrait && drawerOpen && !keepDrawerOpen;
+		if (!closeDrawerAfterNavigation) drawerOpen = keepDrawerOpen || persistentDrawer;
 		active = name;
 		firebase.dispatch(set_current_url('/' + name));
-		goto('/' + name);
+		const navigation = goto('/' + name);
+		if (closeDrawerAfterNavigation) {
+			void navigation.then(async () => {
+				await tick();
+				drawerOpen = persistentDrawer;
+			});
+		}
 	}
+
+	function closeDrawerFromKey(event: CustomEvent<KeyboardEvent>) {
+		if (event.detail?.key === 'Escape') drawerOpen = persistentDrawer;
+	}
+
+	function settleDrawerTransition(
+		component: { getElement: () => HTMLElement } | undefined,
+		open: boolean
+	) {
+		if (drawerTransitionTimer) clearTimeout(drawerTransitionTimer);
+		if (!component) return;
+		drawerTransitionTimer = setTimeout(() => {
+			const element = component.getElement();
+			const transitionClass = open ? 'mdc-drawer--opening' : 'mdc-drawer--closing';
+			if (element.classList.contains(transitionClass)) {
+				// MDC relies exclusively on transitionend to leave its opening and closing
+				// states. Android WebView can omit that event after a viewport resize (for
+				// example, the keyboard), leaving later closes disabled or the scrim visible.
+				// Complete the already elapsed transition in either direction.
+				element.dispatchEvent(new TransitionEvent('transitionend', { bubbles: true }));
+			}
+		}, MOBILE_SCREEN_DURATION + 40);
+	}
+
+	function finishRouteTransition(event: Event) {
+		const element = event.currentTarget as HTMLElement;
+		if (element.dataset.screenKey === screenKey) routeTransitioning = false;
+	}
+
+	onMount(() => {
+		const touchQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const updatePreferences = () => {
+			touchFormFactor = isTouchFormFactor();
+			reducedMotion = prefersReducedMotion();
+		};
+		updatePreferences();
+		transitionsReady = true;
+		touchQuery.addEventListener('change', updatePreferences);
+		motionQuery.addEventListener('change', updatePreferences);
+		return () => {
+			touchQuery.removeEventListener('change', updatePreferences);
+			motionQuery.removeEventListener('change', updatePreferences);
+		};
+	});
+
+	beforeNavigate((navigation) => {
+		if (!navigation.to || !navigation.from) return;
+		const wasPlanned = plannedNavigation;
+		if (!wasPlanned) {
+			routeMovement = navigation.type === 'popstate' ? 'backward' : 'forward';
+		}
+		plannedNavigation = false;
+		if (!transitionsReady || !touchFormFactor) return;
+
+		const fromKey = `${navigation.from.url.pathname}${navigation.from.url.search}`;
+		if (!wasPlanned) captureRouteSnapshot(fromKey);
+		if (reducedMotion) {
+			routeMovement = 'none';
+			return;
+		}
+		if (routeMovement === 'none') return;
+		routeTransitioning = true;
+	});
+
+	afterNavigate(() => {
+		if (snapshotTimer) clearTimeout(snapshotTimer);
+		snapshotTimer = setTimeout(() => routeSnapshots.set({}), 350);
+	});
+
+	onDestroy(() => {
+		if (snapshotTimer) clearTimeout(snapshotTimer);
+		if (drawerTransitionTimer) clearTimeout(drawerTransitionTimer);
+	});
 
 	function getIconName(name: string) {
 		return name;
@@ -80,7 +250,9 @@
 		e = e as KeyboardEvent;
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			submitNewList();
+			// Let blur submit after the software keyboard starts dismissing. Navigating while the
+			// native viewport is still keyboard-sized can strand SMUI's drawer closing transition.
+			(e.target as HTMLInputElement).blur();
 		}
 	}
 
@@ -112,15 +284,35 @@
 	let itemDetailsOpen = false;
 	$: if ($store.ui.showItemDetailsDialog && !itemDetailsOpen) {
 		itemDetailsOpen = true;
+		animateRouteForEditor(true);
+	}
+
+	function routeEditorBase() {
+		const route = routePageSurface?.closest<HTMLElement>('.route-screen');
+		return [route?.querySelector<HTMLElement>('.mdc-top-app-bar'), routePageSurface];
+	}
+
+	function animateRouteForEditor(open: boolean) {
+		animateEditorBase(routeEditorBase(), open);
 	}
 
 	let dialogOpen = false;
+	let dialogOpening = false;
 	let detailsListId = '';
 	$: if ($store.ui.showEditDialog && !dialogOpen) openEditDialog();
 	function openEditDialog() {
+		if (dialogOpen || dialogOpening) return;
+		dialogOpening = true;
 		detailsListId = $store.ui.listId;
+		if (mobilePortrait && drawerOpen) {
+			// Edit lives in the drawer. Let that real surface leave to the left while
+			// List details enters from the right; the selected list remains behind it
+			// so closing details returns directly to the list.
+			drawerOpen = false;
+		}
 		dialogOpen = true;
 		store.dispatch(show_edit_dialog(true));
+		dialogOpening = false;
 	}
 
 	async function saveTaskDetails(description: string, dueDate: DueDate | undefined) {
@@ -177,6 +369,7 @@
 	}
 
 	function cancelItemDetailsDialog() {
+		animateRouteForEditor(false);
 		store.dispatch(show_item_detail_dialog(false));
 		itemDetailsOpen = false;
 	}
@@ -207,6 +400,7 @@
 
 	function onOrientationChanged() {
 		width = window.innerWidth;
+		height = window.innerHeight;
 	}
 
 	$: loadingListPercent =
@@ -227,7 +421,11 @@
 	$: loadingActionLabel = `Action ${$store.ui.loadingActionIndex} of ${$store.ui.loadingActionTotal}`;
 </script>
 
-<svelte:window bind:innerWidth={width} on:orientationchange={onOrientationChanged} />
+<svelte:window
+	bind:innerWidth={width}
+	bind:innerHeight={height}
+	on:orientationchange={onOrientationChanged}
+/>
 
 {#await pageData.loaded.loaded}
 	<div class="loading-screen">
@@ -254,34 +452,19 @@
 		</div>
 	</div>
 {:then value}
-	<div class="drawer-container w{width} ">
-		<TopAppBar variant="fixed">
-			<Row>
-				<div class={width > MOBILE_LAYOUT_WIDTH ? 'desk-margin' : 'mobile-margin'}>
-					<Section>
-						{#if width <= MOBILE_LAYOUT_WIDTH}
-							<IconButton
-								class="material-icons"
-								aria-label="Open navigation menu"
-								on:click={() => (drawerOpen = !drawerOpen || width > MOBILE_LAYOUT_WIDTH)}
-								>menu</IconButton
-							>
-						{/if}
-						<IconButton class="material-icons">{$store.ui.icon}</IconButton><Title
-							>{$store.ui.title}</Title
-						>
-					</Section>
-				</div>
-				<Section align="end" toolbar>
-					<span><Avatar name={$store.auth.name || ''} photo={$store.auth.photo || ''} /></span>
-				</Section>
-			</Row>
-		</TopAppBar>
-
+	<div
+		class="drawer-container w{width}"
+		class:mobile-portrait={mobilePortrait}
+		class:mobile-landscape={mobileLandscape}
+		class:drawer-open={drawerOpen}
+		class:reduced-motion={reducedMotion}
+	>
 		<Drawer
-			variant={width > MOBILE_LAYOUT_WIDTH ? undefined : 'modal'}
-			fixed={width > MOBILE_LAYOUT_WIDTH ? undefined : false}
+			bind:this={drawerComponent}
+			variant={persistentDrawer ? undefined : 'modal'}
+			fixed={persistentDrawer ? undefined : false}
 			bind:open={drawerOpen}
+			on:keydown={closeDrawerFromKey}
 		>
 			<Content>
 				<FilterMenu {setActive} />
@@ -316,28 +499,79 @@
 			</Content>
 		</Drawer>
 
-		<Scrim fixed={false} />
-		<AppContent class="app-content">
-			<div class="backdrop" style:background-image={bgStyle}>
-				<slot />
-				{#if itemDetailsOpen}
-					<TaskDetailsEditor
-						item={$store.lists.listIdToList[$store.ui.listId] === undefined
-							? undefined
-							: $store.items.listIdToListOfItems[$store.ui.listId]?.itemIdToItem[$store.ui.itemId]}
-						onSave={saveTaskDetails}
-						onClose={cancelItemDetailsDialog}
-					/>
-				{/if}
-				{#if dialogOpen}
-					<ListDetailsEditor
-						listId={detailsListId}
-						onClose={cancelDialog}
-						onDeleted={listDeleted}
-					/>
-				{/if}
-			</div>
-		</AppContent>
+		<Scrim fixed={false} on:click={() => (drawerOpen = persistentDrawer)} />
+		<div class="route-stage" class:transition-active={routeTransitioning}>
+			{#each [routeBlock] as transitionBlock (transitionBlock.id)}
+				{@const routeKey = transitionBlock.screenKey}
+				<div
+					class="route-screen"
+					data-screen-key={routeKey}
+					data-transition-direction={routeMovement}
+					in:mobileScreenSlide={{
+						movement: routeMovement,
+						phase: 'in'
+					}}
+					out:mobileScreenSlide={{
+						movement: routeMovement,
+						phase: 'out'
+					}}
+					on:introend={finishRouteTransition}
+					on:outrostart={hideOutgoingScreen}
+				>
+					<TopAppBar variant="fixed">
+						<Row>
+							<Section>
+								{#if !persistentDrawer}
+									<IconButton
+										class="material-icons"
+										aria-label="Open navigation menu"
+										on:click={() => (drawerOpen = !drawerOpen || persistentDrawer)}>menu</IconButton
+									>
+								{/if}
+								<IconButton class="material-icons"
+									>{$routeSnapshots[routeKey]?.icon ?? $store.ui.icon}</IconButton
+								>
+								<Title>{$routeSnapshots[routeKey]?.title ?? $store.ui.title}</Title>
+							</Section>
+							<Section align="end" toolbar>
+								<span><Avatar name={$store.auth.name || ''} photo={$store.auth.photo || ''} /></span
+								>
+							</Section>
+						</Row>
+					</TopAppBar>
+
+					<AppContent class="app-content">
+						<div class="backdrop" style:background-image={bgStyle}>
+							<div class="route-page-surface" bind:this={routePageSurface}>
+								<RouteTransitionContent
+									screenKey={routeKey}
+									useSnapshot={routeKey !== screenKey}
+									><slot /></RouteTransitionContent
+								>
+							</div>
+							{#if itemDetailsOpen}
+								<TaskDetailsEditor
+									item={$store.lists.listIdToList[$store.ui.listId] === undefined
+										? undefined
+										: $store.items.listIdToListOfItems[$store.ui.listId]?.itemIdToItem[
+												$store.ui.itemId
+										  ]}
+									onSave={saveTaskDetails}
+									onClose={cancelItemDetailsDialog}
+								/>
+							{/if}
+							{#if dialogOpen}
+								<ListDetailsEditor
+									listId={detailsListId}
+									onClose={cancelDialog}
+									onDeleted={listDeleted}
+								/>
+							{/if}
+						</div>
+					</AppContent>
+				</div>
+			{/each}
+		</div>
 	</div>
 {/await}
 
@@ -482,6 +716,27 @@
 		z-index: 0;
 		flex-grow: 1;
 	}
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal) {
+		max-width: 100vw;
+		width: 100vw;
+	}
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal.mdc-drawer--opening),
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal.mdc-drawer--closing),
+	.drawer-container.mobile-portrait :global(.mdc-drawer--modal + .mdc-drawer-scrim) {
+		transition-duration: 280ms;
+		transition-timing-function: cubic-bezier(0.333333, 1, 0.666667, 1);
+	}
+	.drawer-container.mobile-portrait .route-screen {
+		transition: transform 280ms cubic-bezier(0.333333, 1, 0.666667, 1);
+		will-change: transform;
+	}
+	.drawer-container.mobile-portrait.drawer-open .route-screen {
+		transform: translate3d(100vw, 0, 0);
+	}
+	.drawer-container.reduced-motion :global(*) {
+		animation-duration: 0ms !important;
+		transition-duration: 0ms !important;
+	}
 
 	* :global(.app-content) {
 		position: relative;
@@ -492,13 +747,6 @@
 
 		display: flex;
 		flex: auto;
-	}
-
-	.mobile-margin {
-		margin-left: 0;
-	}
-	.desk-margin {
-		margin-left: 256px;
 	}
 
 	* :global(.mdc-text-field__input::-webkit-calendar-picker-indicator) {
@@ -513,8 +761,55 @@
 		display: flex;
 		flex: auto;
 		flex-grow: 1;
+		min-height: 0;
+		min-width: 0;
 		overflow: auto;
 
 		background-size: cover;
+	}
+	.route-page-surface {
+		display: flex;
+		flex: 1 1 auto;
+		min-height: 0;
+		min-width: 0;
+	}
+	.route-stage {
+		display: flex;
+		flex: 1 1 auto;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.route-screen {
+		display: flex;
+		flex: 1 1 auto;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		position: relative;
+		transform: translate3d(0, 0, 0);
+	}
+	.route-stage.transition-active {
+		display: grid;
+		flex: 1 1 auto;
+		grid-template-areas: 'screen';
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.route-stage.transition-active > .route-screen {
+		display: flex;
+		grid-area: screen;
+		height: 100%;
+		min-height: 0;
+		min-width: 0;
+		overflow: hidden;
+		width: 100%;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.drawer-container.mobile-portrait .route-screen {
+			transition-duration: 0ms;
+		}
 	}
 </style>
