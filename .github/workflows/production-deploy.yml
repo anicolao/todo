@@ -1,18 +1,188 @@
 name: Production Deploy
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  classify:
+    name: Classify main commit
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.release.outputs.is_release }}
+      needs_tag: ${{ steps.release.outputs.needs_tag }}
+      release_pr: ${{ steps.release.outputs.release_pr }}
+      version: ${{ steps.release.outputs.version }}
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout code
+      - name: Require a main-branch commit
+        env:
+          TRIGGER_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ "$TRIGGER_BRANCH" != main ]; then
+            echo "::error::Production releases must come from main, not $TRIGGER_BRANCH."
+            exit 1
+          fi
+
+      - name: Checkout candidate commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 0
+
+      - name: Recognize a release commit
+        id: release
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          current_version="$(node -p "require('./package.json').version")"
+          lock_version="$(node -p "require('./package-lock.json').version")"
+          lock_root_version="$(node -p "require('./package-lock.json').packages[''].version")"
+          previous_version="$(git show "$DEPLOY_SHA^:package.json" | node -e "let text=''; process.stdin.on('data', chunk => text += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(text).version));")"
+          release_pr="$(
+            gh api "repos/$REPOSITORY/commits/$DEPLOY_SHA/pulls" \
+              --jq '[.[] | select([.labels[].name] | index("release"))] | if length == 1 then .[0].number else empty end'
+          )"
+
+          if [ "$current_version" = "$previous_version" ]; then
+            if [ -n "$release_pr" ]; then
+              echo "::error::Release PR #$release_pr did not change the package version."
+              exit 1
+            fi
+            echo "Ordinary main commit $DEPLOY_SHA; production will not be deployed."
+            {
+              echo "is_release=false"
+              echo "version=$current_version"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$release_pr" ]; then
+            echo "::error::Version changed from $previous_version to $current_version outside a PR labeled release."
+            exit 1
+          fi
+          if [ "$lock_version" != "$current_version" ] || [ "$lock_root_version" != "$current_version" ]; then
+            echo "::error::package.json and package-lock.json do not agree on version $current_version."
+            exit 1
+          fi
+
+          expected_title="Release v$current_version"
+          expected_branch="release/v$current_version"
+          metadata="$(gh pr view "$release_pr" --repo "$REPOSITORY" --json title,headRefName,files)"
+          title="$(jq -r .title <<< "$metadata")"
+          branch="$(jq -r .headRefName <<< "$metadata")"
+          files="$(jq -r '.files | map(.path) | sort | join("\n")' <<< "$metadata")"
+          expected_files="$(printf 'package-lock.json\npackage.json')"
+
+          [ "$title" = "$expected_title" ] || {
+            echo "::error::Release PR title is '$title', expected '$expected_title'."
+            exit 1
+          }
+          [ "$branch" = "$expected_branch" ] || {
+            echo "::error::Release PR branch is '$branch', expected '$expected_branch'."
+            exit 1
+          }
+          [ "$files" = "$expected_files" ] || {
+            echo "::error::Release PR must change only package.json and package-lock.json."
+            printf 'Changed files:\n%s\n' "$files"
+            exit 1
+          }
+
+          node - "$previous_version" "$current_version" "$DEPLOY_SHA" <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+
+          const [previous, current, sha] = process.argv.slice(2);
+          const parse = (value) => {
+            const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
+            if (!match) throw new Error(`Invalid release version: ${value}`);
+            return match.slice(1).map(Number);
+          };
+          const [major, minor, patch] = parse(previous);
+          const allowed = new Set([
+            `${major}.${minor}.${patch + 1}`,
+            `${major}.${minor + 1}.0`,
+            `${major + 1}.0.0`
+          ]);
+          if (!allowed.has(current)) {
+            throw new Error(`Release must be one patch, minor, or major bump: ${previous} -> ${current}`);
+          }
+
+          const readCurrent = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
+          const readPrevious = (path) => JSON.parse(
+            execFileSync('git', ['show', `${sha}^:${path}`], { encoding: 'utf8' })
+          );
+          const previousPackage = readPrevious('package.json');
+          const currentPackage = readCurrent('package.json');
+          const previousLock = readPrevious('package-lock.json');
+          const currentLock = readCurrent('package-lock.json');
+
+          currentPackage.version = previousPackage.version;
+          currentLock.version = previousLock.version;
+          currentLock.packages[''].version = previousLock.packages[''].version;
+          assert.deepStrictEqual(
+            currentPackage,
+            previousPackage,
+            'Release PR changed package.json fields other than version'
+          );
+          assert.deepStrictEqual(
+            currentLock,
+            previousLock,
+            'Release PR changed package-lock.json fields other than version'
+          );
+          NODE
+
+          git fetch --force --tags origin
+          release_tag="v$current_version"
+          needs_tag=true
+          if git rev-parse --verify --quiet "refs/tags/$release_tag" >/dev/null; then
+            tagged_sha="$(git rev-list -n 1 "$release_tag")"
+            if [ "$tagged_sha" != "$DEPLOY_SHA" ]; then
+              echo "::error::$release_tag already points to $tagged_sha, not $DEPLOY_SHA."
+              exit 1
+            fi
+            needs_tag=false
+          fi
+
+          echo "Recognized release PR #$release_pr for $release_tag."
+          {
+            echo "is_release=true"
+            echo "version=$current_version"
+            echo "release_pr=$release_pr"
+            echo "needs_tag=$needs_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy recognized release
+    needs: classify
+    if: needs.classify.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_VERSION: ${{ needs.classify.outputs.version }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -21,10 +191,43 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Check for Firebase Service Account Secret
-        id: check_secret
+      - name: Wait for CLI Gate
         env:
-          FIREBASE_SERVICE_ACCOUNT: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          for attempt in $(seq 1 80); do
+            run="$({
+              gh run list \
+                --repo "$REPOSITORY" \
+                --workflow cli.yml \
+                --commit "$DEPLOY_SHA" \
+                --event push \
+                --limit 10 \
+                --json databaseId,status,conclusion \
+                --jq 'sort_by(.databaseId) | last | [.databaseId, .status, .conclusion] | @tsv'
+            } 2>/dev/null || true)"
+            if [ -n "$run" ]; then
+              IFS=$'\t' read -r run_id status conclusion <<< "$run"
+              if [ "$status" = completed ]; then
+                if [ "$conclusion" = success ]; then
+                  echo "CLI Gate passed in run $run_id."
+                  exit 0
+                fi
+                echo "::error::CLI Gate concluded $conclusion in run $run_id."
+                exit 1
+              fi
+              echo "Attempt $attempt: CLI Gate is $status in run $run_id; waiting."
+            else
+              echo "Attempt $attempt: CLI Gate has not started for $DEPLOY_SHA; waiting."
+            fi
+            sleep 15
+          done
+          echo "::error::Timed out waiting for CLI Gate on $DEPLOY_SHA."
+          exit 1
+
+      - name: Check for Firebase Service Account Secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "::error::The FIREBASE_SERVICE_ACCOUNT secret is missing. Deployment cannot proceed."
@@ -46,13 +249,42 @@ jobs:
       - name: Deploy to Firebase
         run: npm run deploy
         env:
-          COMMIT_HASH: ${{ github.sha }}
+          COMMIT_HASH: ${{ env.DEPLOY_SHA }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
 
-      - name: Create and push deployment tag
+      - name: Record successful deployment
+        env:
+          RELEASE_NEEDS_TAG: ${{ needs.classify.outputs.needs_tag }}
+          RELEASE_PR: ${{ needs.classify.outputs.release_pr }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_NAME="deploy/prod/$(date +'%Y-%m-%d_%H-%M-%S')"
-          git tag $TAG_NAME
-          git push origin $TAG_NAME
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          deployment_tag="deploy/prod/$(date -u +'%Y-%m-%d_%H-%M-%S')"
+          git tag -a "$deployment_tag" "$DEPLOY_SHA" -m "Production deployment of $DEPLOY_SHA"
+          tags=("refs/tags/$deployment_tag")
+
+          release_tag="v$RELEASE_VERSION"
+          if [ "$RELEASE_NEEDS_TAG" = true ]; then
+            git tag -a "$release_tag" "$DEPLOY_SHA" -m "Release $release_tag"
+            tags+=("refs/tags/$release_tag")
+          fi
+          git push origin "${tags[@]}"
+
+          if ! gh release view "$release_tag" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$release_tag" \
+              --repo "$REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --title "$release_tag"
+          fi
+
+          {
+            echo "## Production release v$RELEASE_VERSION"
+            echo
+            echo "- Commit: \`$DEPLOY_SHA\`"
+            echo "- Release PR: #$RELEASE_PR"
+            echo "- Release tag: \`$release_tag\`"
+            echo "- Deployment tag: \`$deployment_tag\`"
+          } >> "$GITHUB_STEP_SUMMARY"
