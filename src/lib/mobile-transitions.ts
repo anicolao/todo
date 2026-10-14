@@ -5,6 +5,9 @@ import type { TransitionConfig } from 'svelte/transition';
 
 export type ScreenMovement = 'forward' | 'backward' | 'up' | 'down' | 'none';
 
+export const MOBILE_SCREEN_DURATION = 280;
+export const MOBILE_SCREEN_EASING = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
+
 export const routeSnapshots = writable<Record<string, string>>({});
 
 export function hideOutgoingScreen(event: Event) {
@@ -25,13 +28,26 @@ export function prefersReducedMotion() {
 	);
 }
 
+export function mobileScreenOffset(movement: ScreenMovement, phase: 'in' | 'out') {
+	const incoming = phase === 'in';
+	let x = 0;
+	let y = 0;
+
+	if (movement === 'forward') x = incoming ? 100 : -100;
+	if (movement === 'backward') x = incoming ? -100 : 100;
+	if (movement === 'up') y = incoming ? 100 : -100;
+	if (movement === 'down') y = incoming ? -100 : 100;
+
+	return { x, y };
+}
+
 export function mobileScreenSlide(
 	node: Element,
 	{
 		movement,
 		phase,
 		active = true,
-		duration = 280
+		duration = MOBILE_SCREEN_DURATION
 	}: {
 		movement: ScreenMovement;
 		phase: 'in' | 'out';
@@ -45,14 +61,7 @@ export function mobileScreenSlide(
 
 	const style = getComputedStyle(node);
 	const transform = style.transform === 'none' ? '' : style.transform;
-	const incoming = phase === 'in';
-	let x = 0;
-	let y = 0;
-
-	if (movement === 'forward') x = incoming ? 100 : -100;
-	if (movement === 'backward') x = incoming ? -100 : 100;
-	if (movement === 'up') y = incoming ? 100 : -100;
-	if (movement === 'down') y = incoming ? -100 : 100;
+	const { x, y } = mobileScreenOffset(movement, phase);
 
 	return {
 		duration,
