@@ -16,13 +16,6 @@ interface AnyAction {
 
 admin.initializeApp();
 
-exports.users = functions.https.onRequest(async (req, res) => {
-	const db = admin.firestore();
-	const users = db.collection('users');
-	const query = await users.get();
-	res.json({ users: query.docChanges() });
-});
-
 async function notifyUser(id: string, currentAction: AnyAction): Promise<any> {
 	const db = admin.firestore();
 	return deliverNotification(id, currentAction, {

@@ -27,10 +27,13 @@ this before acceptance, and revocation never removes the editor record. The
 global user directory is writable by every authenticated account, and a Cloud
 Function trusts those writes when assigning push tokens to UIDs.
 
-There is also a currently deployed, unauthenticated HTTP function that returns
-the complete user directory. An anonymous request during this audit returned
-HTTP 200 with serialized email, UID, name, photo, and notification-token fields.
-No values from that response are reproduced here.
+At the start of this audit there was also a deployed, unauthenticated HTTP
+function that returned the complete user directory. An anonymous request
+returned HTTP 200 with serialized email, UID, name, photo, and
+notification-token fields. No values from that response are reproduced here.
+The function was disabled in production and removed from the source immediately
+after confirmation; the finding remains documented because the exposed data
+and missing regression coverage still require follow-up.
 
 Separately, both released native shells use Capacitor 8.5.0, which is in the
 critical affected range of a published origin-confusion advisory. The direct
@@ -43,14 +46,18 @@ main reasons V1 can pass CI while still containing production-impacting faults.
 
 ## P0 — immediate security work
 
-### 1. The deployed `users` HTTP function exposes the user directory anonymously
+### 1. The `users` HTTP function exposed the user directory anonymously
+
+**Containment status:** Disabled in production and removed from the source on
+2026-10-20 as part of this audit PR.
 
 **Evidence**
 
-- [`functions/src/index.ts`](functions/src/index.ts) lines 19–24 registers an
-  `onRequest` function, performs an unrestricted `users` collection query, and
-  serializes the result. It performs no authentication, authorization, App
-  Check, method check, or rate limiting.
+- At the audited V1 commit,
+  [`functions/src/index.ts`](https://github.com/anicolao/todo/blob/v1.0.0/functions/src/index.ts#L19-L24)
+  registered an `onRequest` function, performed an unrestricted `users`
+  collection query, and serialized the result. It performed no authentication,
+  authorization, App Check, method check, or rate limiting.
 - A request without credentials to the deployed function on 2026-10-20 returned
   HTTP 200 and 18 records. The serialized field names included `email`, `uid`,
   `name`, `photo`, and `notificationToken`.
@@ -65,11 +72,11 @@ which creates an avoidable cost/denial-of-wallet surface.
 
 **Recommendation**
 
-Disable or delete the function immediately. If a directory endpoint remains
-necessary, require verified authentication and membership, return only the
-minimum fields required for an exact lookup, and add abuse controls. Treat the
-exposed notification tokens as compromised metadata and rotate/re-register
-them after containment.
+The immediate function deletion is complete. Treat the exposed notification
+tokens as compromised metadata and rotate/re-register them. If a directory
+endpoint is introduced again, require verified authentication and membership,
+return only the minimum fields required for an exact lookup, and add abuse
+controls.
 
 ### 2. List access is self-granting, and invitation rejection/revocation is cosmetic
 
@@ -437,9 +444,10 @@ and the native shell.
 
 ## Recommended sequence
 
-1. **Contain current exposure:** disable the public `users` function; lock user
-   documents to their authenticated owner; stop the token-copy trigger until UID
-   binding is trustworthy; remove sensitive action logging.
+1. **Contain current exposure:** the public `users` function has been disabled;
+   next lock user documents to their authenticated owner, stop the token-copy
+   trigger until UID binding is trustworthy, rotate notification tokens, and
+   remove sensitive action logging.
 2. **Replace released native builds:** upgrade Capacitor past 8.5.0 and publish
    rebuilt iOS/Android shells.
 3. **Repair authorization:** introduce server-owned roles/invitations, an
@@ -467,7 +475,7 @@ commit:
 | `npm run check`                    | Failed: 13 errors in 3 files                               |
 | `npm run lint`                     | Failed: 31 Prettier failures; ESLint is also misconfigured |
 | `npm audit --omit=dev`             | 31 findings: 2 low, 9 moderate, 18 high, 2 critical        |
-| Anonymous deployed `users` request | HTTP 200; user PII and token fields returned               |
+| Anonymous deployed `users` request | HTTP 200 at audit start; endpoint subsequently disabled    |
 
 Passing tests demonstrate useful functional coverage, but they do not reduce
 the urgency of the authorization and production-exposure findings because those
