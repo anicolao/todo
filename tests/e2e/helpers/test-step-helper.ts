@@ -99,7 +99,7 @@ export class TestStepHelper {
 		const screenshotPath = path.join(screenshotDir, screenshotName);
 
 		// We use fullPage: true to ensure we capture everything, as per the guide's philosophy.
-		const buildLabel = this.page.getByText(/^v0\./);
+		const buildLabel = this.page.getByText(/^v\d+\.\d+\.\d+\b/);
 		const listDialog = this.page.locator('dialog.list-details[open]');
 		const dialogBox = (await listDialog.count()) ? await listDialog.boundingBox() : null;
 		const labelBox = this.artifactName ? await buildLabel.boundingBox() : null;
