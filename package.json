@@ -1,6 +1,6 @@
 {
 	"name": "todo",
-	"version": "0.1.46",
+	"version": "1.0.0",
 	"private": true,
 	"bin": {
 		"todo": "cli/src/cli.ts",
