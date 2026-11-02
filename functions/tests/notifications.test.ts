@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	deliverNotification,
+	incomingShareInvitationTarget,
 	notificationActionForListActivity,
 	pendingShareReminder,
 	type NotificationBatchResponse,
@@ -131,6 +132,23 @@ describe('list activity notification privacy', () => {
 		).toEqual({ type: 'pending_share_reminder' });
 	});
 
+	it("notifies for an invitation from another user, but not the recipient's saved copy", () => {
+		expect(
+			incomingShareInvitationTarget({
+				type: 'accept_pending_share',
+				creator: 'sender',
+				target: 'recipient'
+			})
+		).toBe('recipient');
+		expect(
+			incomingShareInvitationTarget({
+				type: 'accept_pending_share',
+				creator: 'recipient',
+				target: 'recipient'
+			})
+		).toBeUndefined();
+	});
+
 	it('delivers item content only after the invitation is accepted', () => {
 		expect(
 			notificationActionForListActivity('recipient', 'shared-list', activity, [
@@ -141,6 +159,43 @@ describe('list activity notification privacy', () => {
 						type: 'accept_request',
 						payload: { id: 'invitation' },
 						creator: 'recipient'
+					}
+				}
+			])
+		).toBe(activity);
+	});
+
+	it('delivers item content after accepting a share that was copied into the recipient history', () => {
+		// Accepting in ListMenuItem writes an acknowledgement to the recipient and
+		// then dispatches the original invitation to the recipient's own requests.
+		// The dispatched copy receives a new Firestore document ID.
+		expect(
+			notificationActionForListActivity('recipient', 'shared-list', activity, [
+				{
+					id: 'original-invitation',
+					action: {
+						type: 'accept_pending_share',
+						payload: 'shared-list',
+						creator: 'sender',
+						target: 'recipient'
+					}
+				},
+				{
+					id: 'recipient-acceptance',
+					action: {
+						type: 'accept_request',
+						payload: { id: 'original-invitation' },
+						creator: 'recipient',
+						target: 'recipient'
+					}
+				},
+				{
+					id: 'recipient-copy',
+					action: {
+						type: 'accept_pending_share',
+						payload: 'shared-list',
+						creator: 'recipient',
+						target: 'recipient'
 					}
 				}
 			])
