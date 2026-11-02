@@ -51,6 +51,18 @@ export function pendingShareReminder(): NotificationAction {
 	return { type: 'pending_share_reminder' };
 }
 
+export function incomingShareInvitationTarget(action: NotificationAction): string | undefined {
+	if (
+		action.type !== 'accept_pending_share' ||
+		typeof action.creator !== 'string' ||
+		typeof action.target !== 'string' ||
+		action.creator === action.target
+	) {
+		return undefined;
+	}
+	return action.target;
+}
+
 function payloadString(action: NotificationAction, field: string): string | undefined {
 	if (typeof action.payload !== 'object' || action.payload === null) return undefined;
 	const value = (action.payload as Record<string, unknown>)[field];
@@ -90,6 +102,9 @@ export function notificationActionForListActivity(
 
 	let relationship: 'accepted' | 'pending' | 'declined' | 'removed' = 'accepted';
 	for (const { id, action } of requestRecords) {
+		// Acceptance saves a copy of the invitation in the recipient's own
+		// requests. Its new document ID has no matching acknowledgement.
+		if (action.type === 'accept_pending_share' && action.creator === recipientId) continue;
 		if (
 			(action.type !== 'accept_pending_share' && action.type !== 'revoke_share') ||
 			affectedListId(action) !== listId

@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import {
 	deliverNotification,
+	incomingShareInvitationTarget,
 	notificationActionForListActivity,
 	pendingShareReminder,
 	type NotificationAction,
@@ -125,8 +126,8 @@ exports.onTodoListShared = functions.firestore
 		const promises = [];
 		const currentAction = change.data();
 		console.log(JSON.stringify(currentAction));
-		if (currentAction.type === 'accept_pending_share') {
-			const targetUserId = currentAction.target;
+		const targetUserId = incomingShareInvitationTarget(currentAction as NotificationAction);
+		if (targetUserId) {
 			promises.push(notifyUser(targetUserId, pendingShareReminder()));
 		}
 		return Promise.all(promises);
