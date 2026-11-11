@@ -48,8 +48,8 @@ const pkg = JSON.parse(fs.readFileSync('functions/package.json', 'utf8'));
 process.stdout.write(String((pkg.engines && pkg.engines.node) || ''));
 "
 	)"
-	if [ "$FUNCTIONS_NODE_ENGINE" != "20" ]; then
-		die "functions/package.json must set engines.node to 20 for this Firebase CLI and current Cloud Functions runtime policy; found '${FUNCTIONS_NODE_ENGINE:-unset}'"
+	if [ "$FUNCTIONS_NODE_ENGINE" != "22" ]; then
+		die "functions/package.json must set engines.node to 22, the latest runtime supported by 1st gen Cloud Functions; found '${FUNCTIONS_NODE_ENGINE:-unset}'"
 	fi
 fi
 
