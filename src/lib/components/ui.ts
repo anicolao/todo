@@ -4,6 +4,8 @@ import { createAction } from '@reduxjs/toolkit';
 export interface UiState {
 	listId: string;
 	itemId: string;
+	itemDetailsListId: string;
+	itemDetailsItemId: string;
 	title: string;
 	icon: string;
 	showEditDialog: boolean;
@@ -23,6 +25,9 @@ export const set_title = createAction<string>('set_title');
 export const set_icon = createAction<string>('set_icon');
 export const show_edit_dialog = createAction<boolean>('show_edit_dialog');
 export const show_item_detail_dialog = createAction<boolean>('show_item_detail_dialog');
+export const open_item_detail_dialog = createAction<{ listId: string; itemId: string }>(
+	'open_item_detail_dialog'
+);
 export const set_loading_status = createAction<{
 	loadingPercentage?: number;
 	loadingStatus?: string;
@@ -36,6 +41,8 @@ export const set_loading_status = createAction<{
 const initialUiState = {
 	listId: '',
 	itemId: '',
+	itemDetailsListId: '',
+	itemDetailsItemId: '',
 	title: 'Todo',
 	icon: 'list',
 	showEditDialog: false,
@@ -79,6 +86,14 @@ export const ui = createReducer(initialUiState, (r) => {
 		state = { ...state };
 		state.showItemDetailsDialog = action.payload;
 		return state;
+	});
+	r.addCase(open_item_detail_dialog, (state, action) => {
+		return {
+			...state,
+			itemDetailsListId: action.payload.listId,
+			itemDetailsItemId: action.payload.itemId,
+			showItemDetailsDialog: true
+		};
 	});
 	r.addCase(set_loading_status, (state, action) => {
 		return { ...state, ...action.payload };
