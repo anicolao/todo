@@ -12,7 +12,7 @@
 	} from '$lib/components/items';
 	import { store } from '$lib/store';
 	import { createEventDispatcher } from 'svelte';
-	import { set_current_item, set_current_listid, show_item_detail_dialog } from './ui';
+	import { open_item_detail_dialog } from './ui';
 
 	type ExtendedTodoItem = TodoItem & { id: string };
 
@@ -36,9 +36,7 @@
 		return () => {
 			if (preview) return;
 			if ($store.auth.uid) {
-				store.dispatch(set_current_listid(list_id));
-				store.dispatch(set_current_item(id));
-				store.dispatch(show_item_detail_dialog(true));
+				store.dispatch(open_item_detail_dialog({ listId: list_id, itemId: id }));
 			}
 		};
 	}

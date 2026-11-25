@@ -316,7 +316,7 @@
 	}
 
 	async function saveTaskDetails(description: string, dueDate: DueDate | undefined) {
-		const { listId, itemId } = $store.ui;
+		const { itemDetailsListId: listId, itemDetailsItemId: itemId } = $store.ui;
 		const uid = $store.auth.uid;
 		const item = $store.items.listIdToListOfItems[listId]?.itemIdToItem[itemId];
 		if (!uid || !item || $store.lists.listIdToList[listId] === undefined)
@@ -551,10 +551,10 @@
 							</div>
 							{#if itemDetailsOpen}
 								<TaskDetailsEditor
-									item={$store.lists.listIdToList[$store.ui.listId] === undefined
+									item={$store.lists.listIdToList[$store.ui.itemDetailsListId] === undefined
 										? undefined
-										: $store.items.listIdToListOfItems[$store.ui.listId]?.itemIdToItem[
-												$store.ui.itemId
+										: $store.items.listIdToListOfItems[$store.ui.itemDetailsListId]?.itemIdToItem[
+												$store.ui.itemDetailsItemId
 										  ]}
 									onSave={saveTaskDetails}
 									onClose={cancelItemDetailsDialog}

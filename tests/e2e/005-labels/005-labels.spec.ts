@@ -1,4 +1,4 @@
-import { ensureListMenuVisible } from '../helpers/task-details';
+import { createTask, editor, ensureListMenuVisible, saveDetails } from '../helpers/task-details';
 import { setting, saveSetting, closeSettings, settings } from '../helpers/list-settings';
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -753,6 +753,43 @@ test('create a label containing a list', async ({ page, request }, testInfo) => 
 	});
 
 	await helper.generateDocs();
+});
+
+test('task details can be edited from a label view', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+	await expect(page).toHaveURL(/\/profile/, { timeout: 10000 });
+	await openDrawerIfNeeded(page);
+
+	const listName = 'Label details source';
+	const taskName = 'Edit me from the label';
+	const updatedTaskName = 'Edited from the label';
+	const labelName = 'Details label';
+	await page.getByLabel('New list').fill(listName);
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('banner').getByText(listName)).toBeVisible({ timeout: 10000 });
+	await createTask(page, taskName);
+
+	await openCurrentListEditDialog(page, listName);
+	await page.getByRole('button', { name: '+ Create label', exact: true }).click();
+	await page.getByLabel('New label', { exact: true }).fill(labelName);
+	await saveCurrentListEditDialog(page);
+
+	await openDrawerIfNeeded(page);
+	await clickDrawerLabel(page, labelName);
+	await expect(page).toHaveURL(/labels\?labelId=/);
+	const scrim = page.locator('.mdc-drawer-scrim').first();
+	if (await scrim.isVisible()) await scrim.dispatchEvent('click');
+	await expect(page.getByLabel(`Task ${taskName}`, { exact: true })).toBeVisible({
+		timeout: 10000
+	});
+
+	await page.getByRole('button', { name: `Edit details for ${taskName}` }).click();
+	await expect(editor(page)).toBeVisible();
+	await expect(page.getByRole('alert')).toHaveCount(0);
+	await page.getByLabel('Task', { exact: true }).fill(updatedTaskName);
+	await saveDetails(page);
+	await expect(page.getByLabel(`Task ${updatedTaskName}`, { exact: true })).toBeVisible();
 });
 
 // Open settings as soon as each list appears, without waiting for its action-log
